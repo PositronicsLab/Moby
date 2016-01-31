@@ -1,56 +1,42 @@
-<!-- double pendulum with fixed 2nd joint, swings to contact ground-->
+<!-- a double pendulum; doesn't really illustrate anything novel -->
 
 <XML>
-  <DRIVER>
+
+  <DRIVER step-size="0.01">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
   <MOBY>
-    <Sphere id="sphere" radius="0.1811" mass="1" />
-
-    <EulerIntegrator id="euler" />
-    <RungeKuttaIntegrator id="rk4" />
+    <Cylinder id="c" radius="1" height="5" num-circle-points="100" num-rings="100" density="1.0" />
+    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <TimeSteppingSimulator integrator-id="rk4">
+  <TimeSteppingSimulator>
     <RecurrentForce recurrent-force-id="gravity" /> 
-    <DynamicBody dynamic-body-id="chain" />
-    <DynamicBody dynamic-body-id="ground" />
-    <ContactParameters object1-id="ground" object2-id="chain" mu-coulomb="0" mu-viscous="0" epsilon="0.0"/>
+    <DynamicBody dynamic-body-id="pendulum" />
+    <DisabledPair object1-id="l1" object2-id="l2" />
   </TimeSteppingSimulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
+  <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 
-      <RigidBody id="base" position="0 0 0">
+      <RigidBody id="base" position="0 0 0"/>
+
+      <RigidBody id="l1" position="0 -2.5 0" visualization-id="c">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c"  />
       </RigidBody>
 
-      <RigidBody id="l1" position="1 0 0" rpy="0 0 1.5708">
-        <InertiaFromPrimitive primitive-id="sphere" />
-        <Visualization visualization-id="sphere" />
+      <RigidBody id="l2" position="0 -7.5 0" visualization-id="c">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c"  />
       </RigidBody>
 
-      <RigidBody id="l2" position="0 -1 0" rpy="0 0 0">
-        <InertiaFromPrimitive primitive-id="sphere" />
-        <Visualization visualization-id="sphere" />
-        <CollisionGeometry primitive-id="sphere" />
-      </RigidBody>
-
-      <RevoluteJoint id="q1" q="2.5" q-tare="-1.5708" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-forces="10000" viscous-friction-coeff="0" axis="0 0 1" />
-      <RevoluteJoint id="q2" q="0" q-tare="0" qd="0" location="1 0 0" inboard-link-id="l1" outboard-link-id="l2" max-forces="10000" lower-limits="0" upper-limits="0" viscous-friction-coeff="0" axis="0 0 1" />
+      <RevoluteJoint id="q" q="1.57079632679" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-1" upper-limits="3.14" axis="0 0 1" />
+      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" lower-limits="-.1" upper-limits=".1" axis="0 0 1" />
     </RCArticulatedBody>
 
-  <!-- setup the platform rigid body; it is not active -->
-     <Box id="ground-primitive-viz" rpy="0 0.0 0"  xlen="3" ylen="0.001" zlen="3" />
-     <Plane id="ground-primitive" rpy="0 0 0" />
-<RigidBody id="ground" color="0.6 0.6 0.6 0" enabled="false"
-  position="0 -1 0"
-  visualization-id="ground-primitive-viz"
-  compliant="false">
-        <Visualization visualization-id="ground-primitive-viz" />
-    <CollisionGeometry primitive-id="ground-primitive" />
-  </RigidBody>
   </MOBY>
 </XML>
 

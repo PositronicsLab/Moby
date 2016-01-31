@@ -937,7 +937,7 @@ osg::Node* UnilateralConstraint::to_visualization_data() const
  * \param constraints the list of constraints
  * \param groups the islands of connected constraints on return
  */
-void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<list<UnilateralConstraint*> >& groups, list<vector<shared_ptr<DynamicBodyd> > >& remaining_islands)
+void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >& groups, list<vector<shared_ptr<DynamicBodyd> > >& remaining_islands)
 {
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
@@ -1076,8 +1076,8 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     // get the node from the front
     shared_ptr<SingleBodyd> node = *nodes.begin();
 
-    // add a list to the contact groups
-    groups.push_back(list<UnilateralConstraint*>());
+    // add lists to the contact groups
+    groups.push_back(std::pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > >());
     FILE_LOG(LOG_CONSTRAINT) << " -- constraints in group: " << std::endl;
 
     // create a node queue, with this node added
@@ -1094,6 +1094,9 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
       node = node_q.front();
       nodes.erase(node);
       node_q.pop();
+
+      // add the node to the groups
+      groups.back().second.push_back(node);
 
       // indicate that the node has now been processed
       processed_nodes.insert(node);
@@ -1117,7 +1120,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
           if (sb1 == node || sb2 == node)
           {
             assert(!groups.empty());
-            groups.back().push_back(*i);
+            groups.back().first.push_back(*i);
             i = constraints_copy.erase(i);
             continue;
           }
@@ -1131,7 +1134,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
           if (inboard == node || outboard == node)
           {
             assert(!groups.empty());
-            groups.back().push_back(*i);
+            groups.back().first.push_back(*i);
             i = constraints_copy.erase(i);
             continue;
           }
@@ -1144,7 +1147,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     }
 
     // if no unilateral constraints have been added, add to remaining islands
-    if (groups.back().empty())
+    if (groups.back().first.empty())
     {
       // don't need an empty group of unilateral constraints
       groups.pop_back();
@@ -1191,15 +1194,15 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
 }
 
 /// Removes groups of contacts that contain no active contacts 
-void UnilateralConstraint::remove_inactive_groups(list<list<UnilateralConstraint*> >& groups)
+void UnilateralConstraint::remove_inactive_groups(list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >& groups)
 {
-  typedef list<list<UnilateralConstraint*> >::iterator ListIter;
+  typedef list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >::iterator ListIter;
 
   for (ListIter i = groups.begin(); i != groups.end(); )
   {
     // look for impact in list i
     bool active_detected = false;
-    BOOST_FOREACH(UnilateralConstraint* e, *i)
+    BOOST_FOREACH(UnilateralConstraint* e, i->first)
     {
       if (e->determine_constraint_class() == UnilateralConstraint::eNegative)
       {

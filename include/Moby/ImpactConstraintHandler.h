@@ -56,9 +56,9 @@ class ImpactConstraintHandler
   private:
     static void compute_signed_dist_dot_Jacobian(UnilateralConstraintProblemData& q, Ravelin::MatrixNd& J);
     void solve_frictionless_lcp(UnilateralConstraintProblemData& q, Ravelin::VectorNd& z);
-    void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
-    void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
-    void apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
+    void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies);
+    void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies);
+    void apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies);
     static void update_from_stacked(UnilateralConstraintProblemData& q, const Ravelin::VectorNd& z);
     static void update_from_stacked(UnilateralConstraintProblemData& q);
     double calc_min_constraint_velocity(const UnilateralConstraintProblemData& q) const;
@@ -72,8 +72,8 @@ class ImpactConstraintHandler
     void solve_qp(Ravelin::VectorNd& z, UnilateralConstraintProblemData& epd);
     void solve_nqp(Ravelin::VectorNd& z, UnilateralConstraintProblemData& epd);
     void apply_model(const std::vector<UnilateralConstraint>& constraints);
-    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
-    void compute_problem_data(UnilateralConstraintProblemData& epd);
+    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies);
+    void compute_problem_data(UnilateralConstraintProblemData& epd, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies);
     void solve_lcp(UnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work(UnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(UnilateralConstraintProblemData& epd, const Ravelin::VectorNd& z);

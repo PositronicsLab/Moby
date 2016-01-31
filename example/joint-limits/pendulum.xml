@@ -30,7 +30,7 @@
         <Visualization visualization-id="sph2" />
       </RigidBody>
 
-      <RevoluteJoint id="q" qd="100" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-10" upper-limits="0" axis="0 0 1" restitution-coeff="1" />
+      <RevoluteJoint id="q" qd="100" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-1" upper-limits="0" axis="0 0 1" restitution-coeff=".5" />
     </RCArticulatedBody>
 
   </MOBY>

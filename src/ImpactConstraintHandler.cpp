@@ -103,25 +103,25 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // determine sets of connected constraints
   // **********************************************************
   list<vector<shared_ptr<DynamicBodyd> > > remaining_islands;
-  list<list<UnilateralConstraint*> > groups;
+  list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > > groups;
   UnilateralConstraint::determine_connected_constraints(constraints, _simulator->implicit_joints, groups, remaining_islands);
   UnilateralConstraint::remove_inactive_groups(groups);
 
   // **********************************************************
   // do method for each connected set
   // **********************************************************
-  for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
+  for (list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-      // copy the list of constraints
-      list<UnilateralConstraint*> rconstraints = *i;
+      // copy the lists
+      pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > rconstraints = *i;
 
       FILE_LOG(LOG_CONSTRAINT) << " -- pre-constraint velocity (all constraints): " << std::endl;
-      for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
+      for (list<UnilateralConstraint*>::iterator j = i->first.begin(); j != i->first.end(); j++)
         FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
 
       // look to see whether all contact constraints have zero or infinite Coulomb friction
       bool all_inf = true, all_frictionless = true;
-      BOOST_FOREACH(UnilateralConstraint* e, rconstraints)
+      BOOST_FOREACH(UnilateralConstraint* e, rconstraints.first)
         if (e->constraint_type == UnilateralConstraint::eContact)
         {
           if (e->contact_mu_coulomb < 1e2)
@@ -132,21 +132,21 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
 
       // apply model to the reduced contacts
       if (all_inf)
-        apply_no_slip_model_to_connected_constraints(rconstraints);
+        apply_no_slip_model_to_connected_constraints(rconstraints.first, rconstraints.second);
 // TODO: fix viscous model- seems to be a bug in it
 //      else if (all_frictionless)
 //        apply_visc_friction_model_to_connected_constraints(rconstraints);
   #ifdef USE_AP_MODEL
       else {
-        apply_ap_model_to_connected_constraints(rconstraints);
+        apply_ap_model_to_connected_constraints(rconstraints.first, rconstraints.second);
       }
   #else
       else
-        apply_model_to_connected_constraints(rconstraints);
+        apply_model_to_connected_constraints(rconstraints.first, rconstraints.second);
   #endif
 
       FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
-      for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
+      for (list<UnilateralConstraint*>::iterator j = i->first.begin(); j != i->first.end(); j++)
         FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
   }
 
@@ -154,8 +154,8 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   double max_vio = std::numeric_limits<double>::max();
 
   // determine whether there are any impacting constraints remaining
-  for (list<list<UnilateralConstraint*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
-    for (list<UnilateralConstraint*>::const_iterator j = i->begin(); j != i->end(); j++)
+  for (list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >::const_iterator i = groups.begin(); i != groups.end(); i++)
+    for (list<UnilateralConstraint*>::const_iterator j = i->first.begin(); j != i->first.end(); j++)
       if ((*j)->determine_constraint_class() == UnilateralConstraint::eNegative)
       {
         max_vio = std::min(max_vio, (*j)->calc_constraint_vel());
@@ -171,7 +171,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
  * Applies purely viscous friction model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints)
+void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, const list<shared_ptr<SingleBodyd> >& single_bodies)
 {
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() entered" << endl;
 
@@ -188,7 +188,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, single_bodies);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -233,7 +233,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
  * Applies no slip friction model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints)
+void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, const list<shared_ptr<SingleBodyd> >& single_bodies)
 {
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() entered" << endl;
 
@@ -250,7 +250,7 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, single_bodies);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -527,7 +527,7 @@ bool ImpactConstraintHandler::apply_restitution(UnilateralConstraintProblemData&
  * Applies method of Drumwright and Shell to a set of connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints)
+void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, const list<shared_ptr<SingleBodyd> >& single_bodies)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
 
@@ -546,7 +546,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, single_bodies);
 
   // compute energy
   if (LOGGING(LOG_CONSTRAINT))
@@ -1347,18 +1347,18 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   }
 
   // get signed joint limit impulse
-  VectorNd l;
-  l = q.l;
+  VectorNd sl;
+  sl = q.l;
   for (unsigned i=0; i< q.N_LIMITS; i++)
     if (q.limit_constraints[i]->limit_upper)
-      l[i] = -l[i];
+      sl[i] = -sl[i];
 
   // get the change in velocity
   VectorNd dv, tmpv;
   q.X_CnT.mult(q.cn, dv);
   dv += q.X_CsT.mult(q.cs, tmpv);
   dv += q.X_CtT.mult(q.ct, tmpv);
-  dv += q.X_LT.mult(l, tmpv);
+  dv += q.X_LT.mult(sl, tmpv);
 
   // compute lambda here using
   // | M  J' | | dv     | = | 0 | 
@@ -1369,7 +1369,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   q.lambda = q.Jx_v;
   FILE_LOG(LOG_CONSTRAINT) << "J*dv (constraint velocities): " << dv << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint forces: " << q.lambda << std::endl;
-MatrixNd tmp;
+  MatrixNd tmp;
   FILE_LOG(LOG_CONSTRAINT) << "Jx " << std::endl << q.Jfull.to_dense(tmp);
   FILE_LOG(LOG_CONSTRAINT) << "inv(M)*Jx' " << std::endl << q.iM_JxT;
   FILE_LOG(LOG_CONSTRAINT) << "J*inv(M)*Jx' " << std::endl << q.Jx_iM_JxT;
@@ -1760,7 +1760,8 @@ void ImpactConstraintHandler::compute_limit_components(const MatrixNd& X, Unilat
     for (unsigned j=i; j< q.N_LIMITS; j++)
     {
       q.L_X_LT(i,j) = X.row(q.limit_indices[i])[q.limit_indices[j]];
-      q.L_X_LT(j,i) = q.L_X_LT(i,j);
+      if (i != j)
+        q.L_X_LT(j,i) = q.L_X_LT(i,j);
     }    
 
   // compute L_v
@@ -1889,23 +1890,20 @@ void ImpactConstraintHandler::add_contact_dir_to_Jacobian(shared_ptr<RigidBodyd>
 }
 
 /// Computes the data to the LCP / QP problems
-void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemData& q)
+void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemData& q, const list<shared_ptr<SingleBodyd> >& single_bodies)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   const unsigned N_SPATIAL = 6;
   VectorNd v;
   MatrixNd X, tmp, Jm;
  
-  // determine set of "super" bodies from contact constraints
+  // determine set of "super" bodies from single bodies 
   q.super_bodies.clear();
-  for (unsigned i=0; i< q.contact_constraints.size(); i++)
+  BOOST_FOREACH(shared_ptr<SingleBodyd> sb, single_bodies)
   {
-    shared_ptr<DynamicBodyd> sb1 = get_super_body(q.contact_constraints[i]->contact_geom1->get_single_body());
-    shared_ptr<DynamicBodyd> sb2 = get_super_body(q.contact_constraints[i]->contact_geom2->get_single_body());
-    if (sb1->is_enabled())
-      q.super_bodies.push_back(sb1);
-    if (sb2->is_enabled())
-      q.super_bodies.push_back(sb2);
+    shared_ptr<DynamicBodyd> super = get_super_body(sb);
+    if (super->is_enabled())
+      q.super_bodies.push_back(super);
   }
 
   // make vector super bodies unique
@@ -1935,17 +1933,6 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
     q.signed_distances[i] = q.signed_distances.back();
     q.signed_distances.pop_back();
   }
-
-  // determine set of "super" bodies from limit constraints
-  for (unsigned i=0; i< q.limit_constraints.size(); i++)
-  {
-    RigidBodyPtr outboard = q.limit_constraints[i]->limit_joint->get_outboard_link();
-    q.super_bodies.push_back(get_super_body(outboard));
-  }
-
-  // make super bodies vector unique
-  std::sort(q.super_bodies.begin(), q.super_bodies.end());
-  q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
 
   // prepare to compute the number of implicit constraint equations from islands
   q.N_CONSTRAINT_EQNS_IMP = 0;

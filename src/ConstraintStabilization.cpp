@@ -38,6 +38,7 @@
 
 using namespace Ravelin;
 using namespace Moby;
+using std::pair;
 using boost::weak_ptr;
 using boost::shared_ptr;
 using boost::shared_array;
@@ -380,11 +381,12 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
 
   // find islands
   list<vector<shared_ptr<DynamicBodyd> > > remaining_islands;
-  list<list<UnilateralConstraint*> > islands;
+  list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > > islands;
   UnilateralConstraint::determine_connected_constraints(constraints, sim->implicit_joints, islands, remaining_islands);
 
   // process unilateral constraint islands
-  BOOST_FOREACH(list<UnilateralConstraint*>& island, islands)
+  typedef pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > IslandType;
+  BOOST_FOREACH(IslandType& island, islands)
   {
     // setup a UnilateralConstraintProblemData object
     pd_vector.push_back(UnilateralConstraintProblemData());
@@ -394,7 +396,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     pd.simulator = sim;
 
     // put the constraint into the appropriate place
-    BOOST_FOREACH(UnilateralConstraint* c, island)
+    BOOST_FOREACH(UnilateralConstraint* c, island.first)
     { 
       if (c->constraint_type == UnilateralConstraint::eContact)
         pd.contact_constraints.push_back(c);
@@ -409,7 +411,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     pd.N_TRUE_CONE = 0;
 
     // now set the unilateral constraint data
-    set_unilateral_constraint_data(pd);
+    set_unilateral_constraint_data(pd, island.second);
     
     // set the elements of Cn_v 
     // Cn_v is set to the signed distance between the two bodies
@@ -689,37 +691,20 @@ void ConstraintStabilization::set_bilateral_only_constraint_data(UnilateralConst
 }
 
 /// Computes the data to the LCP / QP problems
-void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstraintProblemData& q)
+void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstraintProblemData& q, const list<shared_ptr<SingleBodyd> >& single_bodies)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   const unsigned N_SPATIAL = 6;
   VectorNd v;
   MatrixNd X, tmp;
 
-  // determine set of "super" bodies from contact constraints
+  // determine set of "super" bodies from single bodies 
   q.super_bodies.clear();
-  for (unsigned i=0; i< q.contact_constraints.size(); i++)
+  BOOST_FOREACH(shared_ptr<SingleBodyd> sb, single_bodies)
   {
-    // get the rigid bodies involved
-    shared_ptr<RigidBodyd> rb1 = dynamic_pointer_cast<RigidBodyd>(q.contact_constraints[i]->contact_geom1->get_single_body());
-    shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBodyd>(q.contact_constraints[i]->contact_geom2->get_single_body());
-
-    // get the super bodies
-    shared_ptr<DynamicBodyd> sb1 = get_super_body_from_rigid_body(rb1);
-    shared_ptr<DynamicBodyd> sb2 = get_super_body_from_rigid_body(rb2);
-
-    // add the super bodies, if desired
-    if (sb1)
-      q.super_bodies.push_back(sb1);
-    if (sb2)
-      q.super_bodies.push_back(sb2);
-  }
-
-  // determine set of "super" bodies from limit constraints
-  for (unsigned i=0; i< q.limit_constraints.size(); i++)
-  {
-    RigidBodyPtr outboard = q.limit_constraints[i]->limit_joint->get_outboard_link();
-    q.super_bodies.push_back(get_super_body_from_rigid_body(outboard));
+    shared_ptr<DynamicBodyd> super = get_super_body(sb);
+    if (super->is_enabled())
+      q.super_bodies.push_back(super);
   }
 
   // make super bodies vector unique

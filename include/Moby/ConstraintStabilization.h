@@ -40,7 +40,7 @@ class ConstraintStabilization
     void add_contact_constraints(std::vector<UnilateralConstraint>& constraints, CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, boost::shared_ptr<ConstraintSimulator> sim);
     void add_limit_constraints(const std::vector<ControlledBodyPtr>& bodies, std::vector<UnilateralConstraint>& constraints);
     void generate_body_index_map(std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map, boost::shared_ptr<ConstraintSimulator> sim);
-    static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd);
+    static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies);
     static void set_bilateral_only_constraint_data(UnilateralConstraintProblemData& q, const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island);
     void determine_dq(UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dqm, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map);
     void update_from_stacked(const Ravelin::VectorNd& z, UnilateralConstraintProblemData& pd);
