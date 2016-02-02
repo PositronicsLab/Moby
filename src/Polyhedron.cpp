@@ -1554,7 +1554,7 @@ bool Polyhedron::is_one_face_penetration(boost::shared_ptr<const Polyhedron::Fea
     boost::shared_ptr<Polyhedron::Face> curFace(*fEi);
     Polyhedron::VertexFaceIterator vfi(curFace, true);
     std::vector<Ravelin::Vector3d> vface;
-
+    FILE_LOG(LOG_COLDET)<<"Face: " << *curFace << std::endl;
     while (vfi.has_next())
     {
       boost::shared_ptr<Polyhedron::Vertex> temp_vertex = *vfi;
@@ -1660,9 +1660,14 @@ void Polyhedron::find_deepest_feature(boost::shared_ptr<const Polyhedron::Featur
         v = cur_e->v2;
       }
 
+      FILE_LOG(LOG_COLDET) << "v: " << *v << std::endl;
+
       Ravelin::Vector3d v_e(v->o,fTe.source);
       Ravelin::Vector3d v_f = fTe.transform_point(v_e);
       double v_dist = p.calc_signed_distance(v_f);
+
+      FILE_LOG(LOG_COLDET) << "dist: " << cur_dist - v_dist<<std::endl;
+
       if(cur_dist - v_dist > NEAR_ZERO)
       {
         next_vertex = v;
@@ -1676,6 +1681,11 @@ void Polyhedron::find_deepest_feature(boost::shared_ptr<const Polyhedron::Featur
     {
       break;
     }
+    else
+    {
+      cur_vertex = next_vertex;
+    }
+
 
   }
 
