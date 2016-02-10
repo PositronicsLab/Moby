@@ -28,7 +28,7 @@
       <!-- the ground -->
       <RigidBody id="ground" enabled="false" position="0 0.0 0" color=".25 .25 .25 0">
         <CollisionGeometry primitive-id="plane" />
-        <Visualization primitive-id="plane-viz" visualization-rel-origin="0 -50 0"/>
+        <Visualization visualization-id="plane-viz" visualization-rel-origin="0 -50 0"/>
       </RigidBody>
 
     <PlanarJoint id="planar" inboard-link-id="ground" outboard-link-id="box" normal="0 1 0" location="0 0 0" />

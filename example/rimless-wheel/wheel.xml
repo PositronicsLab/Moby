@@ -9,10 +9,6 @@
   <MOBY>
 
   <Box id="spoke" xlen="1" ylen=".1" zlen=".001" position=".5 0 0"/>
-  <EulerIntegrator id="euler" />
-  <RungeKuttaIntegrator id="rk4" />
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e-10" />
-  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e0" />
 
   <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
@@ -33,12 +29,12 @@
 <GravityForce id="gravity" accel="0.47943 0 -0.87758" />
 -->
 
-  <TimeSteppingSimulator integrator-id="bs" Euler-step=".01" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-7">
+  <TimeSteppingSimulator collision-detection-plugin="wheel-coldet">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WHEEL" />
     <DisabledPair object1-id="WHEEL" object2-id="WHEEL"/>
-    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" stick-tol="1e-3" sustained-tol="1e-3" />
+    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </TimeSteppingSimulator>
 

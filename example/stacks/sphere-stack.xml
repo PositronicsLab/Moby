@@ -2,37 +2,35 @@
 
 <XML>
   <DRIVER>
-    <camera position="0 10 0" target="0 0 0" up="0 0 1" />
+    <camera position="0 15 20" target="0 1 0" up="0 0 1" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
   <MOBY>
     <!-- Primitives -->
     <Sphere id="s1" radius="1.0" mass="1.0"  />
+    <Sphere id="s2" radius="1.0" mass="1.0"  />
+    <Sphere id="s3" radius="1.0" mass="1.0"  />
     <Box id="b3" xlen="10" ylen=".001" zlen="10" rpy="1.5707963267949 0 0" density="10.0" />
     <Plane id="p3" rpy="1.5707963267949 0 0" />
-
-    <!-- Integrator -->
-    <RungeKuttaIntegrator id="rk4" />
-    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-6" rel-err-tol="1e-3" />
 
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 0 -9.81"  />
 
     <!-- Rigid bodies -->
       <!-- the sphere -->
-      <RigidBody id="sph1" enabled="true" position="0 0 1" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 0" inertial-relative-com="0 0 0">
-        <InertiaFromPrimitive primitive-id="s1" rrelative-origin=".1 .1 .1" />
+      <RigidBody id="sph1" enabled="true" position="0 0 1" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 1" >
+        <InertiaFromPrimitive primitive-id="s1"  />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
-      <RigidBody id="sph2" enabled="true" position="0 0 3" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 0" inertial-relative-com="0 0 0">
-        <InertiaFromPrimitive primitive-id="s1" rrelative-origin=".1 .1 .1" />
+      <RigidBody id="sph2" enabled="true" position="0 0 3" visualization-id="s2" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 1 0 1" >
+        <InertiaFromPrimitive primitive-id="s1"  />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
-      <RigidBody id="sph3" enabled="true" position="0 0 5" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 0" inertial-relative-com="0 0 0">
-        <InertiaFromPrimitive primitive-id="s1" rrelative-origin=".1 .1 .1" />
+      <RigidBody id="sph3" enabled="true" position="0 0 5" visualization-id="s3" linear-velocity="0 0 0" angular-velocity="0 0 0" color="1 0 0 1" >
+        <InertiaFromPrimitive primitive-id="s1"  />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
@@ -42,7 +40,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <TimeSteppingSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" contact-dist-thresh="1e-10">
+    <TimeSteppingSimulator id="simulator" >
       <DynamicBody dynamic-body-id="sph1" />
       <DynamicBody dynamic-body-id="sph2" />
       <DynamicBody dynamic-body-id="sph3" />

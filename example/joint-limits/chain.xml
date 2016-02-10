@@ -3,7 +3,7 @@
 <XML>
 
   <DRIVER step-size="0.01">
-    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <camera position="0 0 60" target="0 -10 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
@@ -32,27 +32,27 @@
 
       <RigidBody id="base" position="0 0 0"/>
 
-      <RigidBody id="l1" position="0 -2.5 0" visualization-id="c">
+      <RigidBody id="l1" position="0 -2.5 0" visualization-id="c" color=".95 .3 .05 1">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  />
       </RigidBody>
 
-      <RigidBody id="l2" position="0 -7.5 0" visualization-id="c">
+      <RigidBody id="l2" position="0 -7.5 0" visualization-id="c" color=".95 .3 .05 1">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  />
       </RigidBody>
 
-      <RigidBody id="l3"  position="0 -12.5 0" visualization-id="c">
+      <RigidBody id="l3"  position="0 -12.5 0" visualization-id="c" color=".95 .3 .05 1">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  />
       </RigidBody>
 
-      <RigidBody id="l4" position="0 -17.5 0" visualization-id="c">
+      <RigidBody id="l4" position="0 -17.5 0" visualization-id="c" color=".95 .3 .05 1">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  />
       </RigidBody>
       
-      <RigidBody id="l5" position="0 -22.5 0" visualization-id="c">
+      <RigidBody id="l5" position="0 -22.5 0" visualization-id="c" color=".95 .3 .05 1">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c" />
       </RigidBody>

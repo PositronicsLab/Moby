@@ -9,11 +9,10 @@ using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using namespace Moby;
 
-class BladePlanePlugin : public CollisionDetection
+class BladePlanePlugin : public CCD 
 {
   private:
     boost::shared_ptr<TimeSteppingSimulator> sim;
-    boost::shared_ptr<CCD> ccd;
     RigidBodyPtr wheel;
     RigidBodyPtr ground_body;
     CollisionGeometryPtr ground_cg, wheel_cg, right_foot_cg;
@@ -44,9 +43,6 @@ class BladePlanePlugin : public CollisionDetection
       // get the geometries
       ground_cg = ground_body->geometries.front();
       wheel_cg = wheel->geometries.front();
-
-      // create the continuous collision detection system
-      ccd = boost::shared_ptr<CCD>(new CCD);
     }
 
     virtual ~BladePlanePlugin() {}
@@ -68,7 +64,7 @@ class BladePlanePlugin : public CollisionDetection
         }
 
       // call CCD on the remainder
-      ccd->broad_phase(dt, remainder, to_check);
+      CCD::broad_phase(dt, remainder, to_check);
 
       // now add in collision geometries for the plane and the walker
       to_check.push_back(std::make_pair(ground_cg, wheel_cg));
@@ -77,7 +73,7 @@ class BladePlanePlugin : public CollisionDetection
     /// Computes a conservative advancement step for Euler integration
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
     {
-      return ccd->calc_CA_Euler_step(pdi);
+      return CCD::calc_CA_Euler_step(pdi);
     }
 
     /// Calculates signed distance between a wheel and a plane
@@ -203,6 +199,13 @@ class BladePlanePlugin : public CollisionDetection
       return min_dist;
     }
 */
+  protected:
+
+    /// Computes a conservative advancement step for Euler integration
+    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
+    {
+      return std::numeric_limits<double>::max();
+    }
 
     /// Finds contacts between the wheel and a plane
     virtual void find_contacts_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
@@ -318,7 +321,7 @@ class BladePlanePlugin : public CollisionDetection
       else if (cgA == ground_cg && cgB == wheel_cg)
         find_contacts_wheel_plane(cgB, cgA, contacts);
       else
-        ccd->find_contacts(cgA, cgB, contacts, TOL);
+        CCD::find_contacts(cgA, cgB, contacts, TOL);
     }
 
     /// Computes signed distance between geometries
@@ -330,9 +333,8 @@ class BladePlanePlugin : public CollisionDetection
       else if (cgA == ground_cg && cgB == wheel_cg)
         return calc_signed_dist_wheel_plane(cgB, cgA, pA, pB);
       else
-        return ccd->calc_signed_dist(cgA, cgB, pA, pB);
+        return CCD::calc_signed_dist(cgA, cgB, pA, pB);
     }
-
 };
 
 extern "C"

@@ -9,14 +9,11 @@
   <MOBY>
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
-    <BulirschStoerIntegrator id="bs" abs-err-tol="1e-12" rel-err-tol="1e-12"/>
-    <RungeKuttaIntegrator id="rk4" />
-
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
   <CollisionDetectionPlugin id="pendulum-coldet" plugin="libcontact-constrained-pendulum-coldet-plugin.so" />
 
-  <TimeSteppingSimulator collision-detection-plugin="pendulum-coldet">
+  <TimeSteppingSimulator collision-detection-plugin="pendulum-coldet" constraint-stabilization-max-iterations="25">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="l1" />
     <DynamicBody dynamic-body-id="world" />

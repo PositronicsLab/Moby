@@ -14,7 +14,6 @@
     <Box id="ground-viz-primitive" xlen="10" ylen=".5" zlen="10" density="10.0" />
 
     <!-- Integrator -->
-    <RungeKuttaIntegrator id="rk4"  />
 
 <!--
     <CollisionDetectionPlugin id="plugin-ccd" plugin="./libcoldet-plugin.so">
@@ -82,7 +81,7 @@
 
     <!-- NOTE: replace 'ccd' with 'plugin-ccd' to use the much faster plugin
          collision detector -->
-    <TimeSteppingSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd">
+    <TimeSteppingSimulator id="simulator" >
       <DynamicBody dynamic-body-id="box1" />
       <DynamicBody dynamic-body-id="box2" />
       <DynamicBody dynamic-body-id="box3" />
