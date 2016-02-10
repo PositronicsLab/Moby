@@ -346,6 +346,11 @@ class TorusPlanePlugin : public CollisionDetection
         return ccd->calc_signed_dist(cgA, cgB, pA, pB);
     }
 
+    protected:
+      virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
+      {
+        return std::numeric_limits<double>::max();
+      }
 };
 
 extern "C"
