@@ -1,7 +1,16 @@
-<!-- An example demonstrating setting a joint tare value -->
+<!-- An example demonstrating setting a joint tare value. When the body 
+     is initialized, q=0 corresponds to the pendulum at the horizontal.
+     We want q=0 corresponding to the pendulum at its lowest position. So
+     we set q=pi/2 and q-tare to -pi/2; the latter makes q=0 correspond to
+     the pendulum at its lowest position, while q=pi/2 sets the pendulum
+     up for movement. 
+
+     Note that to retrieve the desired joint position programmatically, the 
+     user must add the joint's q and q_tare values.
+-->
 
 <XML>
-  <DRIVER>
+  <DRIVER step-size="0.01">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
@@ -13,10 +22,10 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <Simulator>
+  <TimeSteppingSimulator>
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="pendulum" />
-  </Simulator>
+  </TimeSteppingSimulator>
 
   <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 
@@ -30,7 +39,7 @@
         <Visualization visualization-id="sph2" />
       </RigidBody>
 
-      <RevoluteJoint id="q" q="1.57079632679490" q-tare="-1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" axis="0 0 1" />
+      <RevoluteJoint id="q" q="1.57079632679490" q-tare="-1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" axis="0 0 1" lower-limits="1" />
     </RCArticulatedBody>
 
   </MOBY>

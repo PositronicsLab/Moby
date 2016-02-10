@@ -39,9 +39,6 @@ void FixedJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::str
 
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "FixedJoint") == 0);
-
-  // set the relative joint transformation
-  FixedJointd::determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()
