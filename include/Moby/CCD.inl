@@ -114,12 +114,13 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   boost::shared_ptr<const Polyhedron::Feature> closestA;
   boost::shared_ptr<const Polyhedron::Feature> closestB;
   double dist = Polyhedron::vclip(pA, pB, poseA, poseB, closestA, closestB);
+  FILE_LOG(LOG_COLDET) << "v-clip reports distance of " << dist << std::endl;
 
   // see whether to generate contacts
   if (dist > TOL)
     return output_begin; 
 
-  // case #1: use volume of intersection
+  // case #1: attempt to use volume of intersection
   if (dist <= 0.0)
   {
     // get the halfspaces
@@ -129,6 +130,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     // find the interior point
     Ravelin::Origin3d ip;
     dist = -CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+    FILE_LOG(LOG_COLDET) << "LP distance: " << dist << std::endl;
 
     // calculate the half-space intersection
     try
@@ -138,6 +140,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     catch (NumericalException e)
     {
       // case #2: polyhedra are kissing
+      FILE_LOG(LOG_COLDET) << "qhull unable to compute intersection *volume*" << std::endl;
 
       // setup the normal
       Ravelin::Vector3d normal;
@@ -194,7 +197,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
 
       // see whether we need to try to reset the normal
       if (bad_normal_A)
+      {
         normal_unset = true;
+        FILE_LOG(LOG_COLDET) << "normal from A bad- unsetting it" << std::endl;
+      }
 
       // loop over B's faces
       for (unsigned i=0; i< polyB.get_faces().size(); i++)
@@ -223,7 +229,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           // normal has already been set; make sure normal is aligned with
           // set normal
           if (normal.dot(wTb.transform_vector(plane.get_normal())) < 1.0 - NEAR_ZERO)
+          {
+            FILE_LOG(LOG_COLDET) << "degenerate normal detected!" << std::endl;
             return output_begin; 
+          }
         } 
 
         // add all vertices of the face to the set
@@ -237,7 +246,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
 
       // if normal isn't set, quit
       if (normal_unset)
-       return output_begin;
+      {
+        FILE_LOG(LOG_COLDET) << "unable to find normal!" << std::endl;
+        return output_begin;
+      }
 
       // compute the convex hulls of the two sets of vertices
       std::vector<Point3d> voA, voB, hullA, hullB;

@@ -61,6 +61,9 @@ class CCD : public CollisionDetection
      */
     std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > disabled_pairs;
 
+  protected:
+    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) { return calc_next_CA_Euler_step_generic(pdi); }
+
   private:
     // the 3 axes
     enum AxisType { eXAxis, eYAxis, eZAxis };

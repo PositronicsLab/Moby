@@ -187,7 +187,7 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 
   // if the distance is (essentially) zero, do process for bodies in contact 
   if (pdi.dist <= 0.0)
-    return calc_next_CA_Euler_step_generic(pdi);
+    return calc_next_CA_Euler_step(pdi);
 
   // get the direction of the vector from body B to body A
   Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
@@ -248,9 +248,8 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   // ensure that at least one contact was found
   if (contacts.empty())
   {
-//    throw std::runtime_error("No contacts found and at least one expected");
-      std::cerr << "No contacts found and at least one expected" << std::endl;
-      return INF;
+    FILE_LOG(LOG_COLDET) << "No contacts found and at least one expected" << std::endl;
+    return INF;
   }
 
   // get the contact offset <n, x> = d
@@ -676,8 +675,11 @@ void CCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
-  // verify that the node name is correct
-  assert(strcasecmp(node->name.c_str(), "CCD") == 0);
+  // do not verify that the node name is correct; class may be subclassed
+  // assert(strcasecmp(node->name.c_str(), "CCD") == 0);
+
+  // call parent
+  CollisionDetection::load_from_xml(node, id_map);
 }
 
 /// Implements Base::save_to_xml()
@@ -687,8 +689,11 @@ void CCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr
  */
 void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
-  // (re)set the node name
-  node->name = "CCD";
+  // do not (re)set the node name - there can be derived classes
+  // node->name = "CCD";
+
+  // call the parent method 
+  CollisionDetection::save_to_xml(node, shared_objects);
 }
 
 /****************************************************************************

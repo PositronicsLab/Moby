@@ -55,6 +55,7 @@ class CollisionDetection : public virtual Base
     boost::shared_ptr<CollisionDetection> get_this() { return boost::dynamic_pointer_cast<CollisionDetection>(shared_from_this()); }
 
   protected:
+    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
     static UnilateralConstraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
 
   friend class ConstraintStabilization;

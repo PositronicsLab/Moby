@@ -8,18 +8,17 @@ using boost::dynamic_pointer_cast;
 using namespace Ravelin;
 using namespace Moby;
 
-class PendulumColdetPlugin : public CollisionDetection
+class PendulumColdetPlugin : public CCD 
 {
   private:
     boost::shared_ptr<ConstraintSimulator> sim;
-    boost::shared_ptr<CCD> ccd;
     RigidBodyPtr l1;
     RigidBodyPtr world;
     CollisionGeometryPtr world_cg, l1_cg, right_foot_cg;
     static double sqr(double x) { return x*x; }
 
   public:
-    PendulumColdetPlugin() { ccd = boost::shared_ptr<CCD>(new CCD); }
+    PendulumColdetPlugin() {  }
 
     virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim)
     {
@@ -61,7 +60,7 @@ class PendulumColdetPlugin : public CollisionDetection
     /// Computes a conservative advancement step for Euler integration
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
     {
-      return ccd->calc_CA_Euler_step(pdi);
+      return CCD::calc_CA_Euler_step(pdi);
     }
 
     /// Calculates signed distance between a l1 and a plane
@@ -133,7 +132,7 @@ point = (p + point)*0.5;
       else if (cgA == world_cg && cgB == l1_cg)
         find_contacts_l1_world(cgB, cgA, contacts);
       else
-        ccd->find_contacts(cgA, cgB, contacts, TOL);
+        CCD::find_contacts(cgA, cgB, contacts, TOL);
     }
 
     /// Computes signed distance between geometries
@@ -146,6 +145,11 @@ point = (p + point)*0.5;
         return calc_signed_dist_l1_world(cgB, cgA, pA, pB);
     }
 
+  protected:
+    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
+    {
+      return std::numeric_limits<double>::max();
+    }
 };
 
 extern "C"
