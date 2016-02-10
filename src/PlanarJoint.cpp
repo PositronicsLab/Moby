@@ -54,10 +54,6 @@ void PlanarJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
 
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
-
-  // compute _q_tare if necessary
-  if (_determine_q_tare)
-    PlanarJointd::determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

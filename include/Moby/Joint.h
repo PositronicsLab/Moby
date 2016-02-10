@@ -104,9 +104,6 @@ class Joint : public Visualizable, public virtual Ravelin::Jointd
      */
     virtual void init_data();
 
-    /// Set whether _q_tare needs to be determined
-    bool _determine_q_tare;
-
   private:
     boost::shared_ptr<Ravelin::Pose3d> _vtransform;
 }; // end class

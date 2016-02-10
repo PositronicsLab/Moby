@@ -54,10 +54,6 @@ void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
     axis.normalize();
     set_axis(axis);
   }
-
-  // set the joint tare
-  if (_determine_q_tare)
-    PrismaticJointd::determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

@@ -68,10 +68,6 @@ void SphericalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
     axis2_attrib->get_vector_value(axis2);
     set_axis(axis2, eAxis2);  
   }
-
-  // compute _q_tare if necessary
-  if (_determine_q_tare)
-    SphericalJointd::determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

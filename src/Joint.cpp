@@ -35,9 +35,6 @@ Joint::Joint() : Jointd()
   // mark the indices as invalid initially
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
 
-  // indicate that q tare does not need to be determined
-  _determine_q_tare = false;
-
   // setup the visualization pose
   _vF->set_identity();
   _vF->rpose = _F;
@@ -268,13 +265,9 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     q_init_attr->get_vector_value(_q_tare);
     if (_q_tare.size() != num_dof())
       throw std::runtime_error("q-tare read from XML does not match joint DOF");
-    _determine_q_tare = false;
   }
   else
-  {
     _q_tare.set_zero(num_dof());
-    _determine_q_tare = true;
-  }
 
   // read the Coulomb friction coefficient, if given
   XMLAttrib* fc_attr = node->get_attrib("coulomb-friction-coeff");
