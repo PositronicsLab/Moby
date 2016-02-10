@@ -15,7 +15,7 @@ OutputIterator ArticulatedBody::find_limit_constraints(OutputIterator output_beg
     {
 
       // get the current joint position and velocity
-      double q = joint->q[j];
+      double q = joint->q[j] + joint->_q_tare[j];
 
       // setup an constraint for this joint/dof in case we need it
       UnilateralConstraint e;
