@@ -1,0 +1,4 @@
+-s=0.0001
+-mt=10
+-p=libcontact-constrained-pendulum-init.so
+
