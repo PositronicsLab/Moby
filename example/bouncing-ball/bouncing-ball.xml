@@ -2,7 +2,7 @@
 
 <XML>
   <DRIVER step-size=".025">
-    <camera position="0 20 10" target="0 0 0" up="0 1 0" />
+    <camera position="0 10 20" target="0 1 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
