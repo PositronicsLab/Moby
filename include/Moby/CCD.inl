@@ -146,7 +146,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       std::vector<std::pair<Plane, bool> > planes;
 
       // init sets of vertices
-      std::set<boost::shared_ptr<Polyhedron::Vertex> > vertsA, vertsB;
+      std::set<boost::shared_ptr<Polyhedron::Vertex> > svertsA, svertsB;
 
       // get the interior point in poseA and poseB
       Point3d ipA = Ravelin::Pose3d::transform_point(poseA, Point3d(ip, GLOBAL));
@@ -167,14 +167,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         double sdist = plane.calc_signed_distance(ipA);
         if (std::fabs(sdist) > NEAR_ZERO)
           continue;
-
-        // add all vertices of the face to the set
-        BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyA.get_faces()[i]->e)
-        {
-          boost::shared_ptr<Polyhedron::Edge> e(we);
-          vertsA.insert(e->v1);
-          vertsA.insert(e->v2);
-        }
 
         // if the normal hasn't been set, set it
         if (planes.empty())
@@ -224,15 +216,11 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           if (!aligned_with_one)
             planes.push_back(std::make_pair(plane.transform(wTb), false)); 
         } 
-
-        // add all vertices of the face to the set
-        BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyB.get_faces()[i]->e)
-        {
-          boost::shared_ptr<Polyhedron::Edge> e(we);
-          vertsB.insert(e->v1);
-          vertsB.insert(e->v2);
-        }
       }
+
+      // get all vertices from A and B
+      const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
+      const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
 
       // now we need to find *exactly* one normal
       if (planes.empty())
@@ -242,10 +230,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       }
       else if (planes.size() > 1)
       {
-        // get all vertices from A and B
-        const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
-        const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
-
         // look for planes with non-zero distances on both sides 
         for (unsigned i=0; i< planes.size(); i++)
         {
