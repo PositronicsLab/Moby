@@ -4,7 +4,6 @@
 #include <boost/shared_ptr.hpp>
 //#include <Moby/Simulator.h>
 #include <Moby/TimeSteppingSimulator.h>
-#include <Moby/EulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/RCArticulatedBody.h>
