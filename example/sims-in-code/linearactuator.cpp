@@ -17,11 +17,11 @@
 // the push controller applies an impulse to the link once
 /*----------------------------------------------------------------------------
 ----------------------------------------------------------------------------*/
-void push_controller( Moby::DynamicBodyPtr dbp, double t, void* ) {
+Ravelin::VectorNd& push_controller( Moby::ControlledBodyPtr dbp, Ravelin::VectorNd& u, double t, void* ) {
   static bool pushed = false;
 
   // only apply the force once
-  if( pushed ) return;
+  if( pushed ) return u;
 
   // cast the dynamic body to an articulated body
   Moby::ArticulatedBodyPtr ab = boost::dynamic_pointer_cast<Moby::ArticulatedBody>( dbp );
@@ -29,27 +29,27 @@ void push_controller( Moby::DynamicBodyPtr dbp, double t, void* ) {
     std::cout << "Failed to cast DynamicBody as ArticulatedBody" << std::endl;
     std::cout << "Failed to push link" << std::endl;
     pushed = true;  // disable the controller
-    return;
+    return u;
   } 
   
-  std::vector<Moby::JointPtr> js = ab->get_joints();
-  Moby::JointPtr joint;
-  for(std::vector<Moby::JointPtr>::iterator it = js.begin(); it != js.end(); it++) {
-    if( (*it)->id == "joint" ) joint = *it;
+  const std::vector<boost::shared_ptr<Ravelin::Jointd> >& js = ab->get_joints();
+  boost::shared_ptr<Ravelin::Jointd> joint;
+  for(std::vector<boost::shared_ptr<Ravelin::Jointd> >::const_iterator it = js.begin(); it != js.end(); it++) {
+    if( (*it)->joint_id == "joint" ) joint = *it;
   }
   if( !link ) {
     std::cout << "Failed to find joint" << std::endl;
     std::cout << "Failed to push joint" << std::endl;
     pushed = true;  // disable the controller
-    return;
+    return u;
   } 
 
-  Ravelin::VectorNd f(1);
-  f[0] = 1000;
-  joint->add_force(f);
+  u.resize(1);
+  u[0] = 1000;
 
   // disable the controller
   pushed = true; 
+  return u;
 }
 
 //----------------------------------------------------------------------------
@@ -59,7 +59,6 @@ int main( void ) {
   Moby::Log<Moby::OutputToFile>::reporting_level = 7;
 
   boost::shared_ptr<Moby::TimeSteppingSimulator> sim( new Moby::TimeSteppingSimulator() );
-  sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
   boost::shared_ptr<Moby::GravityForce> g( new Moby::GravityForce() );
   g->gravity = Ravelin::Vector3d( 0, 0, -9.8 );

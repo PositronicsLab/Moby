@@ -21,7 +21,6 @@ int main( void ) {
 
   // create a simulator
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
-  sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
   // create a gravity vector
   boost::shared_ptr<Moby::GravityForce> g( new Moby::GravityForce() );

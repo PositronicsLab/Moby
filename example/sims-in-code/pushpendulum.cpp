@@ -16,11 +16,11 @@
 //----------------------------------------------------------------------------
 // the push controller applies an impulse to the pendulum arm once
 // setting the pendulum in motion
-void push_controller( Moby::DynamicBodyPtr dbp, double t, void* ) {
+Ravelin::VectorNd& push_controller( Moby::ControlledBodyPtr dbp, Ravelin::VectorNd& u, double t, void* ) {
   static bool pushed = false;
 
   // only apply the force once
-  if( pushed ) return;
+  if( pushed ) return u;
 
   // cast the dynamic body to an articulated body
   Moby::ArticulatedBodyPtr ab = boost::dynamic_pointer_cast<Moby::ArticulatedBody>( dbp );
@@ -28,29 +28,31 @@ void push_controller( Moby::DynamicBodyPtr dbp, double t, void* ) {
     std::cout << "Failed to cast DynamicBody as ArticulatedBody" << std::endl;
     std::cout << "Failed to push arm" << std::endl;
     pushed = true;  // disable the controller
-    return;
+    return u;
   } 
   
   // find the arm link
-  std::vector<Moby::RigidBodyPtr> rbs = ab->get_links();
-  Moby::RigidBodyPtr arm;
-  for(std::vector<Moby::RigidBodyPtr>::iterator it = rbs.begin(); it != rbs.end(); it++) {
-    if( (*it)->id == "arm" ) arm = *it;
+  const std::vector<boost::shared_ptr<Ravelin::RigidBodyd> >& rbs = ab->get_links();
+  boost::shared_ptr<Ravelin::RigidBodyd> arm;
+  for(std::vector<boost::shared_ptr<Ravelin::RigidBodyd> >::const_iterator it = rbs.begin(); it != rbs.end(); it++) {
+    if( (*it)->body_id == "arm" ) arm = *it;
   }
   if( !arm ) {
     std::cout << "Failed to find arm" << std::endl;
     std::cout << "Failed to push arm" << std::endl;
     pushed = true;  // disable the controller
-    return;
+    return u;
   } 
 
-  // apply the impulse to the link
+  // apply the force to the link
   boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,1,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
   Ravelin::SForced impulse(0,2500,0,0,0,0,impulse_pos);
-  arm->add_force( impulse );
+  arm->convert_to_generalized_force(arm, impulse, u);
 
   // disable the controller
   pushed = true; 
+
+  return u;
 }
 
 //----------------------------------------------------------------------------
@@ -61,7 +63,6 @@ int main( void ) {
 
   // create a simulator
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
-  sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
   // create a gravity vector
   boost::shared_ptr<Moby::GravityForce> g( new Moby::GravityForce() );

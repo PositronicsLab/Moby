@@ -17,7 +17,6 @@ int main( void ) {
 //  Moby::Log<Moby::OutputToFile>::reporting_level = 7;
 
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
-  sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
   boost::shared_ptr<Moby::GravityForce> g( new Moby::GravityForce() );
   g->gravity = Ravelin::Vector3d( 0, 0, -9.8 );
@@ -62,8 +61,8 @@ int main( void ) {
 
   boost::shared_ptr<Moby::RevoluteJoint> joint1( new Moby::RevoluteJoint() );
   {
-    joint1->id = "joint1";
-    joint1->set_location( Ravelin::Vector3d(0,0,0,base->get_inertial_pose()), base, link1 );
+    joint1->joint_id = "joint1";
+    joint1->set_location( Ravelin::Vector3d(0,0,0,base->get_pose()), base, link1 );
     joint1->set_axis( Ravelin::Vector3d(1,0,0,Moby::GLOBAL) );
 
     joints.push_back( joint1 );
@@ -71,7 +70,7 @@ int main( void ) {
 
   Moby::RigidBodyPtr link2( new Moby::RigidBody() );
   {
-    link2->id = "link2";
+    link2->body_id = "link2";
     link2->set_visualization_data( cylinder->create_visualization() );
     link2->set_inertia( cylinder->get_inertia() );
     link2->set_enabled( true );
@@ -84,8 +83,8 @@ int main( void ) {
 
   boost::shared_ptr<Moby::RevoluteJoint> joint2( new Moby::RevoluteJoint() );
   {
-    joint2->id = "joint2";
-    joint2->set_location( Ravelin::Vector3d(0,-0.5,0,link1->get_inertial_pose()), link1, link2 );
+    joint2->joint_id = "joint2";
+    joint2->set_location( Ravelin::Vector3d(0,-0.5,0,link1->get_pose()), link1, link2 );
     joint2->set_axis( Ravelin::Vector3d(1,0,0,Moby::GLOBAL) );
 
     joints.push_back( joint2 );

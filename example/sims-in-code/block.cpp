@@ -11,7 +11,6 @@
 int main( void ) {
 
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
-  sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
   boost::shared_ptr<Moby::GravityForce> g( new Moby::GravityForce() );
   g->gravity = Ravelin::Vector3d( 0, 0, -9.8 );
