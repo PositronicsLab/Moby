@@ -51,9 +51,6 @@ class Visualizable : public virtual Base
 
     /// The underlying visualization data
     OSGGroupWrapperPtr _vizdata;
-
-    /// The top-level group (containing _vizdata)
-    osg::MatrixTransform* _group;
 }; // end class
 } // end namespace
 

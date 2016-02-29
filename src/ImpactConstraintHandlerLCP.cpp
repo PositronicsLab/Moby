@@ -10,7 +10,6 @@
 #include <Moby/Constants.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
@@ -34,7 +33,7 @@ using boost::dynamic_pointer_cast;
  * Applies Anitescu-Potra model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt)
+void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, const list<shared_ptr<SingleBodyd> >& single_bodies)
 {
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model_to_connected_constraints() entered" << endl;
 
@@ -48,7 +47,7 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd, inv_dt);
+  compute_problem_data(_epd, single_bodies);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -126,123 +125,123 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _LL.set_zero(NK_DIRS, N_CONST);
   _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
 
-  MatrixNd Cs_iM_CnT,Ct_iM_CnT,Ct_iM_CsT,L_iM_CnT,L_iM_CsT,L_iM_CtT;
-  Ravelin::MatrixNd::transpose(q.Cn_iM_LT,L_iM_CnT);
-  Ravelin::MatrixNd::transpose(q.Cs_iM_LT,L_iM_CsT);
-  Ravelin::MatrixNd::transpose(q.Ct_iM_LT,L_iM_CtT);
-  Ravelin::MatrixNd::transpose(q.Cn_iM_CsT,Cs_iM_CnT);
-  Ravelin::MatrixNd::transpose(q.Cn_iM_CtT,Ct_iM_CnT);
-  Ravelin::MatrixNd::transpose(q.Cs_iM_CtT,Ct_iM_CsT);
+  MatrixNd Cs_X_CnT,Ct_X_CnT,Ct_X_CsT,L_X_CnT,L_X_CsT,L_X_CtT;
+  Ravelin::MatrixNd::transpose(q.Cn_X_LT,L_X_CnT);
+  Ravelin::MatrixNd::transpose(q.Cs_X_LT,L_X_CsT);
+  Ravelin::MatrixNd::transpose(q.Ct_X_LT,L_X_CtT);
+  Ravelin::MatrixNd::transpose(q.Cn_X_CsT,Cs_X_CnT);
+  Ravelin::MatrixNd::transpose(q.Cn_X_CtT,Ct_X_CnT);
+  Ravelin::MatrixNd::transpose(q.Cs_X_CtT,Ct_X_CsT);
   /*     n          r          r           r           r
-  n  Cn_iM_CnT  Cn_iM_CsT  -Cn_iM_CsT   Cn_iM_CtT  -Cn_iM_CtT
-  r  Cs_iM_CnT  Cs_iM_CsT  -Cs_iM_CsT   Cs_iM_CtT  -Cs_iM_CtT
-  r -Cs_iM_CnT -Cs_iM_CsT   Cs_iM_CsT  -Cs_iM_CtT   Cs_iM_CtT
-  r  Ct_iM_CnT  Ct_iM_CsT  -Ct_iM_CsT   Ct_iM_CtT  -Ct_iM_CtT
-  r -Ct_iM_CnT -Ct_iM_CsT   Ct_iM_CsT  -Ct_iM_CtT   Ct_iM_CtT
+  n  Cn_X_CnT  Cn_X_CsT  -Cn_X_CsT   Cn_X_CtT  -Cn_X_CtT
+  r  Cs_X_CnT  Cs_X_CsT  -Cs_X_CsT   Cs_X_CtT  -Cs_X_CtT
+  r -Cs_X_CnT -Cs_X_CsT   Cs_X_CsT  -Cs_X_CtT   Cs_X_CtT
+  r  Ct_X_CnT  Ct_X_CsT  -Ct_X_CsT   Ct_X_CtT  -Ct_X_CtT
+  r -Ct_X_CnT -Ct_X_CsT   Ct_X_CsT  -Ct_X_CtT   Ct_X_CtT
   */
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_X_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cs': " << std::endl << q.Cn_X_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Ct': " << std::endl << q.Cn_X_CtT;
   
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cn': " << std::endl << Cs_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cs': " << std::endl << q.Cs_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Ct': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cn': " << std::endl << Cs_X_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cs': " << std::endl << q.Cs_X_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Ct': " << std::endl << q.Cs_X_CsT;
   
-  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cn': " << std::endl << Ct_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cs': " << std::endl << Ct_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cn': " << std::endl << Ct_X_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cs': " << std::endl << Ct_X_CsT;
 
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*L': " << std::endl << q.L_iM_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*L': " << std::endl << q.Cn_iM_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cn': " << std::endl << L_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*L': " << std::endl << q.L_X_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*L': " << std::endl << q.Cn_X_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cn': " << std::endl << L_X_CnT;
 
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*L': " << std::endl << q.Cs_iM_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_iM_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cs': " << std::endl << L_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Ct': " << std::endl << L_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*L': " << std::endl << q.Cs_X_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_X_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cs': " << std::endl << L_X_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Ct': " << std::endl << L_X_CtT;
   // Set positive submatrices
   /*
           n          r          r           r           r
-  n  Cn_iM_CnT  Cn_iM_CsT               Cn_iM_CtT
-  r  Cs_iM_CnT  Cs_iM_CsT               Cs_iM_CtT
-  r                         Cs_iM_CsT               Cs_iM_CtT
-  r  Ct_iM_CnT  Ct_iM_CsT               Ct_iM_CtT
-  r                         Ct_iM_CsT               Ct_iM_CtT
+  n  Cn_X_CnT  Cn_X_CsT               Cn_X_CtT
+  r  Cs_X_CnT  Cs_X_CsT               Cs_X_CtT
+  r                         Cs_X_CsT               Cs_X_CtT
+  r  Ct_X_CnT  Ct_X_CsT               Ct_X_CtT
+  r                         Ct_X_CsT               Ct_X_CtT
   */
-  _UL.set_sub_mat(0,0,q.Cn_iM_CnT);
+  _UL.set_sub_mat(0,0,q.Cn_X_CnT);
   // setup the LCP matrix
 
   // setup the LCP vector
   _qq.set_zero(_MM.rows());
   _qq.set_sub_vec(0,q.Cn_v);
 
-  _UL.set_sub_mat(NC,NC,q.Cs_iM_CsT);
-  _UL.set_sub_mat(NC,0,Cs_iM_CnT);
-  _UL.set_sub_mat(0,NC,q.Cn_iM_CsT);
-  _UL.set_sub_mat(NC+NC,NC+NC,q.Cs_iM_CsT);
-  _UL.set_sub_mat(NC+NC*2,0,Ct_iM_CnT);
-  _UL.set_sub_mat(0,NC+NC*2,q.Cn_iM_CtT);
-  _UL.set_sub_mat(NC+NC*2,NC,Ct_iM_CsT);
-  _UL.set_sub_mat(NC+NC*3,NC+NC,Ct_iM_CsT);
-  _UL.set_sub_mat(NC,NC+NC*2,q.Cs_iM_CtT);
-  _UL.set_sub_mat(NC+NC,NC+NC*3,q.Cs_iM_CtT);
-  _UL.set_sub_mat(NC+NC*2,NC+NC*2,q.Ct_iM_CtT);
-  _UL.set_sub_mat(NC+NC*3,NC+NC*3,q.Ct_iM_CtT);
+  _UL.set_sub_mat(NC,NC,q.Cs_X_CsT);
+  _UL.set_sub_mat(NC,0,Cs_X_CnT);
+  _UL.set_sub_mat(0,NC,q.Cn_X_CsT);
+  _UL.set_sub_mat(NC+NC,NC+NC,q.Cs_X_CsT);
+  _UL.set_sub_mat(NC+NC*2,0,Ct_X_CnT);
+  _UL.set_sub_mat(0,NC+NC*2,q.Cn_X_CtT);
+  _UL.set_sub_mat(NC+NC*2,NC,Ct_X_CsT);
+  _UL.set_sub_mat(NC+NC*3,NC+NC,Ct_X_CsT);
+  _UL.set_sub_mat(NC,NC+NC*2,q.Cs_X_CtT);
+  _UL.set_sub_mat(NC+NC,NC+NC*3,q.Cs_X_CtT);
+  _UL.set_sub_mat(NC+NC*2,NC+NC*2,q.Ct_X_CtT);
+  _UL.set_sub_mat(NC+NC*3,NC+NC*3,q.Ct_X_CtT);
 
   // Joint Limits
-  _UL.set_sub_mat(N_FRICT,N_FRICT,q.L_iM_LT);
-  _UL.set_sub_mat(N_FRICT,0,L_iM_CnT);
-  _UL.set_sub_mat(0,N_FRICT,q.Cn_iM_LT);
-  _UL.set_sub_mat(NC,N_FRICT,q.Cs_iM_LT);
-  _UL.set_sub_mat(NC+NC*2,N_FRICT,q.Ct_iM_LT);
-  _UL.set_sub_mat(N_FRICT,NC,L_iM_CsT);
-  _UL.set_sub_mat(N_FRICT,NC+NC*2,L_iM_CtT);
+  _UL.set_sub_mat(N_FRICT,N_FRICT,q.L_X_LT);
+  _UL.set_sub_mat(N_FRICT,0,L_X_CnT);
+  _UL.set_sub_mat(0,N_FRICT,q.Cn_X_LT);
+  _UL.set_sub_mat(NC,N_FRICT,q.Cs_X_LT);
+  _UL.set_sub_mat(NC+NC*2,N_FRICT,q.Ct_X_LT);
+  _UL.set_sub_mat(N_FRICT,NC,L_X_CsT);
+  _UL.set_sub_mat(N_FRICT,NC+NC*2,L_X_CtT);
 
 
   // Set negative submatrices
   /*     n          r          r           r           r
-  n                        -Cn_iM_CsT              -Cn_iM_CtT
-  r                        -Cs_iM_CsT              -Cs_iM_CtT
-  r -Cs_iM_CnT -Cs_iM_CsT              -Cs_iM_CtT
-  r                        -Ct_iM_CsT              -Ct_iM_CtT
-  r -Ct_iM_CnT -Ct_iM_CsT              -Ct_iM_CtT
+  n                        -Cn_X_CsT              -Cn_X_CtT
+  r                        -Cs_X_CsT              -Cs_X_CtT
+  r -Cs_X_CnT -Cs_X_CsT              -Cs_X_CtT
+  r                        -Ct_X_CsT              -Ct_X_CtT
+  r -Ct_X_CnT -Ct_X_CsT              -Ct_X_CtT
     */
 
-  q.Cn_iM_CsT.negate();
-  q.Cn_iM_CtT.negate();
-  Cs_iM_CnT.negate();
-  q.Cs_iM_CsT.negate();
-  q.Cs_iM_CtT.negate();
-  Ct_iM_CnT.negate();
-  Ct_iM_CsT.negate();
-  q.Ct_iM_CtT.negate();
+  q.Cn_X_CsT.negate();
+  q.Cn_X_CtT.negate();
+  Cs_X_CnT.negate();
+  q.Cs_X_CsT.negate();
+  q.Cs_X_CtT.negate();
+  Ct_X_CnT.negate();
+  Ct_X_CsT.negate();
+  q.Ct_X_CtT.negate();
 
-  q.Cs_iM_LT.negate();
-  q.Ct_iM_LT.negate();
-  L_iM_CsT.negate();
-  L_iM_CtT.negate();
+  q.Cs_X_LT.negate();
+  q.Ct_X_LT.negate();
+  L_X_CsT.negate();
+  L_X_CtT.negate();
 
-  _UL.set_sub_mat(NC+NC,0,Cs_iM_CnT);
-  _UL.set_sub_mat(0,NC+NC,q.Cn_iM_CsT);
+  _UL.set_sub_mat(NC+NC,0,Cs_X_CnT);
+  _UL.set_sub_mat(0,NC+NC,q.Cn_X_CsT);
 
-  _UL.set_sub_mat(NC,NC+NC,q.Cs_iM_CsT);
-  _UL.set_sub_mat(NC+NC,NC,q.Cs_iM_CsT);
+  _UL.set_sub_mat(NC,NC+NC,q.Cs_X_CsT);
+  _UL.set_sub_mat(NC+NC,NC,q.Cs_X_CsT);
 
-  _UL.set_sub_mat(NC+NC*3,0,Ct_iM_CnT);
-  _UL.set_sub_mat(0,NC+NC*3,q.Cn_iM_CtT);
+  _UL.set_sub_mat(NC+NC*3,0,Ct_X_CnT);
+  _UL.set_sub_mat(0,NC+NC*3,q.Cn_X_CtT);
 
-  _UL.set_sub_mat(NC+NC*3,NC,Ct_iM_CsT);
-  _UL.set_sub_mat(NC+NC*2,NC+NC,Ct_iM_CsT);
-  _UL.set_sub_mat(NC+NC,NC+NC*2,q.Cs_iM_CtT);
-  _UL.set_sub_mat(NC,NC+NC*3,q.Cs_iM_CtT);
+  _UL.set_sub_mat(NC+NC*3,NC,Ct_X_CsT);
+  _UL.set_sub_mat(NC+NC*2,NC+NC,Ct_X_CsT);
+  _UL.set_sub_mat(NC+NC,NC+NC*2,q.Cs_X_CtT);
+  _UL.set_sub_mat(NC,NC+NC*3,q.Cs_X_CtT);
 
-  _UL.set_sub_mat(NC+NC*2,NC+NC*3,q.Ct_iM_CtT);
-  _UL.set_sub_mat(NC+NC*3,NC+NC*2,q.Ct_iM_CtT);
+  _UL.set_sub_mat(NC+NC*2,NC+NC*3,q.Ct_X_CtT);
+  _UL.set_sub_mat(NC+NC*3,NC+NC*2,q.Ct_X_CtT);
 
   // Joint limits
-  _UL.set_sub_mat(NC+NC,N_FRICT,q.Cs_iM_LT);
-  _UL.set_sub_mat(NC+NC*3,N_FRICT,q.Ct_iM_LT);
-  _UL.set_sub_mat(N_FRICT,NC+NC,L_iM_CsT);
-  _UL.set_sub_mat(N_FRICT,NC+NC*3,L_iM_CtT);
+  _UL.set_sub_mat(NC+NC,N_FRICT,q.Cs_X_LT);
+  _UL.set_sub_mat(NC+NC*3,N_FRICT,q.Ct_X_LT);
+  _UL.set_sub_mat(N_FRICT,NC+NC,L_X_CsT);
+  _UL.set_sub_mat(N_FRICT,NC+NC*3,L_X_CtT);
 
   // lower left & upper right block of matrix
   for(unsigned i=0,j=0,r=0;i<NC;i++)
@@ -314,18 +313,18 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << _qq << std::endl;
 
   // Fix Negations
-  q.Cn_iM_CsT.negate();
-  q.Cn_iM_CtT.negate();
-//  Cs_iM_CnT.negate();
-  q.Cs_iM_CsT.negate();
-  q.Cs_iM_CtT.negate();
-//  Ct_iM_CnT.negate();
-//  Ct_iM_CsT.negate();
-  q.Ct_iM_CtT.negate();
-  q.Cs_iM_LT.negate();
-  q.Ct_iM_LT.negate();
-  //L_iM_CsT.negate();
-  //L_iM_CtT.negate();
+  q.Cn_X_CsT.negate();
+  q.Cn_X_CtT.negate();
+//  Cs_X_CnT.negate();
+  q.Cs_X_CsT.negate();
+  q.Cs_X_CtT.negate();
+//  Ct_X_CnT.negate();
+//  Ct_X_CsT.negate();
+  q.Ct_X_CtT.negate();
+  q.Cs_X_LT.negate();
+  q.Ct_X_LT.negate();
+  //L_X_CsT.negate();
+  //L_X_CtT.negate();
   q.Cs_v.negate();
   q.Ct_v.negate();
 

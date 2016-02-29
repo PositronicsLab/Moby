@@ -804,10 +804,10 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
   if (!b->is_enabled())
   {
     FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() entered" << endl;
-    FILE_LOG(LOG_BV) << "  original/expanded bounding box: " << endl << *get_this();
+    FILE_LOG(LOG_BV) << "  original/expanded bounding box: " << endl << *this;
     FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() exited" << endl;
 
-    return const_pointer_cast<OBB>(get_this());
+    return const_pointer_cast<OBB>(dynamic_pointer_cast<const OBB>(shared_from_this()));
   }
 
   // get the linear velocity
@@ -816,16 +816,17 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
   // copy the OBB, expanded by linear velocity
   OBBPtr o(new OBB);
   if (lv.norm() <= NEAR_ZERO) 
-    *o = *get_this();
+    *o = *this;
   else
-    *o = OBB(*get_this(), lv);
+    *o = OBB(*this, lv);
 
   FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() entered" << endl;
-  FILE_LOG(LOG_BV) << "  original bounding box: " << endl << *get_this();
+  FILE_LOG(LOG_BV) << "  original bounding box: " << endl << *this;
   FILE_LOG(LOG_BV) << "  linear velocity expanded bounding box: " << endl << *o;
 
   // transform the velocity to the desired frame
-  SVelocityd vo = Pose3d::transform(obb_frame, v);
+  shared_ptr<const Pose3d> obb_frame_const = boost::const_pointer_cast<const Pose3d>(obb_frame);
+  SVelocityd vo = Pose3d::transform(obb_frame_const, v);
   Vector3d av = vo.get_angular();
 
   // if there is no angular velocity, nothing more needs to be done

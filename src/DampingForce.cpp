@@ -6,14 +6,11 @@
 
 #include <iostream>
 #include <Moby/XMLTree.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/DampingForce.h>
 
-using Ravelin::SForced;
-using Ravelin::SVelocityd;
-using Ravelin::Pose3d;
+using namespace Ravelin;
 using std::map;
 using std::cerr;
 using std::endl;
@@ -32,7 +29,7 @@ DampingForce::DampingForce(const DampingForce& source)
 }
 
 /// Adds damping force to a rigid body
-void DampingForce::add_damping(RigidBodyPtr rb, double ld, double ad, double ldsq, double adsq)
+void DampingForce::add_damping(shared_ptr<RigidBodyd> rb, double ld, double ad, double ldsq, double adsq)
 {
   // setup a force in the body frame
   SForced wi;
@@ -54,10 +51,10 @@ void DampingForce::add_damping(RigidBodyPtr rb, double ld, double ad, double lds
 }
 
 /// Adds gravity to a body
-void DampingForce::add_force(DynamicBodyPtr body)
+void DampingForce::add_force(shared_ptr<DynamicBodyd> body)
 {
   // get the linear and angular damping constants
-  map<DynamicBodyPtr, double>::const_iterator diter;
+  map<shared_ptr<DynamicBodyd>, double>::const_iterator diter;
   double ldamp = (double) 0.0, adamp = (double) 0.0;
   double lsqdamp = (double) 0.0, asqdamp = (double) 0.0;
   if ((diter = kl.find(body)) != kl.end())
@@ -70,7 +67,7 @@ void DampingForce::add_force(DynamicBodyPtr body)
     asqdamp = diter->second;
 
   // check whether the body is a single body 
-  SingleBodyPtr sb = dynamic_pointer_cast<SingleBody>(body);
+  shared_ptr<SingleBodyd> sb = dynamic_pointer_cast<SingleBodyd>(body);
   if (sb)
   {
     // see whether the body is a rigid body
@@ -88,21 +85,24 @@ void DampingForce::add_force(DynamicBodyPtr body)
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
       
     // get the vector of links
-    const std::vector<RigidBodyPtr>& links = ab->get_links();
+    const std::vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
       
     // apply damping force to all links
-    BOOST_FOREACH(RigidBodyPtr rb, links)
+    BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, links)
     {
+      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(rbd);
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(rbd);
+
       // get linear and angular damping constants for this body, if different
       double ldamp2 = ldamp, adamp2 = adamp;
       double lsqdamp2 = lsqdamp, asqdamp2 = asqdamp;
-      if ((diter = kl.find(rb)) != kl.end())
+      if ((diter = kl.find(db)) != kl.end())
         ldamp2 = diter->second;
-      if ((diter = ka.find(rb)) != ka.end())
+      if ((diter = ka.find(db)) != ka.end())
         adamp2 = diter->second; 
-      if ((diter = klsq.find(rb)) != klsq.end())
+      if ((diter = klsq.find(db)) != klsq.end())
         lsqdamp2 = diter->second;
-      if ((diter = kasq.find(rb)) != kasq.end())
+      if ((diter = kasq.find(db)) != kasq.end())
         asqdamp2 = diter->second; 
 
       // add dampening
@@ -150,7 +150,7 @@ void DampingForce::load_from_xml(shared_ptr<const XMLTree> node, map<std::string
       }
 
       // get the body
-      DynamicBodyPtr body = dynamic_pointer_cast<DynamicBody>(id_iter->second);
+      shared_ptr<DynamicBodyd> body = dynamic_pointer_cast<DynamicBodyd>(id_iter->second);
       if (!body)
       {
         cerr << "DampingForce::load_from_xml() - object with id: " << ID << " not castable " << endl;
@@ -185,15 +185,15 @@ void DampingForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base>
   node->name = "DampingForce";
 
   // get list of unique bodies
-  std::list<DynamicBodyPtr> bodies;
-  for (map<DynamicBodyPtr, double>::const_iterator i = kl.begin(); i != kl.end(); i++)
+  std::list<shared_ptr<DynamicBodyd> > bodies;
+  for (map<shared_ptr<DynamicBodyd>, double>::const_iterator i = kl.begin(); i != kl.end(); i++)
     bodies.push_back(i->first);
-  for (map<DynamicBodyPtr, double>::const_iterator i = ka.begin(); i != ka.end(); i++)
+  for (map<shared_ptr<DynamicBodyd>, double>::const_iterator i = ka.begin(); i != ka.end(); i++)
     bodies.push_back(i->first);
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
   // iterate through all bodies
-  BOOST_FOREACH(DynamicBodyPtr db, bodies)
+  BOOST_FOREACH(shared_ptr<DynamicBodyd> db, bodies)
   {
     // create a new node
     XMLTreePtr new_node(new XMLTree("Gains"));
@@ -202,7 +202,7 @@ void DampingForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base>
     // get the gains for the body
     double lgain = (double) 0.0, again = (double) 0.0;
     double lsqgain = (double) 0.0, asqgain = (double) 0.0;
-    map<DynamicBodyPtr, double>::const_iterator giter;
+    map<shared_ptr<DynamicBodyd>, double>::const_iterator giter;
     if ((giter = kl.find(db)) != kl.end())
       lgain = giter->second;
     if ((giter = ka.find(db)) != ka.end())
@@ -213,7 +213,7 @@ void DampingForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base>
       asqgain = giter->second;
 
     // save the gains
-    new_node->attribs.insert(XMLAttrib("body-id", db->id));
+    new_node->attribs.insert(XMLAttrib("body-id", db->body_id));
     new_node->attribs.insert(XMLAttrib("klinear", lgain));
     new_node->attribs.insert(XMLAttrib("kangular", again));
     new_node->attribs.insert(XMLAttrib("klinear-sq", lsqgain));

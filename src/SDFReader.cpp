@@ -20,20 +20,18 @@
 #include "Color.h"
 #endif
 
-// TODO:
-// implement triangle mesh
-
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
-#include <Moby/EventDrivenSimulator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
 //#include <Moby/MCArticulatedBody.h>
@@ -42,17 +40,11 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
-#include <Moby/BulirschStoerIntegrator.h>
-#include <Moby/RungeKuttaIntegrator.h>
-#include <Moby/RungeKuttaFehlbergIntegrator.h>
-#include <Moby/RungeKuttaImplicitIntegrator.h>
-#include <Moby/ODEPACKIntegrator.h>
-#include <Moby/EulerIntegrator.h>
-#include <Moby/VariableEulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/DampingForce.h>
 #include <Moby/XMLTree.h>
+#include <Moby/RigidBody.h>
 #include <Moby/SDFReader.h>
 
 using std::map;
@@ -61,6 +53,9 @@ using std::list;
 using boost::shared_ptr;
 using namespace Moby;
 using namespace Ravelin;
+
+std::vector<shared_ptr<OSGGroupWrapper> > SDFReader::_osg_wrappers;
+std::vector<shared_ptr<Primitive> > SDFReader::_primitives;
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
@@ -89,9 +84,9 @@ static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 /**
  * \return a map of IDs to read objects
  */
-shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
+shared_ptr<TimeSteppingSimulator> SDFReader::read(const std::string& fname)
 {
-  vector<vector<DynamicBodyPtr> > models;
+  vector<vector<ControlledBodyPtr> > models;
 
   // *************************************************************
   // going to remove any path from the argument and change to that
@@ -113,7 +108,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
     if (errno != ERANGE)
     {
       std::cerr << "SDFReader::read() - unable to allocate sufficient memory!" << std::endl;
-      return shared_ptr<EventDrivenSimulator>();
+      return shared_ptr<TimeSteppingSimulator>();
     }
     BUFSIZE *= 2;
   }
@@ -139,7 +134,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
     std::cerr << "SDFReader::read() - unable to open file " << fname;
     std::cerr << " for reading" << std::endl;
     chdir(cwd.get());
-    return shared_ptr<EventDrivenSimulator>();
+    return shared_ptr<TimeSteppingSimulator>();
   }
 
   // find the SDF tree
@@ -153,7 +148,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
   {
     std::cerr << "SDFReader::read() - no SDF tag found!" << std::endl;
     chdir(cwd.get());
-    return shared_ptr<EventDrivenSimulator>();
+    return shared_ptr<TimeSteppingSimulator>();
   }
 
   // read in all world tags
@@ -162,7 +157,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
   // read in worlds
   if (world_nodes.size() != 1)
     throw std::runtime_error("SDFReader::read() - there is not exactly one world!");
-  shared_ptr<EventDrivenSimulator> sim = read_world(world_nodes.front());
+  shared_ptr<TimeSteppingSimulator> sim = read_world(world_nodes.front());
 
   // change back to the initial working directory
   chdir(cwd.get());
@@ -174,10 +169,10 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
 /**
  * \return a map of IDs to read objects
  */
-std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& fname)
+std::map<std::string, ControlledBodyPtr> SDFReader::read_models(const std::string& fname)
 {
-  std::map<std::string, DynamicBodyPtr> model_map;
-  vector<DynamicBodyPtr> models;
+  std::map<std::string, ControlledBodyPtr> model_map;
+  vector<ControlledBodyPtr> models;
 
   // *************************************************************
   // going to remove any path from the argument and change to that
@@ -250,7 +245,7 @@ std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& 
     throw std::runtime_error("SDFReader::read() - more than one world found!");
 
   // create the simulator
-  shared_ptr<EventDrivenSimulator> sim(new EventDrivenSimulator);
+  shared_ptr<TimeSteppingSimulator> sim(new TimeSteppingSimulator);
 
   // read the models
   if (world_nodes.empty())
@@ -259,8 +254,8 @@ std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& 
     models = read_models(world_nodes.front(), sim);
 
   // clear all models from the simulator and convert to a map
-  const vector<DynamicBodyPtr>& bodies = sim->get_dynamic_bodies();
-  BOOST_FOREACH(DynamicBodyPtr db, models)
+  const vector<ControlledBodyPtr>& bodies = sim->get_dynamic_bodies();
+  BOOST_FOREACH(ControlledBodyPtr db, models)
   {
     sim->remove_dynamic_body(db);
     model_map[db->id] = db;
@@ -273,16 +268,13 @@ std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& 
 }
 
 /// Constructs the event-driven simulator using proper settings
-shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree> world_tree)
+shared_ptr<TimeSteppingSimulator> SDFReader::read_world(shared_ptr<const XMLTree> world_tree)
 {
   // create the simulator
-  shared_ptr<EventDrivenSimulator> sim(new EventDrivenSimulator);
+  shared_ptr<TimeSteppingSimulator> sim(new TimeSteppingSimulator);
 
   // read the models
-  vector<DynamicBodyPtr> models = read_models(world_tree, sim);
-
-  // these defaults will be replaced with specific settings from SDF
-  sim->integrator = shared_ptr<RungeKuttaIntegrator>(new RungeKuttaIntegrator);
+  vector<ControlledBodyPtr> models = read_models(world_tree, sim);
 
   // find the physics node
   shared_ptr<const XMLTree> physics_node = find_one_tag("physics", world_tree);
@@ -300,7 +292,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree>
     {
       // create and add the gravity force to all bodies
       shared_ptr<GravityForce> grav(new GravityForce);
-      BOOST_FOREACH(DynamicBodyPtr db, models)
+      BOOST_FOREACH(ControlledBodyPtr db, models)
         db->get_recurrent_forces().push_back(grav);
 
       // set the force
@@ -311,57 +303,6 @@ shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree>
     shared_ptr<const XMLTree> moby_node = find_one_tag("moby", physics_node);
     if (moby_node)
     {
-      // read the integrator node
-      shared_ptr<const XMLTree> int_node = find_one_tag("integrator", moby_node);
-      if (int_node)
-      {
-        // set a pointer to a variable step integrator
-        shared_ptr<VariableStepIntegrator> vsi;
-        XMLAttrib* type_attr = int_node->get_attrib("type");
-        if (strcasecmp(type_attr->get_string_value().c_str(), "BulirschStoer") == 0)
-        {
-          shared_ptr<BulirschStoerIntegrator> bsi(new BulirschStoerIntegrator);
-          sim->integrator = bsi;
-          vsi = bsi;
-        }
-        else if (strcasecmp(type_attr->get_string_value().c_str(), "RKF") == 0)
-        {
-          shared_ptr<RungeKuttaFehlbergIntegrator> rkf(new RungeKuttaFehlbergIntegrator);
-          sim->integrator = rkf;
-          vsi = rkf;
-        }
-        else if (strcasecmp(type_attr->get_string_value().c_str(), "ODEPACK") == 0)
-        {
-          shared_ptr<ODEPACKIntegrator> ode(new ODEPACKIntegrator);
-          sim->integrator = ode;
-          vsi = ode;
-        }
-        else if (strcasecmp(type_attr->get_string_value().c_str(), "rk4") == 0)
-        {
-          shared_ptr<RungeKuttaIntegrator> rk4(new RungeKuttaIntegrator);
-          sim->integrator = rk4;
-        }
-        else if (strcasecmp(type_attr->get_string_value().c_str(), "rki") == 0)
-        {
-          shared_ptr<RungeKuttaImplicitIntegrator> rki(new RungeKuttaImplicitIntegrator);
-          sim->integrator = rki;
-        }
-
-        // read the minimum step size
-        shared_ptr<const XMLTree> min_step_node = find_one_tag("min_step_size", moby_node);
-        if (min_step_node && vsi)
-          vsi->min_step_size = read_double(min_step_node);
-
-        // read the absolute error tolerance
-        shared_ptr<const XMLTree> ae_tol_node = find_one_tag("abs_err_tol", moby_node);
-        if (ae_tol_node && vsi)
-          vsi->aerr_tolerance = read_double(ae_tol_node);
-
-        // read the relative error tolerance
-        shared_ptr<const XMLTree> re_tol_node = find_one_tag("rel_err_tol", moby_node);
-        if (re_tol_node && vsi)
-          vsi->rerr_tolerance = read_double(re_tol_node);
-      }
     }
   }
 
@@ -372,9 +313,9 @@ shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree>
 /**
  * \return a map of IDs to read objects
  */
-vector<DynamicBodyPtr> SDFReader::read_models(shared_ptr<const XMLTree> world_tree, shared_ptr<EventDrivenSimulator> sim)
+vector<ControlledBodyPtr> SDFReader::read_models(shared_ptr<const XMLTree> world_tree, shared_ptr<TimeSteppingSimulator> sim)
 {
-  vector<DynamicBodyPtr> models;
+  vector<ControlledBodyPtr> models;
   map<RigidBodyPtr, shared_ptr<SurfaceData> > sdata;
 
   // get all model nodes
@@ -383,7 +324,7 @@ vector<DynamicBodyPtr> SDFReader::read_models(shared_ptr<const XMLTree> world_tr
     models.push_back(read_model(model_node, sdata));
 
   // add the models to the simulator
-  BOOST_FOREACH(DynamicBodyPtr b, models)
+  BOOST_FOREACH(ControlledBodyPtr b, models)
     sim->add_dynamic_body(b);
 
   // now attempt to add contact data
@@ -449,6 +390,13 @@ unsigned SDFReader::read_uint(shared_ptr<const XMLTree> node)
 {
   // convert the string to a uint
   return (unsigned) std::atoi(node->content.c_str());
+}
+
+/// Reads a string value
+std::string SDFReader::read_string(shared_ptr<const XMLTree> node)
+{
+  // convert the string to a uint
+  return node->content;
 }
 
 /// Reads a double value
@@ -538,6 +486,7 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
 
   // setup the generic components of the joint
   joint->id = name;
+  joint->joint_id = name;
 
   // read in the name of the parent link
   shared_ptr<const XMLTree> parent_tag = find_one_tag("parent", node);
@@ -651,11 +600,6 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
       shared_ptr<const XMLTree> ulimit_node = find_one_tag("upper", limit_node);
       if (ulimit_node)
         joint->hilimit[0] = read_double(ulimit_node);
-
-      // attempt to read the maximum force
-      shared_ptr<const XMLTree> effort_node = find_one_tag("effort", limit_node);
-      if (effort_node)
-        joint->maxforce[0] = read_double(effort_node);
     }
   }
 
@@ -718,11 +662,6 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
       shared_ptr<const XMLTree> ulimit_node = find_one_tag("upper", limit_node);
       if (ulimit_node)
         joint->hilimit[1] = read_double(ulimit_node);
-
-      // attempt to read the maximum force
-      shared_ptr<const XMLTree> effort_node = find_one_tag("effort", limit_node);
-      if (effort_node)
-        joint->maxforce[1] = read_double(effort_node);
     }
   }
 
@@ -811,11 +750,84 @@ PrimitivePtr SDFReader::read_plane(shared_ptr<const XMLTree> node)
   return b;
 }
 
-/// Reads and constructs the TriangleMeshPrimitive object
+/// Reads and constructs an OSGGroupWrapper object for meshes
+shared_ptr<OSGGroupWrapper> SDFReader::read_OSG_file(shared_ptr<const XMLTree> node)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "mesh") == 0);
+
+  // get the filename
+  shared_ptr<const XMLTree> uri_node = find_one_tag("uri", node);
+  if (!uri_node)
+    throw std::runtime_error("Expected a 'uri' subnode under 'mesh' node");
+ 
+  // construct the OSGGroupWrapper
+  std::string fname = read_string(uri_node);
+  shared_ptr<OSGGroupWrapper> osgg(new OSGGroupWrapper(fname));
+  return osgg; 
+}
+
+/// Reads and constructs the PolyhedralPrimitive object
+PrimitivePtr SDFReader::read_polyhedron(shared_ptr<const XMLTree> node)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "mesh") == 0);
+
+  // get the filename
+  shared_ptr<const XMLTree> uri_node = find_one_tag("uri", node);
+  if (!uri_node)
+    throw std::runtime_error("Expected a 'uri' subnode under 'mesh' node");
+  
+  // ensure that the file is a Wavefront OBJ
+  std::string fname = read_string(uri_node);
+  std::string fname_lower = fname;
+  std::transform(fname.begin(), fname.end(), fname_lower.begin(), ::tolower);
+  unsigned st = fname_lower.find(".obj");
+  if (st != fname_lower.size()-4)
+    throw std::runtime_error("Expect 'uri' to be of type Wavefront .obj");
+
+  // read in the file using an indexed triangle array
+  IndexedTriArray ita = IndexedTriArray::read_from_obj(fname);
+
+  // get all of the vertices and compute the convex hull (yielding a
+  // tessellated polyhedron)
+  const std::vector<Origin3d>& vertices = ita.get_vertices();
+  TessellatedPolyhedronPtr tessellated_poly = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());   
+
+  // convert the tessellated polyhedron to a standard polyhedron
+  Polyhedron poly;
+  tessellated_poly->to_polyhedron(poly);
+
+  // create the polyhedral primitive object 
+  shared_ptr<PolyhedralPrimitive> p(new PolyhedralPrimitive);
+  p->set_polyhedron(poly);
+
+  return p;
+}
+
+/// Reads and constructs the trianglemesh primitive object
 PrimitivePtr SDFReader::read_trimesh(shared_ptr<const XMLTree> node)
 {
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
+  assert(strcasecmp(node->name.c_str(), "mesh") == 0);
+
+  // get the filename
+  shared_ptr<const XMLTree> uri_node = find_one_tag("uri", node);
+  if (!uri_node)
+    throw std::runtime_error("Expected a 'uri' subnode under 'mesh' node");
+  
+  // ensure that the file is a Wavefront OBJ
+  std::string fname = read_string(uri_node);
+  std::string fname_lower = fname;
+  std::transform(fname.begin(), fname.end(), fname_lower.begin(), ::tolower);
+  unsigned st = fname_lower.find(".obj");
+  if (st != fname_lower.size()-4)
+    throw std::runtime_error("Expect 'uri' to be of type Wavefront .obj");
+
+  // create a new TriangleMesh object
+  boost::shared_ptr<TriangleMeshPrimitive> b(new TriangleMeshPrimitive(fname, false));
+
+  return b;
 }
 
 /// Reads and constructs the heightmap object
@@ -859,7 +871,7 @@ PrimitivePtr SDFReader::read_box(shared_ptr<const XMLTree> node)
 /**
  * \pre node is named Model
  */
-DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBodyPtr, shared_ptr<SDFReader::SurfaceData> >& sdata)
+ControlledBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBodyPtr, shared_ptr<SDFReader::SurfaceData> >& sdata)
 {
   vector<RigidBodyPtr> links;
   vector<JointPtr> joints;
@@ -888,7 +900,10 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
 
     // set the name
     if (name_attr)
+    {
       rb->id = name_attr->get_string_value();
+      rb->body_id = rb->id;
+    }
 
     // see whether the model is static
     shared_ptr<const XMLTree> static_node = find_one_tag("static", node);
@@ -917,7 +932,7 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
 
     // set algorithm and frame
     rcab->algorithm_type = RCArticulatedBody::eCRB;
-    rcab->set_computation_frame_type(eLinkCOM);
+    rcab->set_computation_frame_type(Ravelin::eLinkCOM);
 
     // read all of the links
     BOOST_FOREACH(shared_ptr<const XMLTree> link_node, link_nodes)
@@ -967,7 +982,10 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
 
     // set the name
     if (name_attr)
+    {
       rcab->id = name_attr->get_string_value();
+      rcab->body_id = rcab->id;
+    }
 
     return rcab;
   }
@@ -988,7 +1006,10 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   // get the link name
   XMLAttrib* name_attr = node->get_attrib("name");
   if (name_attr)
+  {
     rb->id = name_attr->get_string_value();
+    rb->body_id = rb->id;
+  }
 
   // set default inertial properties (according to SDF 1.5)
   SpatialRBInertiad J;
@@ -1041,8 +1062,8 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     group->addChild(tg);
 
     // add the primitive to the transform
-    PrimitivePtr geom = read_geometry(geom_node);
-    tg->addChild(geom->get_visualization());
+    osg::Node* geom = read_visual_geometry(geom_node);
+    tg->addChild(geom);
 
     // set the transform
     osg::Matrix m;
@@ -1150,6 +1171,64 @@ void SDFReader::read_surface(shared_ptr<const XMLTree> node, shared_ptr<SDFReade
   }
 }
 
+/// Reads visual geometry
+osg::Node* SDFReader::read_visual_geometry(shared_ptr<const XMLTree> node)
+{
+  #ifdef USE_OSG
+  // look for a box
+  shared_ptr<const XMLTree> box_node = find_one_tag("box", node);
+  if (box_node)
+  {
+    _primitives.push_back(read_box(box_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a cylinder
+  shared_ptr<const XMLTree> cylinder_node = find_one_tag("cylinder", node);
+  if (cylinder_node)
+  {
+    _primitives.push_back(read_cylinder(cylinder_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a sphere
+  shared_ptr<const XMLTree> sphere_node = find_one_tag("sphere", node);
+  if (sphere_node)
+  {
+    _primitives.push_back(read_sphere(sphere_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a heightmap
+  shared_ptr<const XMLTree> heightmap_node = find_one_tag("heightmap", node);
+  if (heightmap_node)
+  {
+    _primitives.push_back(read_heightmap(heightmap_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a triangle mesh
+  shared_ptr<const XMLTree> trimesh_node = find_one_tag("mesh", node);
+  if (trimesh_node)
+  {
+    _osg_wrappers.push_back(read_OSG_file(trimesh_node));
+    return _osg_wrappers.back()->get_group();
+  }
+
+  // look for a plane
+  shared_ptr<const XMLTree> plane_node = find_one_tag("plane", node);
+  if (plane_node)
+  {
+    _primitives.push_back(read_plane(plane_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // shouldn't still be here...
+  throw std::runtime_error("Geometry tag found that we couldn't handle!");
+  #endif
+  return NULL;
+}
+
 /// Reads geometry
 PrimitivePtr SDFReader::read_geometry(shared_ptr<const XMLTree> node)
 {
@@ -1176,7 +1255,7 @@ PrimitivePtr SDFReader::read_geometry(shared_ptr<const XMLTree> node)
   // look for a triangle mesh
   shared_ptr<const XMLTree> trimesh_node = find_one_tag("mesh", node);
   if (trimesh_node)
-    return read_trimesh(trimesh_node);
+    return read_polyhedron(trimesh_node);
 
   // look for a plane
   shared_ptr<const XMLTree> plane_node = find_one_tag("plane", node);
@@ -1223,9 +1302,9 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
   {
-    Pose3d P = read_pose(node);
-    P.rpose = rb->get_pose();
-    rb->set_inertial_pose(P);
+    shared_ptr<Pose3d> P(new Pose3d(read_pose(node)));
+    P->rpose = rb->get_pose();
+    J.pose = P; 
   }
 
   // find the inertia

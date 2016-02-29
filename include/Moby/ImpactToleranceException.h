@@ -13,15 +13,16 @@
 
 namespace Moby {
 
-/// Exception thrown when trying to initialize a fixed size vector/matrix with the wrong size
+/// Exception thrown when constraint violation is greater than a desired tolerance 
 class ImpactToleranceException : public std::runtime_error
 {
   public:
-    ImpactToleranceException(const std::list<UnilateralConstraint*>& impacting_constraints) : std::runtime_error("Constraint velocity is below tolerance after treatment!") { constraints = impacting_constraints; }
+    ImpactToleranceException(const std::list<UnilateralConstraint*>& impacting_constraints, double max_vio) : std::runtime_error("Constraint velocity is below tolerance after treatment!") { constraints = impacting_constraints; violation = max_vio; }
 
     virtual ~ImpactToleranceException() throw() { }
 
   std::list<UnilateralConstraint*> constraints;
+  double violation;  // the amount of constraint violation
 }; // end class
 
 

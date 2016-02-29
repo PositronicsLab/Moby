@@ -1,0 +1,492 @@
+<?xml version="1.0" ?>
+<sdf version='1.5'>
+  <model name='ur10'>
+    <link name='base_link'>
+      <pose>0 0 1 0 -0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 -0 0</pose>
+        <mass>4</mass>
+        <inertia>
+          <ixx>0.00610633</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00610633</iyy>
+          <iyz>0</iyz>
+          <izz>0.01125</izz>
+        </inertia>
+      </inertial>
+      <collision name='base_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/Base.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='base_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/Base.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+<!--
+    <joint name='world_joint' type='revolute'>
+      <child>base_link</child>
+      <parent>world</parent>
+      <axis>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+        <xyz>0 0 1</xyz>
+      </axis>
+    </joint>
+-->
+    <link name='shoulder_link'>
+      <pose>0 0 1.1273 0 -0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 -0 0</pose>
+        <mass>7.778</mass>
+        <inertia>
+          <ixx>0.0314743</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0314743</iyy>
+          <iyz>0</iyz>
+          <izz>0.0218756</izz>
+        </inertia>
+      </inertial>
+      <collision name='shoulder_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/Shoulder.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='shoulder_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/Shoulder.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+    <joint name='shoulder_pan_joint' type='revolute'>
+      <child>shoulder_link</child>
+      <parent>base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>330</effort>
+          <velocity>2.16</velocity>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+    <link name='upper_arm_link'>
+      <pose>0 0.220941 1.1273 3.14159 1.57079 3.14159</pose>
+      <inertial>
+        <pose>0 0 0.306 0 -0 0</pose>
+        <mass>12.93</mass>
+        <inertia>
+          <ixx>0.421754</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.421754</iyy>
+          <iyz>0</iyz>
+          <izz>0.0363656</izz>
+        </inertia>
+      </inertial>
+      <collision name='upper_arm_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/UpperArm.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='upper_arm_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/UpperArm.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+    <joint name='shoulder_lift_joint' type='revolute'>
+      <child>upper_arm_link</child>
+      <parent>shoulder_link</parent>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>330</effort>
+          <velocity>2.16</velocity>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+    <link name='forearm_link'>
+      <pose>0.612 0.049041 1.1273 3.14159 1.57079 3.14159</pose>
+      <inertial>
+        <pose>0 0 0.28615 0 -0 0</pose>
+        <mass>3.87</mass>
+        <inertia>
+          <ixx>0.11107</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.11107</iyy>
+          <iyz>0</iyz>
+          <izz>0.0108844</izz>
+        </inertia>
+      </inertial>
+      <collision name='forearm_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/Forearm.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='forearm_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/Forearm.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+    <joint name='elbow_joint' type='revolute'>
+      <child>forearm_link</child>
+      <parent>upper_arm_link</parent>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>150</effort>
+          <velocity>3.15</velocity>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+    <link name='wrist_1_link'>
+      <pose>1.1843 0.049041 1.1273 3.14159 3.58979e-09 3.14159</pose>
+      <inertial>
+        <pose>0 0 0 0 -0 0</pose>
+        <mass>1.96</mass>
+        <inertia>
+          <ixx>0.00510825</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00510825</iyy>
+          <iyz>0</iyz>
+          <izz>0.0055125</izz>
+        </inertia>
+      </inertial>
+      <collision name='wrist_1_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/Wrist1.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='wrist_1_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/Wrist1.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+    <joint name='wrist_1_joint' type='revolute'>
+      <child>wrist_1_link</child>
+      <parent>forearm_link</parent>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>54</effort>
+          <velocity>3.2</velocity>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+    <link name='wrist_2_link'>
+      <pose>1.1843 0.163941 1.1273 3.14159 3.58979e-09 3.14159</pose>
+      <inertial>
+        <pose>0 0 0 0 -0 0</pose>
+        <mass>1.96</mass>
+        <inertia>
+          <ixx>0.00510825</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00510825</iyy>
+          <iyz>0</iyz>
+          <izz>0.0055125</izz>
+        </inertia>
+      </inertial>
+      <collision name='wrist_2_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/Wrist2.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='wrist_2_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/Wrist2.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+    <joint name='wrist_2_joint' type='revolute'>
+      <child>wrist_2_link</child>
+      <parent>wrist_1_link</parent>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>54</effort>
+          <velocity>3.2</velocity>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+    <link name='wrist_3_link'>
+      <pose>1.1843 0.163941 1.0116 3.14159 3.58979e-09 3.14159</pose>
+      <inertial>
+        <pose>0 0 0 0 -0 0</pose>
+        <mass>0.202</mass>
+        <inertia>
+          <ixx>0.000526462</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.000526462</iyy>
+          <iyz>0</iyz>
+          <izz>0.000568125</izz>
+        </inertia>
+      </inertial>
+      <collision name='wrist_3_link_collision'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/collision/Wrist3.dae</uri>
+          </mesh>
+        </geometry>
+        <max_contacts>10</max_contacts>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <bounce/>
+          <friction>
+            <ode/>
+          </friction>
+        </surface>
+      </collision>
+      <visual name='wrist_3_link_visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://ur10/meshes/ur10/visual/Wrist3.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <velocity_decay>
+        <linear>0</linear>
+        <angular>0</angular>
+      </velocity_decay>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <gravity>1</gravity>
+    </link>
+    <joint name='wrist_3_joint' type='revolute'>
+      <child>wrist_3_link</child>
+      <parent>wrist_2_link</parent>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>54</effort>
+          <velocity>3.2</velocity>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+    <static>0</static>
+<!--
+    <plugin name='ros_control' filename='libgazebo_ros_control.so'/>
+-->
+  </model>
+</sdf>

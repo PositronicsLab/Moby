@@ -8,7 +8,7 @@
 template <class OutputIterator>
 OutputIterator CollisionDetection::get_single_bodies(OutputIterator output_begin) const
 {
-  std::list<SingleBodyPtr> sbs;
+  std::list<boost::shared_ptr<Ravelin::SingleBodyd>> sbs;
   BOOST_FOREACH(CollisionGeometryPtr cg, _geoms)
     sbs.push_back(cg->get_single_body());
   sbs.sort();
@@ -34,10 +34,10 @@ OutputIterator CollisionDetection::get_rigid_bodies(OutputIterator output_begin)
 template <class OutputIterator>
 OutputIterator CollisionDetection::get_dynamic_bodies(OutputIterator output_begin) const
 {
-  std::list<DynamicBodyPtr> dbs;
+  std::list<ControlledBodyPtr> dbs;
   BOOST_FOREACH(CollisionGeometryPtr cg, _geoms)
   {
-    SingleBodyPtr sb = cg->get_single_body();
+    boost::shared_ptr<Ravelin::SingleBodyd> sb = cg->get_single_body();
     ArticulatedBodyPtr ab = sb->get_articulated_body();
     if (ab)
       dbs.push_back(boost::dynamic_pointer_cast<DynamicBody>(ab));

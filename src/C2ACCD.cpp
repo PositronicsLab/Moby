@@ -126,7 +126,7 @@ void C2ACCD::remove_articulated_body(ArticulatedBodyPtr abody)
 /**
  * \pre body states are at time tf
  */
-bool C2ACCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1,vector<Event>& contacts)
+bool C2ACCD::is_contact(double dt, const vector<pair<ControlledBodyPtr, VectorNd> >& q0, const vector<pair<ControlledBodyPtr, VectorNd> >& q1,vector<Event>& contacts)
 {
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
 
@@ -182,7 +182,7 @@ bool C2ACCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >
 }
 
 /// Gets the "super" body for a collision geometry
-DynamicBodyPtr C2ACCD::get_super_body(CollisionGeometryPtr geom)
+ControlledBodyPtr C2ACCD::get_super_body(CollisionGeometryPtr geom)
 {
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(geom->get_single_body());
   assert(rb);
@@ -194,7 +194,7 @@ DynamicBodyPtr C2ACCD::get_super_body(CollisionGeometryPtr geom)
 }
 
 /// Finds the index of the body / state pair for the given body
-unsigned C2ACCD::find_body(const vector<pair<DynamicBodyPtr, VectorNd> >& q, DynamicBodyPtr body)
+unsigned C2ACCD::find_body(const vector<pair<ControlledBodyPtr, VectorNd> >& q, ControlledBodyPtr body)
 {
   for (unsigned i=0; i< q.size(); i++)
     if (q[i].first == body)
@@ -210,7 +210,7 @@ unsigned C2ACCD::find_body(const vector<pair<DynamicBodyPtr, VectorNd> >& q, Dyn
  * \param b the second geometry
  * \param contacts on return
  */
-void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
+void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<ControlledBodyPtr, VectorNd> >& q0, const vector<pair<ControlledBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   VectorNd q, qtmp;
 
@@ -223,8 +223,8 @@ void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr
   shared_ptr<SSR> ssr_b = _root_SSRs[b];
 
   // get bodies for a and b
-  DynamicBodyPtr ba = get_super_body(a);
-  DynamicBodyPtr bb = get_super_body(b);
+  ControlledBodyPtr ba = get_super_body(a);
+  ControlledBodyPtr bb = get_super_body(b);
 
   // get the states for bodies a and b
   const unsigned idx_a = find_body(q0, ba);
@@ -239,8 +239,8 @@ void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr
   const VectorNd& qb1 = q1[idx_b].second;
 
   // set bodies to states qa0 and qb0
-  ba->set_generalized_coordinates(DynamicBody::eEuler, qa0);
-  bb->set_generalized_coordinates(DynamicBody::eEuler, qb0);
+  ba->set_generalized_coordinates(DynamicBodyd::eEuler, qa0);
+  bb->set_generalized_coordinates(DynamicBodyd::eEuler, qb0);
 
   // step to TOC
   double TOC = (double) 0.0;
@@ -264,11 +264,11 @@ void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr
     (q = qa0) *= ((double) 1.0 - TOC);
     (qtmp = qa1) *= TOC;
     q += qtmp;
-    ba->set_generalized_coordinates(DynamicBody::eEuler, q);
+    ba->set_generalized_coordinates(DynamicBodyd::eEuler, q);
     (q = qb0) *= ((double) 1.0 - TOC);
     (qtmp = qb1) *= TOC;
     q += qtmp;
-    bb->set_generalized_coordinates(DynamicBody::eEuler, q);
+    bb->set_generalized_coordinates(DynamicBodyd::eEuler, q);
   }
   while (h > alpha_tolerance && TOC < (double) 1.0);
 

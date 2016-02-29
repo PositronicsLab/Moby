@@ -28,6 +28,7 @@
 #include <Moby/FastThreadable.h>
 #include <Moby/TessellatedPolyhedron.h>
 #include <Moby/Log.h>
+#include <Moby/LP.h>
 #include <Moby/NumericalException.h>
 #include <Moby/Types.h>
 
@@ -68,6 +69,7 @@ class CompGeom
     static unsigned get_num_intersects(SegTriIntersectType t);
     static unsigned get_num_intersects(LineLineIntersectType t);
     static double determine_3D_to_2D_offset(const Ravelin::Origin3d& o, const Ravelin::Matrix3d& R);
+    static double determine_3D_to_2D_offset(const Ravelin::Vector3d& o, const Ravelin::Matrix3d& R);
     static Ravelin::Matrix3d calc_3D_to_2D_matrix(const Ravelin::Vector3d& normal);
     static Point3d generate_point_on_plane(const Ravelin::Vector3d& normal, double d);
     static bool intersect_noncoplanar_tris(const Triangle& t1, const Triangle& t2, Point3d& p1, Point3d& p2);
@@ -123,10 +125,10 @@ class CompGeom
     static void calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Point2d& p1, Point2d& p2, Point2d& p3, Point2d& p4);
 
     template <class ForwardIterator, class OutputIterator>
-    static OutputIterator intersect_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, const Ravelin::Vector3d& normal, OutputIterator isect_begin);
+    static OutputIterator intersect_convex_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, const Ravelin::Vector3d& normal, OutputIterator isect_begin);
 
     template <class ForwardIterator, class OutputIterator>
-    static OutputIterator intersect_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, OutputIterator isect_begin);
+    static OutputIterator intersect_convex_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, OutputIterator isect_begin);
 
     template <class ForwardIterator>
     static bool ccw(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
@@ -177,7 +179,7 @@ class CompGeom
     static OutputIterator intersect_coplanar_tris(const Triangle& t1, const Triangle& t2, const Ravelin::Vector3d& normal, OutputIterator begin);
 
     template <class ForwardIterator, class OutputIterator>
-    static OutputIterator to_2D(ForwardIterator begin, ForwardIterator end, OutputIterator begin_target, const Ravelin::Matrix3d& R);
+    static OutputIterator to_2D(ForwardIterator begin, ForwardIterator end, const Ravelin::Matrix3d& R, OutputIterator begin_target);
 
     template <class ForwardIterator, class OutputIterator>
     static OutputIterator to_3D(ForwardIterator begin, ForwardIterator end, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset);
@@ -201,10 +203,10 @@ class CompGeom
     static Point3d calc_centroid_3D(ForwardIterator first, ForwardIterator last);
     
     template <class ForwardIterator>
-    static TessellatedPolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point);
+    static TessellatedPolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::Origin3d& interior_point);
 
     template <class ForwardIterator>
-    static double find_hs_interior_point(ForwardIterator start, ForwardIterator end, Point3d& point);
+    static double find_hs_interior_point(ForwardIterator start, ForwardIterator end, Ravelin::Origin3d& point);
 
     template <class ForwardIterator>
     static unsigned calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol = NEAR_ZERO);
@@ -254,6 +256,8 @@ class CompGeom
     static void find_plane_coeff(const Triangle& t, Ravelin::Vector3d& N, unsigned int& m, double& dot);
     static Ravelin::Vector3d normal_vec(const Point3d& a, const Point3d& b, const Point3d& c);
     static OrientationType area_sign(const Point2d& a, const Point2d& b, const Point2d& c, double tol = NEAR_ZERO);
+    static OrientationType area_sign(const Ravelin::Origin2d& a, const Ravelin::Origin2d& b, const Ravelin::Origin2d& c, double tol = NEAR_ZERO);
+    static long double area(const Ravelin::Origin2d& a, const Ravelin::Origin2d& b, const Ravelin::Origin2d& c);
     static long double area(const Point2d& a, const Point2d& b, const Point2d& c);
     static bool test_edge_edge(const Point3d& p, const Point3d& a, const Point3d& b, double Ax, double Ay, unsigned i0, unsigned i1);
     static bool test_edge_tri(const Point3d& a, const Point3d& b, const Triangle& t, unsigned i0, unsigned i1);
@@ -315,6 +319,15 @@ class CompGeomSpecOne<T, Point2d>
 };
 
 template <class T>
+class CompGeomSpecOne<T, Ravelin::Origin2d>
+{
+  friend class CompGeom;
+
+  private:
+    static bool ccw(T begin, T end, double tol = NEAR_ZERO);
+};
+
+template <class T>
 class CompGeomSpecOne<T, Point2d*>
 {
   friend class CompGeom;
@@ -342,9 +355,38 @@ class CompGeomSpecTwo
  * partial specialization.
  */
 template <class T, class U>
+class CompGeomSpecTwo<T, U, Ravelin::Origin2d>
+{
+  friend class CompGeom;
+
+  private:
+    static U calc_convex_hull(T source_begin, T source_end, U target_begin);
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U>
+class CompGeomSpecTwo<T, U, Ravelin::Origin2d*>
+{
+  friend class CompGeom;
+
+  private:
+    static U calc_convex_hull(T source_begin, T source_end, U target_begin);
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U>
 class CompGeomSpecTwo<T, U, Point2d*>
 {
   friend class CompGeom;
+  template <class, class, class> friend class CompGeomSpecTwo;
 
   private:
     static U calc_convex_hull(T source_begin, T source_end, U target_begin);
@@ -381,7 +423,7 @@ class CompGeomSpecTwo<T, U, Point3d>
   private:
     static U calc_convex_hull(T source_begin, T source_end, U target_begin);
     static U calc_convex_hull(T source_begin, T source_end, const Ravelin::Vector3d& normal, U target_begin);
-    static U to_2D(T begin_source, T end_source, U begin_target, const Ravelin::Matrix3d& R);
+    static U to_2D(T begin_source, T end_source, const Ravelin::Matrix3d& R, U begin_target);
 };
 
 /// Specialized two-parameter computational geometry routines
@@ -397,7 +439,7 @@ class CompGeomSpecTwo<T, U, Point3d*>
   private:
     static U calc_convex_hull(T source_begin, T source_end, U target_begin);
     static U calc_convex_hull(T source_begin, T source_end, const Ravelin::Vector3d& normal, U target_begin);
-    static U to_2D(T begin_source, T end_source, U begin_target, const Ravelin::Matrix3d& R);
+    static U to_2D(T begin_source, T end_source, const Ravelin::Matrix3d& R, U begin_target);
 };
 
 // include inline functions

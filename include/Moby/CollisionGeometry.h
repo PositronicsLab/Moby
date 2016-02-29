@@ -20,9 +20,11 @@
 #include <Moby/Triangle.h>
 #include <Moby/Primitive.h>
 
-namespace Moby {
+namespace Ravelin {
+class SingleBodyd;  
+}
 
-class SingleBody;  
+namespace Moby {
 
 /// Defines collision geometry that may be used (in principle) many ways: for rigid bodies, non-rigid bodies, ...
 /**
@@ -42,13 +44,16 @@ class CollisionGeometry : public virtual Base
     PrimitivePtr set_geometry(PrimitivePtr primitive);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    void set_single_body(boost::shared_ptr<SingleBody> s);
+    void set_single_body(boost::shared_ptr<Ravelin::SingleBodyd> s);
     static double calc_signed_dist(CollisionGeometryPtr a, CollisionGeometryPtr b, Point3d& cpa, Point3d& cpb);
     double calc_signed_dist(const Point3d& p);
     double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& n) const;
     void get_vertices(std::vector<Point3d>& p) const;
     Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     double get_farthest_point_distance() const;
+
+    /// Gets the shared pointer for this
+    CollisionGeometryPtr get_this() { return boost::dynamic_pointer_cast<CollisionGeometry>(shared_from_this()); }
 
     /// Gets the parent of this CollisionGeometry (or NULL if there is no parent)
     boost::shared_ptr<CollisionGeometry> get_parent() const { return (_parent.expired()) ? CollisionGeometryPtr() : CollisionGeometryPtr(_parent); }
@@ -60,7 +65,7 @@ class CollisionGeometry : public virtual Base
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
     
     /// Gets the single body associated with this CollisionGeometry (if any)
-    boost::shared_ptr<SingleBody> get_single_body() const { return (_single_body.expired()) ? SingleBodyPtr() : SingleBodyPtr(_single_body); }
+    boost::shared_ptr<Ravelin::SingleBodyd> get_single_body() const { return (_single_body.expired()) ? boost::shared_ptr<Ravelin::SingleBodyd>() : boost::shared_ptr<Ravelin::SingleBodyd>(_single_body); }
     
     /// Gets the geometry for this primitive
     PrimitivePtr get_geometry() const { return _geometry; }
@@ -73,7 +78,7 @@ class CollisionGeometry : public virtual Base
     PrimitivePtr _geometry;
 
   private:
-    boost::weak_ptr<SingleBody> _single_body;
+    boost::weak_ptr<Ravelin::SingleBodyd> _single_body;
     boost::weak_ptr<CollisionGeometry> _parent;
 }; // end class
 

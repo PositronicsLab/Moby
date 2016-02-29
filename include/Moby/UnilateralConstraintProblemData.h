@@ -5,10 +5,15 @@
 #include <vector>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
+#include <Ravelin/sorted_pair>
+#include <Moby/PairwiseDistInfo.h>
+#include <Moby/SparseJacobian.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/Types.h>
 
 namespace Moby {
+
+class Simulator;
 
 struct UnilateralConstraintProblemData
 {
@@ -27,17 +32,14 @@ struct UnilateralConstraintProblemData
   // copies constraint problem data
   UnilateralConstraintProblemData& copy_from(const UnilateralConstraintProblemData& q)
   {
+    simulator = q.simulator;
     N_K_TOTAL = q.N_K_TOTAL;
     N_LIN_CONE = q.N_LIN_CONE;
     N_TRUE_CONE = q.N_TRUE_CONE;
     N_CONTACTS = q.N_CONTACTS;
     N_CONSTRAINTS = q.N_CONSTRAINTS;
     N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
-    N_ACT_K = q.N_ACT_K;
-    N_ACT_CONTACTS = q.N_ACT_CONTACTS;
-    N_CONTACT_CONSTRAINTS = q.N_CONTACT_CONSTRAINTS;
     N_GC = q.N_GC;
-    kappa = q.kappa;
 
     // copy indices
     CN_IDX = q.CN_IDX;
@@ -46,11 +48,7 @@ struct UnilateralConstraintProblemData
     NCS_IDX = q.NCS_IDX;
     NCT_IDX = q.NCT_IDX;
     L_IDX = q.L_IDX;
-    ALPHA_X_IDX = q.ALPHA_X_IDX;
     N_VARS = q.N_VARS;  
-
-    // copy contact constraints
-    contact_constraint_set = q.contact_constraint_set;
 
     // copy constraint velocities
     Cn_v = q.Cn_v;
@@ -58,6 +56,9 @@ struct UnilateralConstraintProblemData
     Ct_v = q.Ct_v;
     L_v = q.L_v;
     Jx_v = q.Jx_v;
+
+    // copy the signed distances
+    signed_distances = q.signed_distances;
 
     // the vector of "super" bodies
     super_bodies = q.super_bodies; 
@@ -68,28 +69,48 @@ struct UnilateralConstraintProblemData
     limit_constraints = q.limit_constraints;
 
     // cross-constraint terms
-    Cn_iM_CnT = q.Cn_iM_CnT;
-    Cn_iM_CsT = q.Cn_iM_CsT;
-    Cn_iM_CtT = q.Cn_iM_CtT;
-    Cn_iM_LT = q.Cn_iM_LT;
-    Cn_iM_JxT = q.Cn_iM_JxT;
-    Cs_iM_CsT = q.Cs_iM_CsT;
-    Cs_iM_CtT = q.Cs_iM_CtT;
-    Cs_iM_LT = q.Cs_iM_LT;
-    Cs_iM_JxT = q.Cs_iM_JxT;
-    Ct_iM_CtT = q.Ct_iM_CtT;
-    Ct_iM_LT = q.Ct_iM_LT;
-    Ct_iM_JxT = q.Ct_iM_JxT;
-    L_iM_LT = q.L_iM_LT;
-    L_iM_JxT = q.L_iM_JxT;
+    Cn_X_CnT = q.Cn_X_CnT;
+    Cn_X_CsT = q.Cn_X_CsT;
+    Cn_X_CtT = q.Cn_X_CtT;
+    Cn_X_LT = q.Cn_X_LT;
+    Cn_X_JxT = q.Cn_X_JxT;
+    Cs_X_CsT = q.Cs_X_CsT;
+    Cs_X_CtT = q.Cs_X_CtT;
+    Cs_X_LT = q.Cs_X_LT;
+    Cs_X_JxT = q.Cs_X_JxT;
+    Ct_X_CtT = q.Ct_X_CtT;
+    Ct_X_LT = q.Ct_X_LT;
+    Ct_X_JxT = q.Ct_X_JxT;
+    L_X_LT = q.L_X_LT;
+    L_X_JxT = q.L_X_JxT;
+    Jx_X_JxT = q.Jx_X_JxT;
+
+    // copy Cdot_v
+    Cdot_v = q.Cdot_v;
+
+    // copy Cdot Jacobians
+    Cdot_iM_CnT = q.Cdot_iM_CnT; 
+    Cdot_iM_CsT = q.Cdot_iM_CsT; 
+    Cdot_iM_CtT = q.Cdot_iM_CtT; 
+    Cdot_iM_LT = q.Cdot_iM_LT; 
+
+    // copy implicit constraints, Jacobian, and related terms
+    island_ijoints = q.island_ijoints;
+    J = q.J;
+    Jfull = q.Jfull;
     Jx_iM_JxT = q.Jx_iM_JxT;
+    iM_JxT = q.iM_JxT;
+    active = q.active;
+
+    // copy limit indices
+    limit_indices = q.limit_indices;
 
     // copy impulse magnitudes 
     cn = q.cn;
     cs = q.cs;
     ct = q.ct;
     l = q.l;
-    alpha_x = q.alpha_x;
+    lambda = q.lambda;
 
     return *this;
   }
@@ -97,24 +118,33 @@ struct UnilateralConstraintProblemData
   // resets all constraint problem data
   void reset()
   {
+    simulator.reset();
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_EQNS_IMP = 0;
-    N_ACT_K = N_ACT_CONTACTS = N_CONTACT_CONSTRAINTS = 0;
     N_GC = 0;
-    kappa = 0.0;
 
     // clear all indices
     N_VARS = 0;
     CS_IDX = CT_IDX = NCS_IDX = NCT_IDX = 0;
     L_IDX = 0;
-    ALPHA_X_IDX = 0;
 
     // clear all vectors
-    contact_constraint_set.clear();
     super_bodies.clear();
     constraints.clear();
     contact_constraints.clear();
     limit_constraints.clear();
+    limit_indices.clear();
+
+    // clear signed distances
+    signed_distances.clear();
+
+    // clear implicit constraint related stuff
+    island_ijoints.clear();
+    J.blocks.clear();
+    Jfull.blocks.clear();
+    Jx_iM_JxT.resize(0,0);
+    iM_JxT.resize(0,0);
+    active.clear();
 
     // reset all Ravelin::VectorNd sizes
     Cn_v.resize(0);
@@ -126,24 +156,29 @@ struct UnilateralConstraintProblemData
     cs.resize(0);
     ct.resize(0);
     l.resize(0);
-    alpha_x.resize(0);
+    lambda.resize(0);
 
     // reset all MatrixN sizes
-    Cn_iM_CnT.resize(0,0);
-    Cn_iM_CsT.resize(0,0);
-    Cn_iM_CtT.resize(0,0);
-    Cn_iM_LT.resize(0,0);
-    Cn_iM_JxT.resize(0,0);
-    Cs_iM_CsT.resize(0,0);
-    Cs_iM_CtT.resize(0,0);
-    Cs_iM_LT.resize(0,0);
-    Cs_iM_JxT.resize(0,0);
-    Ct_iM_CtT.resize(0,0);
-    Ct_iM_LT.resize(0,0);
-    Ct_iM_JxT.resize(0,0);
-    L_iM_LT.resize(0,0);
-    L_iM_JxT.resize(0,0);
-    Jx_iM_JxT.resize(0,0);
+    Cn_X_CnT.resize(0,0);
+    Cn_X_CsT.resize(0,0);
+    Cn_X_CtT.resize(0,0);
+    Cn_X_LT.resize(0,0);
+    Cn_X_JxT.resize(0,0);
+    Cs_X_CsT.resize(0,0);
+    Cs_X_CtT.resize(0,0);
+    Cs_X_LT.resize(0,0);
+    Cs_X_JxT.resize(0,0);
+    Ct_X_CtT.resize(0,0);
+    Ct_X_LT.resize(0,0);
+    Ct_X_JxT.resize(0,0);
+    L_X_LT.resize(0,0);
+    L_X_JxT.resize(0,0);
+    Jx_X_JxT.resize(0,0);
+    Cdot_v.resize(0);
+    Cdot_iM_CnT.resize(0,0);
+    Cdot_iM_CsT.resize(0,0);
+    Cdot_iM_CtT.resize(0,0);
+    Cdot_iM_LT.resize(0,0);
   }
 
   // sets up indices for a QP
@@ -155,8 +190,7 @@ struct UnilateralConstraintProblemData
     NCS_IDX = CT_IDX + N_CONTACTS;
     NCT_IDX = NCS_IDX + N_CONTACTS;
     L_IDX = NCT_IDX + N_CONTACTS;
-    ALPHA_X_IDX = L_IDX + N_LIMITS;
-    N_VARS = ALPHA_X_IDX + N_CONSTRAINT_EQNS_IMP;
+    N_VARS = L_IDX + N_LIMITS;
   }
 
   // sets up indices for a nonlinear QP
@@ -168,8 +202,7 @@ struct UnilateralConstraintProblemData
     NCS_IDX = CT_IDX + N_CONTACTS;
     NCT_IDX = NCS_IDX + 0;
     L_IDX = NCT_IDX + 0;
-    ALPHA_X_IDX = L_IDX + N_LIMITS;
-    N_VARS = ALPHA_X_IDX + N_CONSTRAINT_EQNS_IMP;
+    N_VARS = L_IDX + N_LIMITS;
   }
 
   // sets cn, cs, etc. from stacked vector (NQP version)
@@ -178,16 +211,14 @@ struct UnilateralConstraintProblemData
     cn = z.segment(CN_IDX, CS_IDX);
     cs = z.segment(CS_IDX, CT_IDX);
     ct = z.segment(CT_IDX, L_IDX);
-    l = z.segment(L_IDX, ALPHA_X_IDX);
-    alpha_x = z.segment(ALPHA_X_IDX, N_VARS);
+    l = z.segment(L_IDX, N_VARS);
   }
 
   // sets cn, cs, etc. from stacked vector (QP version)
   void update_from_stacked_qp(const Ravelin::VectorNd& z)
   {
     cn = z.segment(CN_IDX, CS_IDX);
-    l = z.segment(L_IDX, ALPHA_X_IDX);
-    alpha_x = z.segment(ALPHA_X_IDX, N_VARS);
+    l = z.segment(L_IDX, N_VARS);
 
     // setup cs/ct -- first determine linearized friction cone forces
     cs.segment(0, N_LIN_CONE) = z.segment(CS_IDX, CT_IDX);
@@ -259,7 +290,6 @@ struct UnilateralConstraintProblemData
         z[j] = 0.0;
     }
     z.set_sub_vec(L_IDX, l);
-    z.set_sub_vec(ALPHA_X_IDX, alpha_x);
     return z;
   }
 
@@ -281,14 +311,8 @@ struct UnilateralConstraintProblemData
   // starting index of l in the stacked vector
   unsigned L_IDX;
 
-  // starting index of alpha_x in the stacked vector
-  unsigned ALPHA_X_IDX;
-
   // total number of variables
   unsigned N_VARS;
-
-  // the total number of linearized friction tangents for *active* contacts
-  unsigned N_ACT_K;
 
   // the total number of linearized friction tangents for contact constraints
   unsigned N_K_TOTAL;
@@ -302,12 +326,6 @@ struct UnilateralConstraintProblemData
   // the number of contacts (total)
   unsigned N_CONTACTS;
 
-  // the number of contacts (active)
-  unsigned N_ACT_CONTACTS;
-
-  // the number of contact constraints in the optimization problem
-  unsigned N_CONTACT_CONSTRAINTS;
-
   // the number of limits
   unsigned N_LIMITS;
 
@@ -317,33 +335,64 @@ struct UnilateralConstraintProblemData
   // the total number of generalized coordinates
   unsigned N_GC;
 
-  // the velocity in the normal direction for frictionless contacts
-  double kappa;
-
   // the number of implicit joint constraint equations (total)
   unsigned N_CONSTRAINT_EQNS_IMP;
 
+  // pairwise distances between rigid bodies
+  std::vector<PairwiseDistInfo> signed_distances;
+
   // the vector of "super" bodies
-  std::vector<DynamicBodyPtr> super_bodies; 
+  std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > super_bodies; 
 
   // the vectors of constraints
   std::vector<UnilateralConstraint*> constraints, contact_constraints, limit_constraints;
 
   // the vector indicating which contact constraints are in the linear constraint set 
-  std::vector<bool> contact_constraint_set;
-
   // cross-constraint terms
-  Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_LT, Cn_iM_JxT;
-  Ravelin::MatrixNd            Cs_iM_CsT, Cs_iM_CtT, Cs_iM_LT, Cs_iM_JxT;
-  Ravelin::MatrixNd                       Ct_iM_CtT, Ct_iM_LT, Ct_iM_JxT;
-  Ravelin::MatrixNd                                   L_iM_LT, L_iM_JxT;
-  Ravelin::MatrixNd                                            Jx_iM_JxT;
+  Ravelin::MatrixNd Cn_X_CnT, Cn_X_CsT, Cn_X_CtT, Cn_X_LT,    Cn_X_JxT;
+  Ravelin::MatrixNd            Cs_X_CsT, Cs_X_CtT, Cs_X_LT,   Cs_X_JxT;
+  Ravelin::MatrixNd                       Ct_X_CtT, Ct_X_LT,  Ct_X_JxT;
+  Ravelin::MatrixNd                                   L_X_LT, L_X_JxT;
+  Ravelin::MatrixNd                                           Jx_X_JxT;
+
+  // bilateral constraint inertia terms 
+  Ravelin::MatrixNd iM_JxT, Jx_iM_JxT;
+
+  // X times Jacobian transposes
+  Ravelin::MatrixNd X_CnT, X_CsT, X_CtT, X_LT, X_JxT;
+
+  // Cdot Jacobians
+  Ravelin::MatrixNd Cdot_iM_CnT, Cdot_iM_CsT, Cdot_iM_CtT, Cdot_iM_LT;
+
+  // Cdot(v)
+  Ravelin::VectorNd Cdot_v;
 
   // vector-based terms
   Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v;
 
   // impulse magnitudes determined by solve_qp()
-  Ravelin::VectorNd cn, cs, ct, l, alpha_x;
+  Ravelin::VectorNd cn, cs, ct, l;
+
+  // bilateral constraint impulses
+  Ravelin::VectorNd lambda;
+
+  // active implicit bilateral constraints
+  std::vector<bool> active;
+
+  // implicit bilateral constraints in this island
+  std::vector<JointPtr> island_ijoints;
+
+  // the implicit constraint Jacobian (full)
+  SparseJacobian Jfull;
+
+  // the implicit constraint Jacobian (reduced)
+  SparseJacobian J;
+
+  // indices in the generalized coordinates of the various limits
+  std::vector<unsigned> limit_indices;
+
+  // a pointer to the simulator
+  boost::shared_ptr<Simulator> simulator;
 }; // end struct
 
 } // end namespace Moby

@@ -39,15 +39,19 @@ class SpherePrimitive : public Primitive
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     virtual double calc_signed_dist(const Point3d& p) const;
+    virtual double get_bounding_radius() const { return _radius; }
 
     /// Gets the radius for this sphere
     double get_radius() const { return _radius; }
 
     /// Gets the number of points used to create the sphere for visualization / collision checking
     unsigned get_num_points() const { return _npoints; }
-    
+
   private:
     virtual void calc_mass_properties();
+    static double calc_f(const Ravelin::VectorNd&, void*);
+    static void calc_gradient(const Ravelin::VectorNd&, void*, Ravelin::VectorNd&);
+    static void calc_hessian(const Ravelin::VectorNd&, void*, Ravelin::MatrixNd&);
 
     /// The bounding volumes for the sphere
     std::map<CollisionGeometryPtr, boost::shared_ptr<BoundingSphere> > _bsphs; 

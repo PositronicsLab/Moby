@@ -27,7 +27,7 @@ class TriangleMeshPrimitive : public Primitive
     TriangleMeshPrimitive(const std::string& filename, const Ravelin::Pose3d& T, bool center = true);
     void set_edge_sample_length(double len);
     virtual osg::Node* create_visualization();
-
+    virtual double get_bounding_radius() const { return 0.0; }
     /// Gets the length of an edge in the mesh above which point sub-samples are created
     double get_edge_sample_length() const { return _edge_sample_length; }
 

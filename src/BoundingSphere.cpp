@@ -4,9 +4,9 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#include <Ravelin/SingleBodyd.h>
 #include <Moby/OBB.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/SingleBody.h>
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
 
@@ -15,6 +15,7 @@ using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::const_pointer_cast;
+using boost::dynamic_pointer_cast;
 using std::endl;
 
 BoundingSphere::BoundingSphere()
@@ -71,7 +72,7 @@ std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Pose3d& T) const
 BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
 {
   // get the corresponding body
-  SingleBodyPtr b = g->get_single_body();
+  shared_ptr<SingleBodyd> b = g->get_single_body();
 
   // if the body does not move, just return the bounding sphere 
   if (!b->is_enabled())
@@ -80,7 +81,7 @@ BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v)
     FILE_LOG(LOG_BV) << "  -- using original bounding sphere" << endl;
     FILE_LOG(LOG_BV) << "BoundingSphere::calc_swept_BV() exited" << endl;
 
-    return const_pointer_cast<BoundingSphere>(get_this());
+    return const_pointer_cast<BoundingSphere>(dynamic_pointer_cast<const BoundingSphere>(shared_from_this()));
   }
 
   // get the velocity in the proper frame

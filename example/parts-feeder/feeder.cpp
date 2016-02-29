@@ -1,13 +1,13 @@
 /*****************************************************************************
  * Controller for LINKS robot
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 
- boost::shared_ptr<Moby::EventDrivenSimulator> sim;
+ boost::shared_ptr<Moby::TimeSteppingSimulator> sim;
  Moby::RCArticulatedBodyPtr slide;
 
-void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
+void controller_callback(Moby::ControlledBodyPtr dbp, double t, void*)
 {
   double p =  0.001*cos(t*(2.0*M_PI)*500.0);
   double v =  -0.001*sin(t*1000.0) *(2.0*M_PI)*500.0;
@@ -35,13 +35,13 @@ extern "C" {
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
   // If use robot is active also init dynamixel controllers
-  // get a reference to the EventDrivenSimulator instance
+  // get a reference to the TimeSteppingSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<Moby::EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<Moby::TimeSteppingSimulator>(i->second);
 
     // find the robot reference
     if (!slide)

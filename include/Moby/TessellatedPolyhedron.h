@@ -13,6 +13,7 @@
 #include <map>
 #include <Moby/IndexedTriArray.h>
 #include <Moby/Constants.h>
+#include <Moby/Polyhedron.h>
 #include <Moby/InvalidIndexException.h>
 
 namespace Moby {
@@ -48,6 +49,8 @@ class TessellatedPolyhedron
     static IndexedTriArray construct_intersection(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2);
     static IndexedTriArray construct_union(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2);
     static IndexedTriArray construct_difference(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2);
+    const Ravelin::Origin3d& find_extreme_vertex(const Ravelin::Origin3d& direction);
+    void to_polyhedron(Polyhedron& p) const;
 
     template <class InputIterator1, class InputIterator2>
     TessellatedPolyhedron(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end);
@@ -66,6 +69,7 @@ class TessellatedPolyhedron
 
     /// Determines whether this polyhedron convex (to w/in floating point tolerance)
     bool is_convex() { return convexity() < NEAR_ZERO; }
+
 
     /// Gets the convexity of this polyhedron 
     /**

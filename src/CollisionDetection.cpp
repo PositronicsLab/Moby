@@ -12,7 +12,7 @@
 #include <Moby/CollisionGeometry.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/ConstraintSimulator.h>
 #include <Moby/CollisionDetection.h>
 
 using namespace Ravelin;
@@ -25,7 +25,7 @@ using std::pair;
 using namespace Moby;
 
 /// Default broad phase function (checks everything)
-void CollisionDetection::broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void CollisionDetection::broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   // clear vector of bodies to be checked
   to_check.clear();
@@ -36,7 +36,10 @@ void CollisionDetection::broad_phase(double dt, const std::vector<DynamicBodyPtr
   {
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
     if (ab)
-      rbs.insert(rbs.end(), ab->get_links().begin(), ab->get_links().end());
+    {
+      BOOST_FOREACH(shared_ptr<RigidBodyd> link, ab->get_links()) 
+        rbs.push_back(dynamic_pointer_cast<RigidBody>(link));
+    }
     else
       rbs.push_back(dynamic_pointer_cast<RigidBody>(bodies[i]));
   }
@@ -53,6 +56,8 @@ void CollisionDetection::broad_phase(double dt, const std::vector<DynamicBodyPtr
 /// Creates a contact constraint given the bare-minimum info
 UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
 {
+  const double TOL = 1e-6;
+
   UnilateralConstraint e;
   e.constraint_type = UnilateralConstraint::eContact;
   e.contact_point = point;
@@ -62,14 +67,14 @@ UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, 
   e.signed_violation = violation;
 
   // check for valid normal here
-  assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < NEAR_ZERO);
+  assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < TOL);
 
   // make the body first that comes first alphabetically
   if (LOGGING(LOG_COLDET))
   {
-    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
-    if (sb2->id < sb1->id)
+    shared_ptr<SingleBodyd> sb1 = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = e.contact_geom2->get_single_body();
+    if (sb2->body_id < sb1->body_id)
     {
       std::swap(e.contact_geom1, e.contact_geom2);
       e.contact_normal = -e.contact_normal;
@@ -82,9 +87,6 @@ UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, 
 
   // compute contact tangents
   e.determine_contact_tangents();
-
-  // compute normal and tangent time derivatives
-  e.compute_contact_dots();
 
   return e;
 }

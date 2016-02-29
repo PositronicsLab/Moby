@@ -28,7 +28,6 @@ class BoundingSphere : public BV
     static bool intersects(const BoundingSphere& a, const BoundingSphere& b, const Ravelin::Transform3d& aTb);
     static bool intersects(const BoundingSphere& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q);
     static bool outside(const BoundingSphere& a, const Point3d& point, double tol = NEAR_ZERO);
-    boost::shared_ptr<const BoundingSphere> get_this() const { return boost::dynamic_pointer_cast<const BoundingSphere>(shared_from_this()); }
     virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) const { return BoundingSphere::outside(*this, point, tol); }
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const { return BoundingSphere::intersects(*this, seg, tmin, tmax, q); }
 

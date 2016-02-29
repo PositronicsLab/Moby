@@ -11,7 +11,7 @@
 #include <set>
 #include <Ravelin/VectorNd.h>
 #include <Ravelin/Pose3d.h>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Base.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/CollisionGeometry.h>
@@ -20,7 +20,7 @@
 
 namespace Moby {
 
-class EventDrivenSimulator;
+class ConstraintSimulator;
 class ArticulatedBody;
 class CollisionGeometry;
 class Triangle;
@@ -40,9 +40,8 @@ class CollisionDetection : public virtual Base
   public:
     CollisionDetection() {}
     virtual ~CollisionDetection() {}
-    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim) {}
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi) = 0;
+    virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim) {}
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO) = 0;
 
@@ -56,7 +55,10 @@ class CollisionDetection : public virtual Base
     boost::shared_ptr<CollisionDetection> get_this() { return boost::dynamic_pointer_cast<CollisionDetection>(shared_from_this()); }
 
   protected:
+    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
     static UnilateralConstraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
+
+  friend class ConstraintStabilization;
 }; // end class
 
 } // end namespace Moby

@@ -16,7 +16,6 @@
 #include <Moby/Constants.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
@@ -38,7 +37,7 @@ using boost::dynamic_pointer_cast;
 
 /// Special functions that do nothing...
 #ifndef HAVE_IPOPT
-void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblemData& q, double max_time)
+void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblemData& q)
 {
   throw std::runtime_error("Build without IPOPT!");
 }
@@ -49,42 +48,29 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
 
 #else // #ifndef HAVE_IPOPT
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
-void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblemData& q, double max_time)
+void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblemData& q)
 {
   // get the number of different types of each constraint
   const unsigned N_CONTACTS = q.N_CONTACTS;
   const unsigned N_LIMITS = q.N_LIMITS;
   const unsigned CL_IDX = N_CONTACTS*3;
 
-  // TODO: set z to frictionless solution to start
-
   // mark starting time
   tms cstart;
   clock_t start = times(&cstart);
 
   // keep solving until we run out of time or all contact points are active
-  while (true)
-  {
-    FILE_LOG(LOG_CONSTRAINT) << "Running NQP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "Running NQP solve iteration with " << (q.N_CONTACTS) << " contacts" << std::endl;
 
-    // solve the nonlinearly constrained QP
-    solve_nqp_work(q, z);
+  // solve the nonlinearly constrained QP
+  solve_nqp_work(q, z);
 
-    // get the elapsed time
-    const long TPS = sysconf(_SC_CLK_TCK);
-    tms cstop;
-    clock_t stop = times(&cstop);
-    double elapsed = (double) (stop-start)/TPS;
-    FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl; 
-
-    // check whether we can mark any more contacts as active
-    if (elapsed > max_time || q.N_ACT_CONTACTS == q.N_CONTACTS)
-      break;
-
-    // we can; mark next contact for solving
-    q.N_ACT_K += q.contact_constraints[q.N_ACT_CONTACTS]->contact_NK/2;
-    q.N_ACT_CONTACTS++;
-  }
+  // get the elapsed time
+  const long TPS = sysconf(_SC_CLK_TCK);
+  tms cstop;
+  clock_t stop = times(&cstop);
+  double elapsed = (double) (stop-start)/TPS;
+  FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl; 
 }
 
 /// Solves the nonlinearly constrained quadratic program (does all of the work)
@@ -97,22 +83,21 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
 
   // setup constants
   const unsigned N_CONTACTS = q.N_CONTACTS;
-  const unsigned N_ACT_CONTACTS = q.N_ACT_CONTACTS;
   const unsigned N_LIMITS = q.N_LIMITS;
   const unsigned N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP; 
   const unsigned CN_IDX = 0;
-  const unsigned CS_IDX = N_ACT_CONTACTS;
-  const unsigned CT_IDX = CS_IDX + N_ACT_CONTACTS;
-  const unsigned CL_IDX = CT_IDX + N_ACT_CONTACTS;
+  const unsigned CS_IDX = N_CONTACTS;
+  const unsigned CT_IDX = CS_IDX + N_CONTACTS;
+  const unsigned CL_IDX = CT_IDX + N_CONTACTS;
   const unsigned NVARS = N_LIMITS + CL_IDX; 
 
   // setup the optimization data
   _ipsolver->epd = &q;
-  _ipsolver->mu_c.resize(N_ACT_CONTACTS);
-  _ipsolver->mu_visc.resize(N_ACT_CONTACTS);
+  _ipsolver->mu_c.resize(N_CONTACTS);
+  _ipsolver->mu_visc.resize(N_CONTACTS);
 
   // setup true friction cone for every contact
-  for (unsigned i=0; i< N_ACT_CONTACTS; i++)
+  for (unsigned i=0; i< N_CONTACTS; i++)
   {
     _ipsolver->mu_c[i] = sqr(q.contact_constraints[i]->contact_mu_coulomb);
     _ipsolver->mu_visc[i] = (sqr(q.Cs_v[i]) + sqr(q.Ct_v[i])) *
@@ -147,10 +132,10 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
 
     // setup blocks of A
     _A.resize(N_CONSTRAINT_EQNS_IMP, NVARS);
-    SharedMatrixNd b1 = _A.block(0, N_CONSTRAINT_EQNS_IMP, 0, N_ACT_CONTACTS);
-    SharedMatrixNd b2 = _A.block(0, N_CONSTRAINT_EQNS_IMP, N_ACT_CONTACTS, N_ACT_CONTACTS*2);
-    SharedMatrixNd b3 = _A.block(0, N_CONSTRAINT_EQNS_IMP, N_ACT_CONTACTS*2, N_ACT_CONTACTS*3);
-    SharedMatrixNd b4 = _A.block(0, N_CONSTRAINT_EQNS_IMP, N_ACT_CONTACTS*3, N_ACT_CONTACTS*3+N_LIMITS);
+    SharedMatrixNd b1 = _A.block(0, N_CONSTRAINT_EQNS_IMP, 0, N_CONTACTS);
+    SharedMatrixNd b2 = _A.block(0, N_CONSTRAINT_EQNS_IMP, N_CONTACTS, N_CONTACTS*2);
+    SharedMatrixNd b3 = _A.block(0, N_CONSTRAINT_EQNS_IMP, N_CONTACTS*2, N_CONTACTS*3);
+    SharedMatrixNd b4 = _A.block(0, N_CONSTRAINT_EQNS_IMP, N_CONTACTS*3, N_CONTACTS*3+N_LIMITS);
 
     // compute the nullspace
     MatrixNd::transpose(q.Cn_iM_JxT, b1);
@@ -167,74 +152,74 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
   const unsigned N_PRIMAL = (R.columns() > 0) ? R.columns() : NVARS;
 
   // setup number of nonlinear inequality constraints
-  const unsigned NONLIN_INEQUAL = N_ACT_CONTACTS;
+  const unsigned NONLIN_INEQUAL = N_CONTACTS;
 
   // init the QP matrix and vector
   H.resize(N_PRIMAL, N_PRIMAL);
   c.resize(H.rows());
 
   // setup row (block) 1 -- Cn * iM * [Cn' Cs Ct' L']
-  unsigned col_start = 0, col_end = N_ACT_CONTACTS;
-  unsigned row_start = 0, row_end = N_ACT_CONTACTS;
+  unsigned col_start = 0, col_end = N_CONTACTS;
+  unsigned row_start = 0, row_end = N_CONTACTS;
   SharedMatrixNd Cn_iM_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd Cn_iM_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd Cn_iM_CtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += N_LIMITS;
   SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
 
   // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' L']
-  row_start = row_end; row_end += N_ACT_CONTACTS;
-  col_start = 0; col_end = N_ACT_CONTACTS;
+  row_start = row_end; row_end += N_CONTACTS;
+  col_start = 0; col_end = N_CONTACTS;
   SharedMatrixNd Cs_iM_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd Cs_iM_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd Cs_iM_CtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += N_LIMITS;
   SharedMatrixNd Cs_iM_LT = H.block(row_start, row_end, col_start, col_end);
 
   // setup row (block) 3 -- Ct * iM * [Cn' Cs' Ct' L']
-  row_start = row_end; row_end += N_ACT_CONTACTS;
-  col_start = 0; col_end = N_ACT_CONTACTS;
+  row_start = row_end; row_end += N_CONTACTS;
+  col_start = 0; col_end = N_CONTACTS;
   SharedMatrixNd Ct_iM_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd Ct_iM_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd Ct_iM_CtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += N_LIMITS;
   SharedMatrixNd Ct_iM_LT = H.block(row_start, row_end, col_start, col_end);
 
   // setup row (block 4) -- L * iM * [Cn' Cs' Ct' L']
   row_start = row_end; row_end += N_LIMITS;
-  col_start = 0; col_end = N_ACT_CONTACTS;
+  col_start = 0; col_end = N_CONTACTS;
   SharedMatrixNd L_iM_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd L_iM_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += N_ACT_CONTACTS;
+  col_start = col_end; col_end += N_CONTACTS;
   SharedMatrixNd L_iM_CtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += N_LIMITS;
   SharedMatrixNd L_iM_LT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
   // copy to row block 1 (contact normals)
-  q.Cn_iM_CnT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cn_iM_CnT);
-  q.Cn_iM_CsT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cn_iM_CsT);
-  q.Cn_iM_CtT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cn_iM_CtT);
-  q.Cn_iM_LT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_LIMITS, Cn_iM_LT);
+  q.Cn_iM_CnT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cn_iM_CnT);
+  q.Cn_iM_CsT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cn_iM_CsT);
+  q.Cn_iM_CtT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cn_iM_CtT);
+  q.Cn_iM_LT.get_sub_mat(0, N_CONTACTS, 0, N_LIMITS, Cn_iM_LT);
   
   // copy to row block 2 (first contact tangents)
   MatrixNd::transpose(Cn_iM_CsT, Cs_iM_CnT);
-  q.Cs_iM_CsT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cs_iM_CsT);
-  q.Cs_iM_CtT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cs_iM_CtT);
-  q.Cs_iM_LT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_LIMITS, Cs_iM_LT);
+  q.Cs_iM_CsT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cs_iM_CsT);
+  q.Cs_iM_CtT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cs_iM_CtT);
+  q.Cs_iM_LT.get_sub_mat(0, N_CONTACTS, 0, N_LIMITS, Cs_iM_LT);
 
   // copy to row block 3 (second contact tangents)
   MatrixNd::transpose(Cn_iM_CtT, Ct_iM_CnT);
   MatrixNd::transpose(Cs_iM_CtT, Ct_iM_CsT);
-  q.Ct_iM_CtT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Ct_iM_CtT);
-  q.Ct_iM_LT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_LIMITS, Ct_iM_LT);
+  q.Ct_iM_CtT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Ct_iM_CtT);
+  q.Ct_iM_LT.get_sub_mat(0, N_CONTACTS, 0, N_LIMITS, Ct_iM_LT);
 
   // copy to row block 6 (limits)
   MatrixNd::transpose(Cn_iM_LT, L_iM_CnT);
@@ -243,15 +228,15 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
   q.L_iM_LT.get_sub_mat(0, N_LIMITS, 0, N_LIMITS, L_iM_LT);
 
   // get components of c
-  SharedVectorNd Cn_v = c.segment(0, N_ACT_CONTACTS); 
-  SharedVectorNd Cs_v = c.segment(N_ACT_CONTACTS, N_ACT_CONTACTS*2); 
-  SharedVectorNd Ct_v = c.segment(N_ACT_CONTACTS*2, N_ACT_CONTACTS*3); 
-  SharedVectorNd L_v = c.segment(N_ACT_CONTACTS*3, N_ACT_CONTACTS*3+N_LIMITS); 
+  SharedVectorNd Cn_v = c.segment(0, N_CONTACTS); 
+  SharedVectorNd Cs_v = c.segment(N_CONTACTS, N_CONTACTS*2); 
+  SharedVectorNd Ct_v = c.segment(N_CONTACTS*2, N_CONTACTS*3); 
+  SharedVectorNd L_v = c.segment(N_CONTACTS*3, N_CONTACTS*3+N_LIMITS); 
 
   // setup c 
-  q.Cn_v.get_sub_vec(0, N_ACT_CONTACTS, Cn_v);
-  q.Cs_v.get_sub_vec(0, N_ACT_CONTACTS, Cs_v);
-  q.Ct_v.get_sub_vec(0, N_ACT_CONTACTS, Ct_v);
+  q.Cn_v.get_sub_vec(0, N_CONTACTS, Cn_v);
+  q.Cs_v.get_sub_vec(0, N_CONTACTS, Cs_v);
+  q.Ct_v.get_sub_vec(0, N_CONTACTS, Ct_v);
   L_v = q.L_v;
 
   // ****** now setup linear inequality constraints ******
@@ -263,18 +248,18 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
   const unsigned N_INEQUAL = q.N_CONTACTS + N_LIMITS + KAPPA;
 
   // get Cn sub blocks
-  SharedConstMatrixNd sub_Cn_Cn = q.Cn_iM_CnT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
-  SharedConstMatrixNd sub_Cn_Cs = q.Cn_iM_CsT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
-  SharedConstMatrixNd sub_Cn_Ct = q.Cn_iM_CtT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd sub_Cn_Cn = q.Cn_iM_CnT.block(0, q.N_CONTACTS, 0, q.N_CONTACTS);
+  SharedConstMatrixNd sub_Cn_Cs = q.Cn_iM_CsT.block(0, q.N_CONTACTS, 0, q.N_CONTACTS);
+  SharedConstMatrixNd sub_Cn_Ct = q.Cn_iM_CtT.block(0, q.N_CONTACTS, 0, q.N_CONTACTS);
   SharedConstMatrixNd sub_Cn_L = q.Cn_iM_LT.block(0, q.N_CONTACTS, 0, q.N_LIMITS);
 
   // setup Cn block
   MatrixNd& Cn_block = _ipsolver->Cn_block;
   Cn_block.resize(q.N_CONTACTS, NVARS);
   Cn_block.set_sub_mat(0, 0, sub_Cn_Cn); 
-  Cn_block.set_sub_mat(0, N_ACT_CONTACTS, sub_Cn_Cs); 
-  Cn_block.set_sub_mat(0, N_ACT_CONTACTS*2, sub_Cn_Ct); 
-  Cn_block.set_sub_mat(0, N_ACT_CONTACTS*3, sub_Cn_L); 
+  Cn_block.set_sub_mat(0, N_CONTACTS, sub_Cn_Cs); 
+  Cn_block.set_sub_mat(0, N_CONTACTS*2, sub_Cn_Ct); 
+  Cn_block.set_sub_mat(0, N_CONTACTS*3, sub_Cn_L); 
 
   // verify that L_block can be reset
   _ipsolver->L_block.reset();
@@ -336,10 +321,10 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
     throw std::runtime_error("Could not solve nonlinearly constrained QP");
 
   // get the final solution out
-  SharedVectorNd cn = _ipsolver->z.segment(0, N_ACT_CONTACTS);
-  SharedVectorNd cs = _ipsolver->z.segment(N_ACT_CONTACTS, N_ACT_CONTACTS*2);
-  SharedVectorNd ct = _ipsolver->z.segment(N_ACT_CONTACTS*2, N_ACT_CONTACTS*3);
-  SharedVectorNd l =  _ipsolver->z.segment(N_ACT_CONTACTS*3, N_ACT_CONTACTS*3+q.N_LIMITS);
+  SharedVectorNd cn = _ipsolver->z.segment(0, N_CONTACTS);
+  SharedVectorNd cs = _ipsolver->z.segment(N_CONTACTS, N_CONTACTS*2);
+  SharedVectorNd ct = _ipsolver->z.segment(N_CONTACTS*2, N_CONTACTS*3);
+  SharedVectorNd l =  _ipsolver->z.segment(N_CONTACTS*3, N_CONTACTS*3+q.N_LIMITS);
 
   // put x in the expected format
   x.resize(q.N_VARS);

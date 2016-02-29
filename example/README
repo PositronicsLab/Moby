@@ -112,7 +112,7 @@ Note: each option must be separated with whitespace (example:
 	-mt=NUM  Maximum simulation time.  After the simulation reaches this time,
            driver quits with error code zero.
 
-  -vcp     If this option is given, for an EventDrivenSimulator, contact points
+  -vcp     If this option is given, for an TimeSteppingSimulator, contact points
            will be rendered.
 
 2.1 Background scenery, lights, and camera 
@@ -135,7 +135,7 @@ minimum of coding effort.
 
 Controllers are C language functions with the following prototype:
 
-void controller(DynamicBodyPtr body, Real time, void* optional_arg)
+void controller(ControlledBodyPtr body, Real time, void* optional_arg)
 {
 	// .. controller code goes here ..
 }
@@ -157,7 +157,7 @@ explanation of the parameters passed to the controller functions follows:
 Controllers can be registered with a dynamic body just by setting the 
 function pointer and any optional data; an example is below:
 
-  DynamicBodyPtr body = simulator->find_dynamic_body("robot");
+  ControlledBodyPtr body = simulator->find_dynamic_body("robot");
 	body->controller = &controller;
 	body->controller_arg = &simulator;
 
@@ -200,7 +200,7 @@ An example plugin is seen below:
 #include <Moby/ContactSimulator.h>
 #include <Moby/RigidBody.h>
 
-void controller(DynamicBodyPtr, Real, void*);
+void controller(ControlledBodyPtr, Real, void*);
 boost::shared_ptr<Simulator> simulator;
 Real dt;
 
@@ -214,7 +214,7 @@ extern "C" void init(void* root_separator, const std::map<std::string, BasePtr>&
 	simulator = boost::dynamic_pointer_cast<Simulator>(siter->second); 
 
 	// find a body and register a controller for it
-	DynamicBodyPtr box = simulator->find_dynamic_body("box");
+	ControlledBodyPtr box = simulator->find_dynamic_body("box");
 	robot->controller = &controller;
 
 	// add a cube to the root separator
@@ -228,7 +228,7 @@ extern "C" void init(void* root_separator, const std::map<std::string, BasePtr>&
 /**
  * Applies a lateral force to a box resting on a plane.
  */
-void controller(DynamicBodyPtr body, Real time, void* optional_arg)
+void controller(ControlledBodyPtr body, Real time, void* optional_arg)
 {
 	// apply a force to the body at the C.O.M., parameterized by current time
 	body->add_force(Vector3(time*1,0,0));

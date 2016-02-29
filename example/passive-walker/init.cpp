@@ -3,7 +3,7 @@
  ****************************************************************************/
 
 // to run moby-driver -r -p=libpassive-walker-init.so -oi -s=0.001 walker.xml
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
 #include <Ravelin/Pose3d.h>
@@ -12,11 +12,12 @@
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
+using boost::dynamic_pointer_cast;
 
-boost::shared_ptr<Moby::EventDrivenSimulator> sim;
-Moby::RCArticulatedBodyPtr walker;
-Moby::RigidBodyPtr ground;
-Moby::CollisionGeometryPtr lfoot_geom, rfoot_geom;
+boost::shared_ptr<TimeSteppingSimulator> sim;
+RCArticulatedBodyPtr walker;
+shared_ptr<RigidBodyd> ground;
+CollisionGeometryPtr lfoot_geom, rfoot_geom;
 boost::shared_ptr<GravityForce> grav;
 
 const double ALPHA = 0.0702;
@@ -31,7 +32,7 @@ Ravelin::Origin3d quat2rpy(const Ravelin::Quatd& q_){
   q[3] = q_.z;
 
   // Singularity Condition 2(q1q3 + q0q2) == +/- 1
-  assert(fabs(2*(q[1]*q[3] + q[0]*q[2])) < (1.0 - Moby::NEAR_ZERO) || fabs(2*(q[1]*q[3] + q[0]*q[2])) > (1.0 + Moby::NEAR_ZERO));
+  assert(fabs(2*(q[1]*q[3] + q[0]*q[2])) < (1.0 - NEAR_ZERO) || fabs(2*(q[1]*q[3] + q[0]*q[2])) > (1.0 + NEAR_ZERO));
 
   // (3-2-1) z-y-x Tait-Bryan rotation
   rpy[0] = atan2((q[2]*q[3] + q[0]*q[1]),0.5-(q[1]*q[1] + q[2]*q[2]));
@@ -46,17 +47,17 @@ void post_step_callback(Simulator* s)
   const unsigned Z = 2;
   std::ofstream out("energy.dat", std::ostream::app);
   double KE = walker->calc_kinetic_energy();
-  RigidBodyPtr base = walker->get_links().front();
-  RigidBodyPtr l1 = walker->get_links().back();
-  Transform3d gTb = Pose3d::calc_relative_pose(base->get_inertial_pose(), GLOBAL);
-  Transform3d gTl1 = Pose3d::calc_relative_pose(l1->get_inertial_pose(), GLOBAL);
+  shared_ptr<RigidBodyd> base = walker->get_links().front();
+  shared_ptr<RigidBodyd> l1 = walker->get_links().back();
+  Transform3d gTb = Pose3d::calc_relative_pose(base->get_pose(), GLOBAL);
+  Transform3d gTl1 = Pose3d::calc_relative_pose(l1->get_pose(), GLOBAL);
   double PEb = base->get_inertia().m*gTb.x[Z]*-grav->gravity[Z];
   double PEl1 = l1->get_inertia().m*gTl1.x[Z]*-grav->gravity[Z];
   out << KE << " " << (PEb+PEl1) << " " << (KE+PEb+PEl1) << std::endl;
   out.close();
 
   // get the signed distance between the walker feet and the ground
-  CollisionGeometryPtr ground_geom = ground->geometries.front();
+  CollisionGeometryPtr ground_geom = dynamic_pointer_cast<RigidBody>(ground)->geometries.front();
   Point3d dummy1, dummy2;
   shared_ptr<CollisionDetection> coldet = sim->get_collision_detection();
   double dL = coldet->calc_signed_dist(lfoot_geom, ground_geom, dummy1, dummy2);
@@ -98,19 +99,19 @@ Ravelin::Quatd rpy2quat(const Ravelin::Origin3d& rpy){
 
 // called when the simulator completes a step
 
-void post_event_callback_fn(const std::vector<Moby::UnilateralConstraint>& e,
+void post_event_callback_fn(const std::vector<UnilateralConstraint>& e,
                             boost::shared_ptr<void> empty)
 {
-  std::cout << ">> start post_event_callback_fn(.)" << std::endl;
+  std::cout << "> > start post_event_callback_fn(.)" << std::endl;
 
   // PROCESS CONTACTS
   for(unsigned i=0;i<e.size();i++){
-    if (e[i].constraint_type == Moby::UnilateralConstraint::eContact)
+    if (e[i].constraint_type == UnilateralConstraint::eContact)
     {
-      Moby::SingleBodyPtr sb1 = e[i].contact_geom1->get_single_body();
-      Moby::SingleBodyPtr sb2 = e[i].contact_geom2->get_single_body();
+      shared_ptr<SingleBodyd> sb1 = e[i].contact_geom1->get_single_body();
+      shared_ptr<SingleBodyd> sb2 = e[i].contact_geom2->get_single_body();
 
-      std::cout << "contact: " << sb1->id << " and " << sb2->id << std::endl;
+      std::cout << "contact: " << sb1->body_id << " and " << sb2->body_id << std::endl;
       std::cout << "i = " << e[i].contact_impulse.get_linear() << std::endl;
       std::cout << "p = " << e[i].contact_point << std::endl;
       std::cout << "n = " << e[i].contact_normal << std::endl;
@@ -123,31 +124,31 @@ void post_event_callback_fn(const std::vector<Moby::UnilateralConstraint>& e,
   std::cout << "<< end post_event_callback_fn(.)" << std::endl;
 }
 
-void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
+void controller_callback(ControlledBodyPtr dbp, double t, void*)
 {
-  std::cout << ">> start controller_callback(.)" << std::endl;
-  Moby::RCArticulatedBodyPtr
-      walker = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(dbp);
+  std::cout << "> > start controller_callback(.)" << std::endl;
+  RCArticulatedBodyPtr
+      walker = boost::dynamic_pointer_cast<RCArticulatedBody>(dbp);
   Ravelin::VectorNd x,xd;
   static double last_t;
   double h = t-last_t;
   last_t = t;
-  walker->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
-  walker->get_generalized_velocity( Moby::DynamicBody::eEuler,xd);
+  walker->get_generalized_coordinates_euler(x);
+  walker->get_generalized_velocity( DynamicBodyd::eEuler,xd);
 
-  const std::vector<Moby::RigidBodyPtr>& links = walker->get_links();
+  const std::vector<shared_ptr<RigidBodyd> >& links = walker->get_links();
   std::cout << "Time = " << t << std::endl;
 
   for(int i=0;i<links.size();i++){
-    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_inertial_pose();
+    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_pose();
     boost::shared_ptr<const Ravelin::Pose3d> Lpose = links[i]->get_pose();
 
-    std::cout << links[i]->id << std::endl;
-    std::cout << "Ipose x = " << Ravelin::Pose3d::calc_relative_pose(Ipose,Moby::GLOBAL).x << std::endl;
-    std::cout << "Lpose x = " << Ravelin::Pose3d::calc_relative_pose(Lpose,Moby::GLOBAL).x << std::endl;
+    std::cout << links[i]->body_id << std::endl;
+    std::cout << "Ipose x = " << Ravelin::Pose3d::calc_relative_pose(Ipose,GLOBAL).x << std::endl;
+    std::cout << "Lpose x = " << Ravelin::Pose3d::calc_relative_pose(Lpose,GLOBAL).x << std::endl;
     if(i != 0){
       boost::shared_ptr<const Ravelin::Pose3d> Jpose = links[i]->get_inner_joint_explicit()->get_pose();
-      std::cout << "Jpose x = " << Ravelin::Pose3d::calc_relative_pose(Jpose,Moby::GLOBAL).x << std::endl;
+      std::cout << "Jpose x = " << Ravelin::Pose3d::calc_relative_pose(Jpose,GLOBAL).x << std::endl;
     }
   }
   std::cout << "x = " << x << std::endl;
@@ -179,24 +180,24 @@ double fRand(double fMin, double fMax)
 /// plugin must be "extern C"
 extern "C" {
 
-void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
+void init(void* separator, const std::map<std::string, BasePtr>& read_map, double time)
 {
   // overwrite files
   std::ofstream out("energy.dat");
   out.close();
 
   // If use robot is active also init dynamixel controllers
-  // get a reference to the EventDrivenSimulator instance
-  for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
+  // get a reference to the TimeSteppingSimulator instance
+  for (std::map<std::string, BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<Moby::EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(i->second);
 
     // find the robot reference
     if (!walker)
-      walker = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(i->second);
+      walker = boost::dynamic_pointer_cast<RCArticulatedBody>(i->second);
 
     // find the gravity vector
     if (!grav)
@@ -216,8 +217,8 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   // Set initial conditions from ruina paper
   Ravelin::VectorNd x,xd;
-  walker->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
-  walker->get_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
+  walker->get_generalized_coordinates_euler(x);
+  walker->get_generalized_velocity( DynamicBodyd::eSpatial,xd);
 
   x[1] = 0; // x
   x[2] = 0; // y
@@ -317,11 +318,11 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   xd[0] = 0; // -Theta_sw
   //xd[0]=0;
   // get the collision geometries for the feet
-  lfoot_geom = walker->find_link("LLEG")->geometries.front();
-  rfoot_geom = walker->find_link("RLEG")->geometries.front();
+  lfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("LLEG"))->geometries.front();
+  rfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("RLEG"))->geometries.front();
 
-  walker->set_generalized_coordinates( Moby::DynamicBody::eEuler,x);
-  walker->set_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
+  walker->set_generalized_coordinates_euler(x);
+  walker->set_generalized_velocity( DynamicBodyd::eSpatial,xd);
 
   walker->set_floating_base(false);
 //  walker->get_base_link()->set_enabled(false);

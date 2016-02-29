@@ -153,7 +153,7 @@ using boost::dynamic_pointer_cast;
       epd.super_bodies[i]->get_generalized_forces(gf[i]);
       epd.super_bodies[i]->calc_fwd_dyn();
       epd.super_bodies[i]->get_generalized_acceleration(a);
-      epd.super_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial,v);
+      epd.super_bodies[i]->get_generalized_velocity(DynamicBodyd::eSpatial,v);
       epd.super_bodies[i]->get_generalized_inertia(M);
       a *= h;
       a += v;
@@ -177,7 +177,7 @@ using boost::dynamic_pointer_cast;
     {
       epd.super_bodies[i]->calc_fwd_dyn();
       epd.super_bodies[i]->get_generalized_acceleration(a);
-      epd.super_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial,v);
+      epd.super_bodies[i]->get_generalized_velocity(DynamicBodyd::eSpatial,v);
       epd.super_bodies[i]->get_generalized_inertia(M);
       a *= h;
       a += v;
@@ -216,8 +216,8 @@ using boost::dynamic_pointer_cast;
   /// Applies resting contact forces to bodies and saves the generalized forces
   void RestingContactHandler::apply_forces(const ContactProblemData& q) const
   {
-    map<DynamicBodyPtr, VectorNd> gj;
-    map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
+    map<ControlledBodyPtr, VectorNd> gj;
+    map<ControlledBodyPtr, VectorNd>::iterator gj_iter;
     VectorNd workv;
 
     // loop over all contact contacts first
@@ -233,8 +233,8 @@ using boost::dynamic_pointer_cast;
       SingleBodyPtr sb2 = c.contact_geom2->get_single_body();
 
       // get the two super bodies
-      DynamicBodyPtr b1 = sb1->get_super_body();
-      DynamicBodyPtr b2 = sb2->get_super_body();
+      ControlledBodyPtr b1 = sb1->get_super_body();
+      ControlledBodyPtr b2 = sb2->get_super_body();
 
       // convert force on first body to generalized forces
       if ((gj_iter = gj.find(b1)) == gj.end())
@@ -256,7 +256,7 @@ using boost::dynamic_pointer_cast;
     }
 
     // apply all generalized forces 
-    for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
+    for (map<ControlledBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
     {
       // apply the force     
       i->first->add_generalized_force(i->second);
@@ -680,7 +680,7 @@ using boost::dynamic_pointer_cast;
  }
 
   /// Gets the super body (articulated if any)
-  DynamicBodyPtr RestingContactHandler::get_super_body(SingleBodyPtr sb)
+  ControlledBodyPtr RestingContactHandler::get_super_body(SingleBodyPtr sb)
   {
     ArticulatedBodyPtr ab = sb->get_articulated_body();
     if (ab)

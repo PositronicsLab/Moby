@@ -10,12 +10,12 @@
 #include <list>
 #include <set>
 #include <map>
-#include <algorithm>
 #include <boost/shared_ptr.hpp>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Log.h>
-#include <Moby/CP.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/TorusPrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
@@ -23,6 +23,8 @@
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/BV.h>
+#include <Moby/GJK.h>
+#include <Moby/Polyhedron.h>
 
 namespace Moby {
 
@@ -38,12 +40,14 @@ class CCD : public CollisionDetection
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi);
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi);
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
     {
       find_contacts(cgA, cgB, std::back_inserter(contacts), TOL);
+    }
+    static unsigned constrain_unsigned(int ii, int maxi){
+     return (unsigned) std::min(std::max(ii,0),maxi);
     }
 
     template <class OutputIterator>
@@ -55,20 +59,24 @@ class CCD : public CollisionDetection
      *       collisions between geometries for a single body are automatically
      *       not checked and do not need to be added to this set.
      */
-    std::set<sorted_pair<CollisionGeometryPtr> > disabled_pairs;
+    std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > disabled_pairs;
+
+  protected:
+    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) { return calc_next_CA_Euler_step_generic(pdi); }
 
   private:
     // the 3 axes
     enum AxisType { eXAxis, eYAxis, eZAxis };
 
-    unsigned constrain_unsigned(int ii, int maxi){
-      return (unsigned) std::min(std::max(ii,0),maxi);
-    }
-  
-    bool lp_seidel(const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);
-    Ravelin::VectorNd& insert_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
-    Ravelin::VectorNd& remove_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
-    double finitize(double x);
+    static double sqr(double x) { return x*x; }
+    double calc_next_CA_Euler_step_polyhedron_plane(boost::shared_ptr<PolyhedralPrimitive> p, const Ravelin::SVelocityd& rv, boost::shared_ptr<const Ravelin::Pose3d> P, const Ravelin::Vector3d& normal, double offset);
+    double calc_next_CA_Euler_step_polyhedron_polyhedron(boost::shared_ptr<PolyhedralPrimitive> pA, boost::shared_ptr<PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, const Ravelin::SVelocityd& rvA, const Ravelin::SVelocityd& rvB, const Ravelin::Vector3d& n0, double offset);
+    virtual double calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi);
+    virtual double calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi);
+    virtual double calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi);
+    static double calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
+    static double calc_max_dist(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
+    static double calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Ravelin::Vector3d& n, double rmaxA, double rmaxB, double dist);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct
@@ -100,15 +108,19 @@ class CCD : public CollisionDetection
     /// Swept BVs computed during last call to is_contact/update_contacts()
     std::map<CollisionGeometryPtr, BVPtr> _swept_BVs;
 
+    /// Minimum observed distance between two bodies (to make conservative advancement faster in face of numerical error)
+    std::map<Ravelin::sorted_pair<CollisionGeometryPtr>, double> _min_dist_observed;
+
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
     void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies, double dt);
     void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt, bool recreate_bvs);
     void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
     BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv, double dt);
 
-    double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
-    static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
@@ -118,6 +130,9 @@ class CCD : public CollisionDetection
 
     template <class OutputIterator>
     OutputIterator find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_torus_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
     OutputIterator find_contacts_sphere_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
@@ -140,11 +155,27 @@ class CCD : public CollisionDetection
     template <class OutputIterator>
     OutputIterator find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
-    template <class OutputIterator>
-    OutputIterator find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
-
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_face_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Face> fA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin);
+
 }; // end class
 
 #include "CCD.inl"

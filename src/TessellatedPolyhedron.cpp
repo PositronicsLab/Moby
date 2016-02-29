@@ -4,10 +4,11 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#include <queue>
 #include <iostream>
 #include <cmath>
 #include <set>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
 #include <Moby/CompGeom.h>
@@ -131,7 +132,6 @@ std::cout << "edge: " << facets[i].b << " " << facets[i].c << std::endl;
     {
       out << facets[i].a << " " << facets[i].c << " -1, ";
       marked.insert(make_pair(facets[i].a, facets[i].c));
-std::cout << "edge: " << facets[i].a << " " << facets[i].c << std::endl;
     }
   }
   out << " ] } }" << std::endl;
@@ -197,6 +197,276 @@ void TessellatedPolyhedron::operator=(const TessellatedPolyhedron& p)
   _bb_max = p._bb_max;
   _convexity = p._convexity;
   _convexity_computed = p._convexity_computed;
+}
+
+/// Creates a polyhedron from this tessellated polyhedron
+void TessellatedPolyhedron::to_polyhedron(Polyhedron& p) const
+{
+  // setup vector of processed triangles
+  std::vector<bool> processed(_mesh.num_tris(), false);
+
+  // create vertices
+  std::vector<shared_ptr<Polyhedron::Vertex> > vertices(_mesh.get_vertices().size());
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    vertices[i] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
+    vertices[i]->o = _mesh.get_vertices()[i];
+  }
+
+  // process all faces in the tessellated polyhedron, creating faces and edges
+  std::map<std::pair<unsigned, unsigned>, shared_ptr<Polyhedron::Edge> > edge_map;
+  std::vector<shared_ptr<Polyhedron::Edge> > edges;
+  std::vector<shared_ptr<Polyhedron::Face> > faces;
+  for (unsigned i=0; i< _mesh.num_tris(); i++)
+  {
+    // if the triangle has already been processed, do not process it twice
+    if (processed[i])
+      continue;
+
+    // get the plane
+    Triangle tri = _mesh.get_triangle(i, GLOBAL);
+    Vector3d normal = tri.calc_normal();
+    double offset = tri.calc_offset(normal);
+
+    // setup the vector of faces
+    std::vector<unsigned> coplanar_faces;
+
+    // do a breadth first search from tri i, locating all coplanar triangles 
+    // add all coincident triangles to the queue
+    std::queue<unsigned> q;
+    q.push(i);
+    while (!q.empty())
+    {
+      // get the index of the facet off the front of the queue
+      unsigned j = q.front();
+      q.pop(); 
+
+      // indicate that the triangle is processed
+      if (processed[j])
+        continue;
+      processed[j] = true;
+
+      // add the facet to the vector of faces
+      coplanar_faces.push_back(j);
+
+      // get the incident vertices, turning those into incident facets
+      std::set<unsigned> incident_facets;
+      const IndexedTri& it = _mesh.get_facets()[j];
+      const std::list<unsigned>& incident_fa = _mesh.get_incident_facets(it.a);
+      const std::list<unsigned>& incident_fb = _mesh.get_incident_facets(it.b);
+      const std::list<unsigned>& incident_fc = _mesh.get_incident_facets(it.c);
+      incident_facets.insert(incident_fa.begin(), incident_fa.end());     
+      incident_facets.insert(incident_fb.begin(), incident_fb.end());     
+      incident_facets.insert(incident_fc.begin(), incident_fc.end());     
+ 
+      BOOST_FOREACH(unsigned k, incident_facets)
+      {
+        // get the triangle
+        Triangle cand_tri = _mesh.get_triangle(k, GLOBAL);
+        Vector3d cand_normal = cand_tri.calc_normal();
+        double cand_offset = cand_tri.calc_offset(cand_normal);
+
+        // if the triangles are coplanar, add to the queue
+        if (std::fabs(cand_offset - offset) < NEAR_ZERO &&
+            std::fabs(cand_normal.dot(normal) - 1.0) < NEAR_ZERO)
+          q.push(k);
+      }
+    }
+
+    // create a single face
+    faces.push_back(shared_ptr<Polyhedron::Face>(new Polyhedron::Face));
+
+    // setup the set of edges in the face
+    std::map<std::pair<unsigned, unsigned>, unsigned> edge_set;
+    for (unsigned j=0; j< coplanar_faces.size(); j++)
+    {
+      const IndexedTri& it = _mesh.get_facets()[coplanar_faces[j]];
+
+      if (it.a < it.b)
+        edge_set[std::make_pair(it.a, it.b)]++;
+      else
+        edge_set[std::make_pair(it.b, it.a)]++;
+
+      if (it.b < it.c)
+        edge_set[std::make_pair(it.b, it.c)]++;
+      else
+        edge_set[std::make_pair(it.c, it.b)]++;
+
+      if (it.c < it.a) 
+        edge_set[std::make_pair(it.c, it.a)]++;
+      else
+        edge_set[std::make_pair(it.a, it.c)]++;
+    }
+
+    // if an edge belongs to multiple coplanar faces, remove it from the 
+    // set of edges around the polygon; simultaneously, create edges as necessary
+    for (std::map<std::pair<unsigned, unsigned>, unsigned>::iterator iter = edge_set.begin(); iter != edge_set.end(); )
+    {
+      if (iter->second > 1)
+      {
+        edge_set.erase(iter++);
+        continue;
+      }
+
+      // if the edge has not already been created in the edge map, create it
+      std::map<std::pair<unsigned, unsigned>, shared_ptr<Polyhedron::Edge> >::const_iterator em_iter;
+      if ((em_iter = edge_map.find(iter->first)) == edge_map.end())
+      {
+        shared_ptr<Polyhedron::Edge> e(new Polyhedron::Edge);
+        edges.push_back(e);
+        edge_map[iter->first] = e;
+
+        // set the face pointer
+        e->face1 = faces.back();
+ 
+        // set the vertex pointers
+        e->v1 = vertices[iter->first.first];
+        e->v2 = vertices[iter->first.second];
+        e->v1->e.push_back(e);
+        e->v2->e.push_back(e);
+      }
+      else
+      {
+        // set the second face pointer
+        shared_ptr<Polyhedron::Edge> e = em_iter->second; 
+        assert(!e->face2);
+        e->face2 = faces.back();
+      }
+
+      // update the iterator
+      iter++;
+    }
+
+    // verify that the number of edges is equal to the number of coplanar faces
+    // plus 2
+    assert(edge_set.size() == coplanar_faces.size() + 2);
+
+    // to store the edges coincident to this face in a ccw ordering, we do
+    // the following
+    // 1. select an arbitrary edge (X)
+    // 2. add X to the face walk, remove X from the edge set
+    // 3. find the two edges that touch this edge: Y and Z 
+    // 4. propose an ordering (a,b,c, for example)
+    // 5. if dot(normal, cross(b - a, c - b)) < 0, add Z to
+    //    the face walk and set X = Z; otherwise, add Y to the face walk and
+    //    set X = Y
+    // 6. remove X from the edge set
+    // 7. find the edge W remaining in the edge set that is coincident to X
+    // 8. add W to the face walk
+    // 9. set X = W
+    // 10. repeat (6) until there is exactly one edge remaining
+
+    // arbitrary edge is first edge (1)
+    std::pair<unsigned, unsigned> Xij = edge_set.begin()->first;
+    shared_ptr<Polyhedron::Edge> eX = edge_map[Xij];
+    edge_set.erase(edge_set.begin());
+
+    // add X to the face walk (2) 
+    faces.back()->e.push_back(eX); 
+
+    // search for the two edges (3)
+    shared_ptr<Polyhedron::Edge> eY, eZ;
+    std::pair<unsigned, unsigned> Yij, Zij; 
+    for (std::map<std::pair<unsigned, unsigned>, unsigned>::const_iterator j = edge_set.begin(); j != edge_set.end(); j++)
+    {
+      if (j->first.first == Xij.first || j->first.first == Xij.second ||
+          j->first.second == Xij.first || j->first.second == Xij.second)
+      {
+        if (!eY)
+        {
+          Yij = j->first;
+          eY = edge_map[Yij];
+        }
+        else
+        {
+          assert(!eZ);
+          Zij = j->first;
+          eZ = edge_map[Zij];
+        }
+      }
+    }
+
+    // ensure that there were two edges found
+    assert(eY && eZ);
+
+    // try X followed by Y (4)
+    // NOTE: we'll set b to the shared vertex
+    Vector3d a(eX->v1->o, GLOBAL);
+    Vector3d b(eX->v2->o, GLOBAL);
+    Vector3d c;
+    if (eX->v2 == eY->v1)
+      c = Vector3d(eY->v2->o, GLOBAL);
+    else
+    {
+      if (eX->v2 == eY->v2)
+        c = Vector3d(eY->v1->o, GLOBAL);
+      else
+      {
+        // b is not the shared vertex; make it so
+        std::swap(a, b);
+        if (eX->v1 == eY->v1)
+          c = Vector3d(eY->v2->o, GLOBAL);
+        else if (eX->v2 == eY->v2)
+          c = Vector3d(eY->v1->o, GLOBAL);
+        else
+          assert(false);
+       }
+    }
+
+    // see whether the proposed ordering needs to be reversed (5)
+    if (normal.dot(Vector3d::cross(b - a, c - b)) < 0.0)
+    {
+      eX = eZ;
+      Xij = Zij;
+    }
+    else
+    {
+      eX = eY; 
+      Xij = Yij; 
+    }     
+
+    // add the new X to the face walk
+    faces.back()->e.push_back(eX);
+
+    // loop until exactly one edge remains (10)
+    while (edge_set.size() > 1)
+    {
+      // remove new X from the edge set (6)  
+      assert(edge_set.find(Xij) != edge_set.end());
+      edge_set.erase(Xij);
+
+      // find the edge remaining in the edge set that is coincident to X (7)
+      bool edge_found = false;
+      for (std::map<std::pair<unsigned, unsigned>, unsigned>::const_iterator j = edge_set.begin(); j != edge_set.end(); j++)
+      {
+        if (j->first.first == Xij.first || j->first.first == Xij.second ||
+            j->first.second == Xij.first || j->first.second == Xij.second)
+        {
+          // we have found edge w
+          std::pair<unsigned, unsigned> Wij = j->first;
+          shared_ptr<Polyhedron::Edge> eW = edge_map[Wij];
+
+          // add W to the face walk (8) 
+          faces.back()->e.push_back(eW);
+
+          // set X = W (9)
+          Xij = Wij;
+          edge_found = true;
+          break; 
+        }
+      }
+      assert(edge_found);
+    }
+  }
+
+  // create the polyhedron
+  p._vertices = vertices;
+  p._edges = edges;
+  p._faces = faces;
+  p._bb_min = _bb_min;
+  p._bb_max = _bb_max;
+  p._convexity = _convexity;
+  p._convexity_computed = _convexity_computed;
 }
 
 /// Computes the Minkowski sum of two convex polyhedra
@@ -1147,5 +1417,30 @@ std::ostream& Moby::operator<<(std::ostream& out, const TessellatedPolyhedron& p
   }
   
   return out;
+}
+
+/// Does an extremal point query for the Polyhedron; returns a vertex furthest along the given direction
+const Ravelin::Origin3d& TessellatedPolyhedron::find_extreme_vertex(const Ravelin::Origin3d& direction)
+{
+  const std::vector<Ravelin::Origin3d>& vs = _mesh.get_vertices();
+  double max_dot = -std::numeric_limits<double>::max();
+  std::vector<Ravelin::Origin3d>::const_iterator max_vertex;
+
+  // iterate through all vertices
+  FILE_LOG(LOG_COLDET) << "TessellatedPolyhedron::find_extreme_vertex(.) entered" << std::endl;
+  for (std::vector<Ravelin::Origin3d>::const_iterator vi = vs.begin(); vi != vs.end(); vi++)
+  {
+    double dot = (*vi).dot(direction);
+    FILE_LOG(LOG_COLDET) << "checking vertex: " << *vi << " dot: " << dot << std::endl;
+    if( dot > max_dot)
+    {
+      max_dot = dot;
+      max_vertex = vi;
+    }
+  }
+  FILE_LOG(LOG_COLDET) << " extreme vertex: " << *max_vertex << std::endl;
+  FILE_LOG(LOG_COLDET) << "TessellatedPolyhedron::find_extreme_vertex(.) exited" << std::endl;
+
+  return *max_vertex;
 }
 

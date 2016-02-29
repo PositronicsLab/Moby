@@ -9,18 +9,14 @@
   <MOBY>
 
   <Box id="spoke" xlen="1" ylen=".1" zlen=".001" position=".5 0 0"/>
-  <EulerIntegrator id="euler" />
-  <RungeKuttaIntegrator id="rk4" />
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e-10" />
-  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e0" />
 
   <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
 <!--  downhill at alpha = 0.05 -->
-<GravityForce id="gravity" accel="0.049979 0 -0.99875" /> 
+<!-- GravityForce id="gravity" accel="0.049979 0 -0.99875" /> --> 
 
 <!--  downhill at alpha = 0.1 -->
-<!-- <GravityForce id="gravity" accel="0.099833 0 -0.995" /> -->
+<GravityForce id="gravity" accel="0.099833 0 -0.995" />
 
 <!--  downhill at alpha = 0.2 -->
 <!--<GravityForce id="gravity" accel="0.198669330795061 0 -0.980066577841242" />-->
@@ -33,16 +29,16 @@
 <GravityForce id="gravity" accel="0.47943 0 -0.87758" />
 -->
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step=".01" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-6">
+  <TimeSteppingSimulator collision-detection-plugin="wheel-coldet">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WHEEL" />
     <DisabledPair object1-id="WHEEL" object2-id="WHEEL"/>
-    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" stick-tol="1e-3" sustained-tol="1e-3" />
+    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
-  </EventDrivenSimulator>
+  </TimeSteppingSimulator>
 
-  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="2 0 0; 0 2 0; 0 0 1">
+  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="2 0 0; 0 1 0; 0 0 2">
     <CollisionGeometry />
     <Visualization visualization-id="spoke" visualization-rel-rpy="0 0 0"/>
     <Visualization visualization-id="spoke" visualization-rel-rpy="0 1.0472 0"/>

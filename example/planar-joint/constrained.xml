@@ -1,0 +1,46 @@
+<!-- A box that is set to an initally-spinning velocity but is attached by a 
+     planar joint to the world, which does not allow it to spin. Gravity,
+     however, is able to act on the box. 
+--> 
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" />
+    <Plane id="plane" position="0 0 0" /> 
+    <Box id="plane-viz" xlen="10" ylen="100" zlen="10"  />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="1 -9.81 1"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody id="box" enabled="true" position="0 .500 0" angular-velocity="0100.000 0 0" visualization-id="b1" color=".5 .5 0 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" position="0 0.0 0" color=".25 .25 .25 0">
+        <CollisionGeometry primitive-id="plane" />
+        <Visualization visualization-id="plane-viz" visualization-rel-origin="0 -50 0"/>
+      </RigidBody>
+
+    <PlanarJoint id="planar" inboard-link-id="ground" outboard-link-id="box" normal="0 1 0" location="0 0 0" />
+
+    <!-- Setup the simulator -->
+    <TimeSteppingSimulator id="simulator" min-step-size="1e-3">
+      <DynamicBody dynamic-body-id="box" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ImplicitConstraint joint-id="planar" />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" compliance="0" />
+    </TimeSteppingSimulator>
+  </MOBY>
+</XML>
+

@@ -11,6 +11,7 @@
 #include <Moby/ContactParameters.h>
 
 using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Constructs a ContactParameters object with no object pointers
@@ -21,9 +22,9 @@ ContactParameters::ContactParameters()
 {
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
+  compliance = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
-  stick_tol = sustained_tol = NEAR_ZERO;  
 }
 
 /// Constructs a ContactParameters object with the given object IDs
@@ -35,10 +36,9 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
   objects = make_sorted_pair(o1, o2);
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
+  compliance = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
-  stick_tol = NEAR_ZERO; 
-  sustained_tol = NEAR_ZERO; 
 }
 
 /// Implements Base::load_from_xml()
@@ -110,15 +110,10 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   if (fv_attr)
     mu_viscous = fv_attr->get_real_value();
 
-  // get the sticking tolerance, if any
-  XMLAttrib* stick_tol_attr = node->get_attrib("stick-tol");
-  if (stick_tol_attr)
-    stick_tol = stick_tol_attr->get_real_value();
-
-  // get the sustained tolerance, if any
-  XMLAttrib* sustained_tol_attr = node->get_attrib("sustained-tol");
-  if (sustained_tol_attr)
-    sustained_tol = sustained_tol_attr->get_real_value();
+  // get the contact compliance
+  XMLAttrib* cc_attr = node->get_attrib("compliance");
+  if (cc_attr)
+    compliance = cc_attr->get_real_value();
 
   // get the penalty Kp gain, if any
   XMLAttrib* kp_attr = node->get_attrib("penalty-kp");
@@ -167,14 +162,11 @@ void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
   // write the coefficient of friction for Viscous friction
   node->attribs.insert(XMLAttrib("mu-viscous", mu_viscous));
 
+  // write the contact compliance
+  node->attribs.insert(XMLAttrib("compliance", compliance));
+
   // write the number of friction cone edges
   node->attribs.insert(XMLAttrib("friction-cone-edges", NK));
-
-  // write the sticking tolerance
-  node->attribs.insert(XMLAttrib("stick-tol", stick_tol));
-
-  // write the sustained tolerance
-  node->attribs.insert(XMLAttrib("sustained-tol", sustained_tol));
 
   // save penalty gains 
   node->attribs.insert(XMLAttrib("penalty-kp", penalty_Kp));

@@ -17,7 +17,6 @@
 #include <Moby/OSGGroupWrapper.h>
 #endif
 
-#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/CylinderPrimitive.h>
@@ -25,34 +24,33 @@
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
-#include <Moby/EventDrivenSimulator.h>
 #include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/TorusPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
+#include <Moby/PlanarJoint.h>
 //#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/PrismaticJoint.h>
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
-#include <Moby/BulirschStoerIntegrator.h>
-#include <Moby/RungeKuttaIntegrator.h>
-#include <Moby/RungeKuttaFehlbergIntegrator.h>
-#include <Moby/RungeKuttaImplicitIntegrator.h>
-#include <Moby/ODEPACKIntegrator.h>
-#include <Moby/EulerIntegrator.h>
-#include <Moby/VariableEulerIntegrator.h>
+#include <Moby/Gears.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
+#include <Moby/Dissipation.h>
 #include <Moby/DampingForce.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SDFReader.h>
 #include <Moby/XMLReader.h>
 
+using std::vector;
 using boost::shared_ptr;
+using boost::dynamic_pointer_cast;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Reads an XML file and constructs all read objects
@@ -151,26 +149,18 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
 
   // read and construct all primitives
   process_tag("Box", moby_tree, &read_box, id_map);
+  process_tag("Torus", moby_tree, &read_torus, id_map);
   process_tag("Sphere", moby_tree, &read_sphere, id_map);
   process_tag("Cylinder", moby_tree, &read_cylinder, id_map);
   process_tag("Cone", moby_tree, &read_cone, id_map);
   process_tag("Heightmap", moby_tree, &read_heightmap, id_map);
   process_tag("Plane", moby_tree, &read_plane, id_map);
+  process_tag("Polyhedron", moby_tree, &read_polyhedron, id_map);
 /*
-  process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
   process_tag("TetraMesh", moby_tree, &read_tetramesh, id_map);
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
 */
-
-  // read and construct all integrators
-  process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
-  process_tag("VariableEulerIntegrator", moby_tree, &read_variable_euler_integrator, id_map);
-  process_tag("BulirschStoerIntegrator", moby_tree, &read_bulirsch_stoer_integrator, id_map);
-  process_tag("RungeKuttaIntegrator", moby_tree, &read_rk4_integrator, id_map);
-  process_tag("RungeKuttaFehlbergIntegrator", moby_tree, &read_rkf4_integrator, id_map);
-  process_tag("RungeKuttaImplicitIntegrator", moby_tree, &read_rk4i_integrator, id_map);
-  process_tag("ODEPACKIntegrator", moby_tree, &read_odepack_integrator, id_map);
 
   // read and construct all recurrent forces (except damping)
   process_tag("GravityForce", moby_tree, &read_gravity_force, id_map);
@@ -193,6 +183,8 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   process_tag("SphericalJoint", moby_tree, &read_spherical_joint, id_map);
   process_tag("UniversalJoint", moby_tree, &read_universal_joint, id_map);
   process_tag("FixedJoint", moby_tree, &read_fixed_joint, id_map);
+  process_tag("PlanarJoint", moby_tree, &read_planar_joint, id_map);
+  process_tag("Gears", moby_tree, &read_gears, id_map);
   process_tag("JointPlugin", moby_tree, &read_joint_plugin, id_map);
 
   // read and construct all articulated bodies
@@ -203,12 +195,12 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   // read and construct plugin collision detectors, if any
   process_tag("CollisionDetectionPlugin", moby_tree, &read_coldet_plugin, id_map);  
 
-  // damping forces must be constructed after bodies
+  // damping forces and dissipation must be constructed after bodies
   process_tag("DampingForce", moby_tree, &read_damping_force, id_map);
+  process_tag("Dissipation", moby_tree, &read_dissipation, id_map);
 
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
-  process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
   process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
   // output unprocessed tags / attributes
@@ -258,6 +250,19 @@ void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> ro
       process_tag(tag, *i, fn, id_map);
     }
   }
+}
+
+/// Reads and constructs a dissipation object
+void XMLReader::read_dissipation(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Dissipation") == 0);
+
+  // create a new Base object
+  boost::shared_ptr<Base> b(new Dissipation());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs a geometry plugin object
@@ -462,17 +467,17 @@ void XMLReader::read_tetramesh(shared_ptr<const XMLTree> node, std::map<std::str
 //  b->load_from_xml(node, id_map);
 }
 
-/// Reads and constructs the TriangleMeshPrimitive object
-void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+/// Reads and constructs the PolyhedralPrimitive object
+void XMLReader::read_polyhedron(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
+  assert(strcasecmp(node->name.c_str(), "Polyhedron") == 0);
 
-  // create a new TriangleMeshPrimitive object
-//  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+  // create a new PolyhedralPrimitive object
+  boost::shared_ptr<Base> b(new PolyhedralPrimitive());
   
   // populate the object
-//  b->load_from_xml(node, id_map);
+  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs a plane object
@@ -501,6 +506,19 @@ void XMLReader::read_heightmap(shared_ptr<const XMLTree> node, std::map<std::str
   b->load_from_xml(node, id_map);
 }
 
+/// Reads and constructs the TorusPrimitive object
+void XMLReader::read_torus(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{  
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Torus") == 0);
+
+  // create a new TorusPrimitive object
+  boost::shared_ptr<Base> b(new TorusPrimitive());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
 /// Reads and constructs the BoxPrimitive object
 void XMLReader::read_box(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
@@ -510,118 +528,6 @@ void XMLReader::read_box(shared_ptr<const XMLTree> node, std::map<std::string, B
   // create a new BoxPrimitive object
   boost::shared_ptr<Base> b(new BoxPrimitive());
   
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the EulerIntegrator object
-/**
- * \pre node name is EulerIntegrator
- */
-void XMLReader::read_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "EulerIntegrator") == 0);
-
-  // only create VectorN integrators
-  boost::shared_ptr<Base> b(new EulerIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the VariableEulerIntegrator object
-/**
- * \pre node name is VariableEulerIntegrator
- */
-void XMLReader::read_variable_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "VariableEulerIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new VariableEulerIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaFehlbergIntegrator object
-/**
- * \pre node name is BulirschStoerIntegrator
- */
-void XMLReader::read_bulirsch_stoer_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "BulirschStoerIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new BulirschStoerIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaFehlbergIntegrator object
-/**
- * \pre node name is RungeKuttaFehlbergIntegrator
- */
-void XMLReader::read_rkf4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RungeKuttaFehlbergIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaFehlbergIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaIntegrator object
-/**
- * \pre node name is RungeKuttaIntegrator
- */
-void XMLReader::read_rk4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RungeKuttaIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaImplicitIntegrator object
-/**
- * \pre node name is RungeKuttaImplicitIntegrator
- */
-void XMLReader::read_rk4i_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RungeKuttaImplicitIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaImplicitIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the ODEPACKIntegrator object
-/**
- * \pre node name is ODEPACKIntegrator
- */
-void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "ODEPACKIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new ODEPACKIntegrator());
-
   // populate the object
   b->load_from_xml(node, id_map);
 }
@@ -637,22 +543,6 @@ void XMLReader::read_time_stepping_simulator(shared_ptr<const XMLTree> node, std
 
   // create a new TimeSteppingSimulator object
   boost::shared_ptr<Base> b(new TimeSteppingSimulator());
-  
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the EventDrivenSimulator object
-/**
- * \pre node is named EventDrivenSimulator
- */
-void XMLReader::read_event_driven_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "EventDrivenSimulator") == 0);
-
-  // create a new EventDrivenSimulator object
-  boost::shared_ptr<Base> b(new EventDrivenSimulator());
   
   // populate the object
   b->load_from_xml(node, id_map);
@@ -689,20 +579,56 @@ void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, B
   }
  
   // read the models
-  std::map<std::string, DynamicBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
+  std::map<std::string, ControlledBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
  
   XMLAttrib* id_attr = node->get_attrib("id");
   if (!id_attr)
   {
     // populate our ID map with the models
-    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    for (std::map<std::string, ControlledBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    {
       id_map[i->first] = i->second;
+
+      // for articulated bodies, name every link and joint
+      shared_ptr<ArticulatedBody> ab = dynamic_pointer_cast<ArticulatedBody>(i->second);
+      if (ab)
+      {
+        // first name links
+        const vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
+        for (unsigned j=0; j< links.size(); j++)
+          id_map[links[j]->body_id] = dynamic_pointer_cast<RigidBody>(links[j]);
+
+        // now name joints
+        const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
+        for (unsigned j=0; j< joints.size(); j++)
+          id_map[joints[j]->joint_id] = dynamic_pointer_cast<Joint>(joints[j]);
+      }
+    }
   } 
   else 
   {
     // populate our ID map with the models
-    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    for (std::map<std::string, ControlledBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    {
+      // set the id for the model (done this way in case the SDF is read in
+      // multiple times)
       id_map[id_attr->get_string_value() + "::" + i->first] = i->second;
+
+      // for articulated bodies, name every link and joint
+      shared_ptr<ArticulatedBody> ab = dynamic_pointer_cast<ArticulatedBody>(i->second);
+      if (ab)
+      {
+        // first name links
+        const vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
+        for (unsigned j=0; j< links.size(); j++)
+          id_map[id_attr->get_string_value() + "::" + links[j]->body_id] = dynamic_pointer_cast<RigidBody>(links[j]);
+
+        // now name joints
+        const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
+        for (unsigned j=0; j< joints.size(); j++)
+          id_map[id_attr->get_string_value() + "::" + joints[j]->joint_id] = dynamic_pointer_cast<Joint>(joints[j]);
+      }
+    }
   }
 }
 
@@ -898,6 +824,32 @@ void XMLReader::read_spherical_joint(shared_ptr<const XMLTree> node, std::map<st
   
   // populate the object
   sj->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the Gears object
+void XMLReader::read_gears(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Gears") == 0);
+
+  // create a new Gears object
+  boost::shared_ptr<Gears> gears(new Gears());
+  
+  // populate the object
+  gears->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the PlanarJoint object
+void XMLReader::read_planar_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "PlanarJoint") == 0);
+
+  // create a new PlanarJoint object
+  boost::shared_ptr<PlanarJoint> pj(new PlanarJoint());
+  
+  // populate the object
+  pj->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the FixedJoint object

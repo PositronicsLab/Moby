@@ -54,8 +54,6 @@ class OBB : public BV
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const { return OBB::intersects(*this, seg, tmin, tmax, q); }
     static bool outside(const OBB& a, const Point3d& point, double tol = NEAR_ZERO);
     virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) const { return OBB::outside(*this, point, tol); }
-    OBBPtr get_this() { return boost::dynamic_pointer_cast<OBB>(shared_from_this()); }
-    boost::shared_ptr<const OBB> get_this() const { return boost::dynamic_pointer_cast<const OBB>(shared_from_this()); }
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
     XMLTreePtr save_to_xml_tree() const;

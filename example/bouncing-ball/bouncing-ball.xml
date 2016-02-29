@@ -1,0 +1,41 @@
+<!-- A ball bouncing using restitution -->
+
+<XML>
+  <DRIVER step-size=".025">
+    <camera position="0 10 20" target="0 1 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Sphere id="s1" radius="1" density="1.0" />
+    <Box id="box-plane" xlen="10" ylen=".01" zlen="10"  />
+
+    <!-- untransformed plane is y=0 -->
+    <Plane id="plane" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody id="ball" enabled="true" position="0 1.5 0" color="1 0 0 0" angular-velocity="0 10.00 0" linear-velocity="0 0 0" visualization-id="s1">
+        <InertiaFromPrimitive primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" color=".25 .25 .25 0" position="0 0 0" visualization-id="box-plane">
+        <CollisionGeometry primitive-id="plane" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <TimeSteppingSimulator id="simulator">
+      <DynamicBody dynamic-body-id="ball" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity" />
+      <ContactParameters object1-id="ground" object2-id="ball" epsilon="1" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
+    </TimeSteppingSimulator> 
+  </MOBY>
+</XML>
+

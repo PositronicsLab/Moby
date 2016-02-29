@@ -11,11 +11,11 @@
 #endif
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/XMLTree.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/BoxPrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
@@ -281,12 +281,12 @@ void SpherePrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<Point
 /// Finds the signed distance between the sphere and another primitive
 double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
-  // first try box/sphere
-  shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
-  if (boxp)
+  // first try polyhedron/sphere
+  shared_ptr<const PolyhedralPrimitive> polyp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+  if (polyp)
   {
     shared_ptr<const SpherePrimitive> thisp = dynamic_pointer_cast<const SpherePrimitive>(shared_from_this());
-    return boxp->calc_signed_dist(thisp, pp, pthis);
+    return polyp->calc_signed_dist(thisp, pp, pthis);
   }
 
   // now try sphere/sphere
@@ -419,4 +419,108 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return bsph;
 }
 
+/// Evaluates the objective function for conservative advancement
+double SpherePrimitive::calc_f(const VectorNd& x, void* data)
+{
+  // get the pair
+  std::pair<double, VectorNd>& data_pair = *((std::pair<double, VectorNd>*) data);
+
+  // get radius and y
+  double radius = data_pair.first;
+  VectorNd& y = data_pair.second;
+
+  // get theta and phi
+  double theta = x[0];
+  double phi = x[1];
+
+  // setup r
+  VectorNd r(3);
+  double sphi = std::sin(phi);
+  r[0] = std::cos(theta) * sphi * radius;
+  r[1] = std::sin(theta) * sphi * radius;
+  r[2] = std::cos(phi) * radius;
+
+  // evaluate the function
+  double dot = y.dot(r);
+  return -0.5 * dot * dot;
+}
+
+// Computes the gradient for conservative advancement 
+// gradient: | (radius * -sin theta * sin phi) * y(1) + ...
+//             (radius * cos theta * sin phi) * y(2)         |
+//           | (radius * cos theta * cos phi) * y(1) + ...
+//             (radius * sin theta * cos phi) * y(2) + ...
+//             (radius * -sin phi) * y(3)                    |
+void SpherePrimitive::calc_gradient(const VectorNd& x, void* data, VectorNd& g)
+{
+  // get the pair
+  std::pair<double, VectorNd>& data_pair = *((std::pair<double, VectorNd>*) data);
+
+  // get radius and y
+  double r = data_pair.first;
+  VectorNd& y = data_pair.second;
+
+  // get components of y
+  const double Y1 = y[0];
+  const double Y2 = y[1];
+  const double Y3 = y[2];
+
+  // get theta and phi
+  double THETA = x[0];
+  double PHI = x[1];
+
+  // compute trig functions 
+  double CTHETA = std::cos(THETA);
+  double STHETA = std::sin(THETA);
+  double CPHI = std::cos(PHI);
+  double SPHI = std::sin(PHI);
+
+  // setup gradient 
+  g.resize(2);
+  g[0] = (-STHETA * SPHI) * Y1 + (CTHETA * SPHI) * Y2;
+  g[1] = (CTHETA * CPHI) * Y1 + (STHETA * CPHI) * Y2 - SPHI * Y3; 
+  g *= -r;
+}
+
+// Computes the Hessian for conservative advancement 
+// H(1,1) =  (-cos theta * sin phi) * y(1) +
+//           (-sin theta * sin phi) * y(2)
+// H(1,2) =  (-sin theta * cos phi) * y(1) +
+//           (cos theta * cos phi)  * y(2)
+// H(2,2) =  (cos theta * -sin phi) * y(1) + 
+//           (sin theta * -sin phi) * y(2) +
+//           (-cos phi) * y(3)
+// * (-radius)
+void SpherePrimitive::calc_hessian(const VectorNd& x, void* data, MatrixNd& H)
+{
+  // get the pair
+  std::pair<double, VectorNd>& data_pair = *((std::pair<double, VectorNd>*) data);
+
+  // get radius and y
+  double r = data_pair.first;
+  VectorNd& y = data_pair.second;
+
+  // get components of y
+  const double Y1 = y[0];
+  const double Y2 = y[1];
+  const double Y3 = y[2];
+
+  // get theta and phi
+  double THETA = x[0];
+  double PHI = x[1];
+
+  // compute trig functions 
+  double CTHETA = std::cos(THETA);
+  double STHETA = std::sin(THETA);
+  double CPHI = std::cos(PHI);
+  double SPHI = std::sin(PHI);
+
+  // setup Hessian
+  H.resize(2,2);
+  H(0,0) = (-CTHETA * SPHI) * Y1 + (-STHETA * SPHI) * Y2;
+  H(0,1) = (-STHETA * CPHI) * Y1 + (CTHETA * CPHI) * Y2;
+  H(1,0) = H(0,1);
+  H(1,1) = (CTHETA * -SPHI) * Y1 + (STHETA * -SPHI) * Y2 - CPHI * Y3; 
+  H *= -r;
+}
 

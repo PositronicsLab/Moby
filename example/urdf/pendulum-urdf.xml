@@ -1,0 +1,33 @@
+<!-- URDF-defined pendulum --> 
+
+<XML>
+  <DRIVER step-size="0.01">
+    <camera position="0 1 5" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Box id="ground-viz" xlen="10" ylen="100" zlen="10"  />
+    <Plane id="plane"  />
+
+    <GravityForce id="gravity" accel="0 -9.81 0" />
+
+  <TimeSteppingSimulator>
+    <RecurrentForce recurrent-force-id="gravity"  /> 
+    <DynamicBody dynamic-body-id="pendulum" />
+    <DynamicBody dynamic-body-id="ground" />
+    <ContactParameters object1-id="ground" object2-id="pendulum" epsilon="1" mu-coulomb="0" />
+  </TimeSteppingSimulator>
+
+  <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" urdf-filename="pendulum.urdf" floating-base="false" />
+
+  <!-- setup the ground rigid body; it is not active -->
+  <RigidBody id="ground" enabled="false" 
+    position="0 0 0" color="0 0 1 0">
+    <CollisionGeometry primitive-id="plane" />
+    <Visualization visualization-id="ground-viz" visualization-rel-origin="0 -50 0" />
+  </RigidBody>
+
+  </MOBY>
+</XML>
+

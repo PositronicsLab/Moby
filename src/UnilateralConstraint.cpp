@@ -22,8 +22,6 @@
 
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
-#include <Moby/SingleBody.h>
-#include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>
@@ -52,7 +50,6 @@ UnilateralConstraint::UnilateralConstraint()
 {
   _contact_frame = shared_ptr<Pose3d>(new Pose3d);
   tol = NEAR_ZERO;              // default collision tolerance
-  stick_tol = NEAR_ZERO;
   compliance = eRigid;
   constraint_type = eNone;
   signed_violation = 0.0;
@@ -60,20 +57,15 @@ UnilateralConstraint::UnilateralConstraint()
   limit_epsilon = (double) 0.0;
   limit_upper = false;
   limit_impulse = (double) 0.0;
-  contact_normal.set_zero();
-  contact_normal_dot.set_zero();
-  contact_tan1_dot.set_zero();
-  contact_tan2_dot.set_zero();
-  contact_impulse.set_zero();
-  contact_point.set_zero();
+  contact_normal.set_zero(GLOBAL);
+  contact_impulse.set_zero(GLOBAL);
+  contact_point.set_zero(GLOBAL);
   contact_mu_coulomb = (double) 0.0;
   contact_mu_viscous = (double) 0.0;
   contact_penalty_Kp = (double) 0.0;
   contact_penalty_Kv = (double) 0.0;
   contact_epsilon = (double) 0.0;
   contact_NK = 4;
-  _ftype = eUndetermined;
-  deriv_type = eVel;
   compliance = eCompliant;
 }
 
@@ -89,9 +81,6 @@ UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint
   limit_impulse = e.limit_impulse;
   limit_joint = e.limit_joint;
   contact_normal = e.contact_normal;
-  contact_normal_dot = e.contact_normal_dot;
-  contact_tan1_dot = e.contact_tan1_dot;
-  contact_tan2_dot = e.contact_tan2_dot;
   contact_geom1 = e.contact_geom1;
   contact_geom2 = e.contact_geom2;
   contact_point = e.contact_point;
@@ -104,9 +93,6 @@ UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint
   contact_NK = e.contact_NK;
   contact_tan1 = e.contact_tan1;
   contact_tan2 = e.contact_tan2;
-  stick_tol = e.stick_tol;
-  _ftype = e._ftype;
-  deriv_type = e.deriv_type;
 
   return *this;
 }
@@ -114,368 +100,18 @@ UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint
 /// Computes the constraint data
 void UnilateralConstraint::compute_constraint_data(MatrixNd& M, VectorNd& q) const
 {
-  if (deriv_type == eVel)
-    compute_vconstraint_data(M, q);
-  else
-    compute_aconstraint_data(M, q);
-}
-
-/// Computes the cross constraint data
-void UnilateralConstraint::compute_cross_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
-{
-  assert(deriv_type == e.deriv_type);
-
-  if (deriv_type == eVel)
-    compute_cross_vconstraint_data(e, M);
-  else
-    compute_cross_aconstraint_data(e, M);
-}
-
-/// Computes the acceleration constraint data
-void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) const
-{
-  assert(constraint_type == eContact);
-
-  // setup useful indices
-  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
-
-  // get the two single bodies
-  SingleBodyPtr sb1 = contact_geom1->get_single_body();
-  SingleBodyPtr sb2 = contact_geom2->get_single_body();
-
-  // get the two super bodies
-  DynamicBodyPtr su1 = sb1->get_super_body();
-  DynamicBodyPtr su2 = sb2->get_super_body();
-
-  // get the numbers of generalized coordinates for the two super bodies
-  const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
-
-  // verify the contact point, normal, and tangents are in the global frame
-  assert(contact_point.pose == GLOBAL);
-  assert(contact_normal.pose == GLOBAL);
-  assert(contact_tan1.pose == GLOBAL);
-  assert(contact_tan2.pose == GLOBAL);
-
-  // verify that the friction type has been set
-  assert(_ftype != eUndetermined);
-
-  // setup the contact frame
-  _contact_frame->q.set_identity();
-  _contact_frame->x = contact_point;
-
-  // case 1: sticking friction
-  if (_ftype == eSticking)
-  {
-    // get the directions in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
-
-    // setup a matrix of contact directions
-    Matrix3d R;
-    R.set_column(N, normal);
-    R.set_column(S, tan1);
-    R.set_column(T, tan2);
-
-    // resize the Jacobians 
-    J1.resize(THREE_D, NGC1);
-    J2.resize(THREE_D, NGC2);
-
-    // compute the Jacobians for the two bodies
-    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
-    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
-    R.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
-    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
-    (-R).transpose_mult(Jlin2, J2);
-
-    // compute the contact inertia matrix for the first body
-    su1->transpose_solve_generalized_inertia(J1, workM1);
-    J1.mult(workM1, M);
-
-    // compute the contact inertia matrix for the second body
-    su2->transpose_solve_generalized_inertia(J2, workM1);
-    J2.mult(workM1, workM2);
-    M += workM2;
-
-    // compute the directional accelerations
-    su1->get_generalized_acceleration(v);
-    J1.mult(v, q);
-    su2->get_generalized_acceleration(v);
-    q += J2.mult(v, workv);
-
-    // update the contact vector data
-    compute_dotv_data(q);
-  }
-  else
-  {
-    // get the normal and sliding directions in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
-
-    // resize the Jacobians 
-    J1.resize(1,NGC1);   // normal Jacobian for body 1
-    J2.resize(1,NGC2);   // normal Jacobian for body 2
-    dJ1.resize(1,NGC1);  // sliding Jacobian for body 1
-    dJ2.resize(1,NGC2);  // sliding Jacobian for body 2
-
-    // get shared vectors
-    SharedVectorNd J1n = J1.row(0);  // normal direction Jacobian for body 1 
-    SharedVectorNd J1s = dJ1.row(0); // sliding direction Jacobian for body 1
-    SharedVectorNd J2n = J2.row(0);  // normal direction Jacobian for body 2
-    SharedVectorNd J2s = dJ2.row(0); // sliding direction Jacobian for body 2
-
-    // compute the Jacobians for the two bodies
-    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
-    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
-    Jlin1.transpose_mult(normal, J1n);
-    Jlin1.transpose_mult(tan1, J1s);
-    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
-    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
-    Jlin2.transpose_mult(-normal, J2n);
-    Jlin2.transpose_mult(-tan1, J2s);
-
-    // setup the first solution vector (N - u_s*Q)
-    J1s *= -contact_mu_coulomb; 
-    J1s += J1n; 
-
-    // compute N*inv(M)*(N - u_s*Q)' for the first body
-    su1->solve_generalized_inertia(J1s, workv);
-    M.resize(1,1);
-    M(0,0) = J1n.dot(workv);
-
-    // setup the second solution vector (N - u_s*Q)
-    J2s *= -contact_mu_coulomb; 
-    J2s += J2n;
-
-    // compute N*inv(M)*(N - u_s*Q)' for the second body
-    su2->solve_generalized_inertia(J2s, workv);
-    M(0,0) += J2n.dot(workv);
-
-    // compute the normal acceleration
-    su1->get_generalized_acceleration(v);
-    q[0] = J1n.dot(v);
-    su2->get_generalized_acceleration(v);
-    q[0] += J2n.dot(v);
-
-    // update the contact vector data
-    compute_dotv_data(q);
-  }
-} 
-
-/// Computes ndot, sdot, vdot
-void UnilateralConstraint::compute_contact_dots()
-{
-  assert(constraint_type == eContact);
-
-  // get the two rigid bodies
-  RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(contact_geom1->get_single_body());
-  RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(contact_geom2->get_single_body());
-
-  // get the angular velocities
-  Vector3d w1x = rb1->get_velocity().get_angular();
-  Vector3d w2x = rb2->get_velocity().get_angular(); 
-
-  // get the angular velocity of the both bodies in the global frame
-  Vector3d w1 = Pose3d::transform_vector(GLOBAL, w1x);
-  Vector3d w2 = Pose3d::transform_vector(GLOBAL, w2x);
-
-  // get the centers of mass of the two bodies in the global frame
-  Origin3d o1 = Pose3d::calc_relative_pose(rb1->get_inertial_pose(), GLOBAL).x;
-  Origin3d o2 = Pose3d::calc_relative_pose(rb2->get_inertial_pose(), GLOBAL).x;
-  Vector3d x1(o1, GLOBAL);
-  Vector3d x2(o2, GLOBAL);
-
-  // get the vectors from the center of mass to the contact point
-  Vector3d r1 = contact_point - x1; 
-  Vector3d r2 = contact_point - x2; 
-
-  // compute w x r
-  Vector3d wxr1 = Vector3d::cross(w1, r1);
-  Vector3d wxr2 = Vector3d::cross(w2, r2);
-
-  // compute r squared
-  double r1sq = r1.norm_sq();
-  double r2sq = r2.norm_sq();
-
-  // compute c1 and c2 (if possible)
-  Vector3d c1(0.0, 0.0, 0.0, wxr1.pose);
-  Vector3d c2(0.0, 0.0, 0.0, wxr2.pose);
-  if (r1sq > 0.0)
-  {
-    double dn1 = std::pow(r1sq, -1.5) * 2.0 * r1.dot(wxr1);
-    c1 = wxr1/std::sqrt(r1sq) + r1*dn1;
-  }
-  if (r2sq > 0.0)
-  {
-    double dn2 = std::pow(r2sq, -1.5) * 2.0 * r2.dot(wxr2);
-    c2 = wxr2/std::sqrt(r2sq) + r2*dn2;
-  }
-
-  // compute the sum of the dots 
-  contact_normal_dot = Vector3d::cross(c1 - c2, contact_normal); 
-  contact_tan1_dot = Vector3d::cross(c1 - c2, contact_tan1); 
-  contact_tan2_dot = Vector3d::cross(c1 - c2, contact_tan2); 
-/*
-  contact_normal_dot = Vector3d::cross(wxr1 - wxr2, contact_normal); 
-  contact_tan1_dot = Vector3d::cross(wxr1 - wxr2, contact_tan1); 
-  contact_tan2_dot = Vector3d::cross(wxr1 - wxr2, contact_tan2); 
-*/
-}
-
-/// Computes the contact vector data (\dot{N}v and Na)
-void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
-{
-  assert(constraint_type == eContact);
-
-  // setup useful indices
-  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
-
-  // get the two single bodies
-  SingleBodyPtr sb1 = contact_geom1->get_single_body();
-  SingleBodyPtr sb2 = contact_geom2->get_single_body();
-
-  // get the two super bodies
-  DynamicBodyPtr su1 = sb1->get_super_body();
-  DynamicBodyPtr su2 = sb2->get_super_body();
-
-  // get the numbers of generalized coordinates for the two super bodies
-  const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
-
-  // verify the derivative of the direction vectors are in the global frame
-  assert(contact_normal_dot.pose == GLOBAL);
-  assert(contact_tan1_dot.pose == GLOBAL);
-  assert(contact_tan2_dot.pose == GLOBAL);
-
-  // setup the contact frame
-  _contact_frame->q.set_identity();
-  _contact_frame->x = contact_point;
-
-  // case 1: sticking friction
-  if (_ftype == eSticking)
-  {
-    // get the directions in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
-
-    // get the directional derivatives in the constraint frame 
-    Vector3d dnormal = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
-    Vector3d dtan1 = Pose3d::transform_vector(_contact_frame, contact_tan1_dot);
-    Vector3d dtan2 = Pose3d::transform_vector(_contact_frame, contact_tan2_dot);
-
-    // setup a matrices of contact directions and directional derivatives
-    Matrix3d R, dR;
-    R.set_column(N, normal);
-    R.set_column(S, tan1);
-    R.set_column(T, tan2);
-    dR.set_column(N, dnormal);
-    dR.set_column(S, dtan1);
-    dR.set_column(T, dtan2);
-
-    // resize the Jacobians 
-    J1.resize(THREE_D, NGC1);
-    J2.resize(THREE_D, NGC2);
-    dJ1.resize(THREE_D, NGC1);
-    dJ2.resize(THREE_D, NGC2);
-
-    // compute the Jacobians for the two bodies
-    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
-    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
-    dR.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
-    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
-    (-dR).transpose_mult(Jlin2, J2);
-
-    // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(su1->get_gc_pose(), _contact_frame, sb1, JJ);
-    SharedConstMatrixNd dJlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
-    R.transpose_mult(dJlin1, dJ1); 
-    su2->calc_jacobian_dot(su2->get_gc_pose(), _contact_frame, sb2, JJ);
-    SharedConstMatrixNd dJlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
-    (-R).transpose_mult(dJlin2, dJ2);
-
-    // update J1 and J2
-    if (dJ1.columns() > 0) J1 += dJ1;
-    if (dJ2.columns() > 0) J2 += dJ2;
-
-    // update v using \dot{J}*[n t1 t2]
-    su1->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_CONSTRAINT) << "Body 1 generalized velocity: " << v << std::endl;
-    q += J1.mult(v, workv);
-    su2->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_CONSTRAINT) << "Body 2 generalized velocity: " << v << std::endl;
-    q += J2.mult(v, workv);
-
-    FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
-  }
-  else
-  {
-    // get the normal and its time derivative in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d dnormal = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
-
-    // resize the Jacobians 
-    J1.resize(1, NGC1);
-    J2.resize(1, NGC2);
-    dJ1.resize(1, NGC1);
-    dJ2.resize(1, NGC2);
-
-    // get the rows of the Jacobians for output
-    SharedVectorNd J1n = J1.row(N); 
-    SharedVectorNd J2n = J2.row(N); 
-    SharedVectorNd dJ1n = dJ1.row(N); 
-    SharedVectorNd dJ2n = dJ2.row(N); 
-
-    // compute the Jacobians for the two bodies
-    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
-    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
-    Jlin1.transpose_mult(dnormal, J1n);
-    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
-    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
-    Jlin2.transpose_mult(-dnormal, J2n);
-
-    // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(su1->get_gc_pose(), _contact_frame, sb1, JJ);
-    SharedConstMatrixNd dJlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
-    dJlin1.transpose_mult(normal, dJ1n);
-    su2->calc_jacobian_dot(su2->get_gc_pose(), _contact_frame, sb2, JJ);
-    SharedConstMatrixNd dJlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
-    dJlin2.transpose_mult(-normal, dJ2n);
-
-    // update J1 and J2
-    J1 += dJ1;
-    J2 += dJ2;
-
-    // update v using \dot{J}*[n t1 t2]
-    su1->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_CONSTRAINT) << "Body 1 generalized velocity: " << v << std::endl;
-    q += J1.mult(v, workv);
-    su2->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_CONSTRAINT) << "Body 2 generalized velocity: " << v << std::endl;
-    q += J2.mult(v, workv);
-
-    FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
-  }
-}
-
-/// Computes the constraint data
-void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) const
-{
   if (constraint_type == eContact)
   {
     // setup useful indices
     const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
     // get the two single bodies
-    SingleBodyPtr sb1 = contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr su1 = sb1->get_super_body();
-    DynamicBodyPtr su2 = sb2->get_super_body();
+    shared_ptr<DynamicBodyd> su1 = dynamic_pointer_cast<DynamicBodyd>(sb1->get_super_body());
+    shared_ptr<DynamicBodyd> su2 = dynamic_pointer_cast<DynamicBodyd>(sb2->get_super_body());
 
     // verify the contact point, normal, and tangents are in the global frame
     assert(contact_point.pose == GLOBAL);
@@ -488,8 +124,8 @@ void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) co
     _contact_frame->x = contact_point;
 
     // get the numbers of generalized coordinates for the two super bodies
-    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
-    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
     // resize the Jacobians 
     J1.set_zero(THREE_D, NGC1);
@@ -526,11 +162,11 @@ void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) co
     M += workM2;
 
     // compute the constraint velocity
-    su1->get_generalized_velocity(DynamicBody::eSpatial, v);
+    su1->get_generalized_velocity(DynamicBodyd::eSpatial, v);
     J1.mult(v, q);
 
     // free v1 and allocate v2 and workv
-    su2->get_generalized_velocity(DynamicBody::eSpatial, v);
+    su2->get_generalized_velocity(DynamicBodyd::eSpatial, v);
     q += J2.mult(v, workv);
   }
   else if (constraint_type == eLimit)
@@ -546,7 +182,7 @@ void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) co
       unsigned idx = limit_joint->get_coord_index() + limit_dof;
 
       // setup a vector to solve
-      v.set_zero(su->num_generalized_coordinates(DynamicBody::eSpatial));
+      v.set_zero(su->num_generalized_coordinates(DynamicBodyd::eSpatial));
       v[idx] = 1.0;
 
       // solve
@@ -587,23 +223,23 @@ bool UnilateralConstraint::is_linked(const UnilateralConstraint& e1, const Unila
   if (e1.constraint_type == eContact)
   {
     // get the two single bodies
-    SingleBodyPtr e1sb1 = e1.contact_geom1->get_single_body();
-    SingleBodyPtr e1sb2 = e1.contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> e1sb1 = e1.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> e1sb2 = e1.contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr e1s1 = e1sb1->get_super_body();
-    DynamicBodyPtr e1s2 = e1sb2->get_super_body();
+    shared_ptr<DynamicBodyd> e1s1 = dynamic_pointer_cast<DynamicBodyd>(e1sb1->get_super_body());
+    shared_ptr<DynamicBodyd> e1s2 = dynamic_pointer_cast<DynamicBodyd>(e1sb2->get_super_body());
 
     // examine against other constraint type
     if (e2.constraint_type == eContact)
     {
       // get the two single bodies
-      SingleBodyPtr e2sb1 = e2.contact_geom1->get_single_body();
-      SingleBodyPtr e2sb2 = e2.contact_geom2->get_single_body();
+      shared_ptr<SingleBodyd> e2sb1 = e2.contact_geom1->get_single_body();
+      shared_ptr<SingleBodyd> e2sb2 = e2.contact_geom2->get_single_body();
 
       // get the two super bodies
-      DynamicBodyPtr e2s1 = e2sb1->get_super_body();
-      DynamicBodyPtr e2s2 = e2sb2->get_super_body();
+      shared_ptr<DynamicBodyd> e2s1 = dynamic_pointer_cast<DynamicBodyd>(e2sb1->get_super_body());
+      shared_ptr<DynamicBodyd> e2s2 = dynamic_pointer_cast<DynamicBodyd>(e2sb2->get_super_body());
 
       // see whether there are any bodies in common
       return e1s1 == e2s1 || e1s1 == e2s2 || e1s2 == e2s1 || e1s2 == e2s2;
@@ -649,7 +285,7 @@ bool UnilateralConstraint::is_linked(const UnilateralConstraint& e1, const Unila
 }
 
 /// Updates the constraint data
-void UnilateralConstraint::compute_cross_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // verify that the constraints are linked
   if (!is_linked(*this, e))
@@ -660,8 +296,8 @@ void UnilateralConstraint::compute_cross_vconstraint_data(const UnilateralConstr
     case eContact:
       switch (e.constraint_type)
       {
-        case eContact: compute_cross_contact_contact_vconstraint_data(e, M); break;
-        case eLimit:   compute_cross_contact_limit_vconstraint_data(e, M); break;
+        case eContact: compute_cross_contact_contact_constraint_data(e, M); break;
+        case eLimit:   compute_cross_contact_limit_constraint_data(e, M); break;
         case eNone:    M.resize(0,0); break;
       }
       break;
@@ -669,8 +305,8 @@ void UnilateralConstraint::compute_cross_vconstraint_data(const UnilateralConstr
     case eLimit:
       switch (e.constraint_type)
       {
-        case eContact: compute_cross_limit_contact_vconstraint_data(e, M); break;
-        case eLimit:   compute_cross_limit_limit_vconstraint_data(e, M); break;
+        case eContact: compute_cross_limit_contact_constraint_data(e, M); break;
+        case eLimit:   compute_cross_limit_limit_constraint_data(e, M); break;
         case eNone:    M.resize(0,0); break;
       }
       break;
@@ -685,11 +321,11 @@ void UnilateralConstraint::compute_cross_vconstraint_data(const UnilateralConstr
 /**
  * From two contact points, we can have up to three separate super bodies. 
  */
-void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_contact_contact_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // get the unique super bodies
-  DynamicBodyPtr bodies[4];
-  DynamicBodyPtr* end = get_super_bodies(bodies);
+  shared_ptr<DynamicBodyd> bodies[4];
+  shared_ptr<DynamicBodyd>* end = get_super_bodies(bodies);
   end = e.get_super_bodies(end);
   std::sort(bodies, end);
   end = std::unique(bodies, end);
@@ -702,44 +338,44 @@ void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const 
 
   // if we have exactly two super bodies, process them individually
   if (NSUPER == 1)
-    compute_cross_contact_contact_vconstraint_data(e, M, bodies[0]);
+    compute_cross_contact_contact_constraint_data(e, M, bodies[0]);
   if (NSUPER == 2)
   {
-    compute_cross_contact_contact_vconstraint_data(e, M, bodies[0]);
-    compute_cross_contact_contact_vconstraint_data(e, M, bodies[1]);
+    compute_cross_contact_contact_constraint_data(e, M, bodies[0]);
+    compute_cross_contact_contact_constraint_data(e, M, bodies[1]);
   }
   else if (NSUPER == 3)
   {
     // find the one common super body
-    DynamicBodyPtr bodies1[2], bodies2[2], isect[1];
-    DynamicBodyPtr* end1 = get_super_bodies(bodies1);
-    DynamicBodyPtr* end2 = e.get_super_bodies(bodies2);
+    shared_ptr<DynamicBodyd> bodies1[2], bodies2[2], isect[1];
+    shared_ptr<DynamicBodyd>* end1 = get_super_bodies(bodies1);
+    shared_ptr<DynamicBodyd>* end2 = e.get_super_bodies(bodies2);
     std::sort(bodies1, end1);
     std::sort(bodies2, end2);
-    DynamicBodyPtr* isect_end = std::set_intersection(bodies1, end1, bodies2, end2, isect);
+    shared_ptr<DynamicBodyd>* isect_end = std::set_intersection(bodies1, end1, bodies2, end2, isect);
     assert(isect_end - isect == 1);
-    compute_cross_contact_contact_vconstraint_data(e, M, isect[0]);
+    compute_cross_contact_contact_constraint_data(e, M, isect[0]);
   }
   else if (NSUPER == 4)
     assert(false);
 }
 
 /// Computes cross contact data for one super body
-void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M, DynamicBodyPtr su) const
+void UnilateralConstraint::compute_cross_contact_contact_constraint_data(const UnilateralConstraint& e, MatrixNd& M, shared_ptr<DynamicBodyd> su) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the first two single bodies
-  SingleBodyPtr sba1 = contact_geom1->get_single_body();
-  SingleBodyPtr sba2 = contact_geom2->get_single_body();
+  shared_ptr<SingleBodyd> sba1 = contact_geom1->get_single_body();
+  shared_ptr<SingleBodyd> sba2 = contact_geom2->get_single_body();
 
   // get the first two super bodies
-  DynamicBodyPtr sua1 = sba1->get_super_body();
-  DynamicBodyPtr sua2 = sba2->get_super_body();
+  shared_ptr<DynamicBodyd> sua1 = dynamic_pointer_cast<DynamicBodyd>(sba1->get_super_body());
+  shared_ptr<DynamicBodyd> sua2 = dynamic_pointer_cast<DynamicBodyd>(sba2->get_super_body());
 
   // get the number of generalized coordinates for the super body
-  const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGC = su->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
   // resize Jacobian 
   J.resize(THREE_D, NGC);
@@ -765,33 +401,33 @@ void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const 
     su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, J);
-    compute_cross_contact_contact_vconstraint_data(e, M, su, J);
+    compute_cross_contact_contact_constraint_data(e, M, su, J);
   }
   if (sua2 == su)
   {
     su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, J);
-    compute_cross_contact_contact_vconstraint_data(e, M, su, J);
+    compute_cross_contact_contact_constraint_data(e, M, su, J);
   }
 } 
 
 /// Computes cross contact data for one super body
-void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
+void UnilateralConstraint::compute_cross_contact_contact_constraint_data(const UnilateralConstraint& e, MatrixNd& M, shared_ptr<DynamicBodyd> su, const MatrixNd& J) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the second two single bodies
-  SingleBodyPtr sbb1 = e.contact_geom1->get_single_body();
-  SingleBodyPtr sbb2 = e.contact_geom2->get_single_body();
+  shared_ptr<SingleBodyd> sbb1 = e.contact_geom1->get_single_body();
+  shared_ptr<SingleBodyd> sbb2 = e.contact_geom2->get_single_body();
 
   // get the second two super bodies
-  DynamicBodyPtr sub1 = sbb1->get_super_body();
-  DynamicBodyPtr sub2 = sbb2->get_super_body();
+  shared_ptr<DynamicBodyd> sub1 = dynamic_pointer_cast<DynamicBodyd>(sbb1->get_super_body());
+  shared_ptr<DynamicBodyd> sub2 = dynamic_pointer_cast<DynamicBodyd>(sbb2->get_super_body());
 
   // get the number of generalized coordinates for the super body
-  const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGC = su->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
   // resize Jacobian 
   Jx.resize(THREE_D, NGC);
@@ -836,7 +472,7 @@ void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const 
 }
 
 /// Updates contact/limit cross constraint data
-void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_contact_limit_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -850,12 +486,12 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
   unsigned idx = e.limit_joint->get_coord_index() + e.limit_dof;
 
   // get the two single bodies
-  SingleBodyPtr sb1 = contact_geom1->get_single_body();
-  SingleBodyPtr sb2 = contact_geom2->get_single_body();
+  shared_ptr<SingleBodyd> sb1 = contact_geom1->get_single_body();
+  shared_ptr<SingleBodyd> sb2 = contact_geom2->get_single_body();
 
   // get the two super bodies
-  DynamicBodyPtr su1 = sb1->get_super_body();
-  DynamicBodyPtr su2 = sb2->get_super_body();
+  shared_ptr<DynamicBodyd> su1 = dynamic_pointer_cast<DynamicBodyd>(sb1->get_super_body());
+  shared_ptr<DynamicBodyd> su2 = dynamic_pointer_cast<DynamicBodyd>(sb2->get_super_body());
 
   // setup the contact frame
   _contact_frame->q.set_identity();
@@ -874,8 +510,8 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
   R.set_column(T, tan2);
 
   // get the numbers of generalized coordinates for the two super bodies
-  const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
   // see whether limit is equal to su1
   if (su == su1)
@@ -931,17 +567,17 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
 } 
 
 /// Updates limit/contact cross constraint data
-void UnilateralConstraint::compute_cross_limit_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_limit_contact_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // compute the cross constraint data
-  e.compute_cross_contact_limit_vconstraint_data(*this, workM2);
+  e.compute_cross_contact_limit_constraint_data(*this, workM2);
 
   // transpose the matrix
   MatrixNd::transpose(workM2, M);
 } 
 
 /// Updates limit/limit cross constraint data
-void UnilateralConstraint::compute_cross_limit_limit_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_limit_limit_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // get the super body
   ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
@@ -956,7 +592,7 @@ void UnilateralConstraint::compute_cross_limit_limit_vconstraint_data(const Unil
   if (su)
   {
     // setup a vector to solve
-    workv.set_zero(su->num_generalized_coordinates(DynamicBody::eSpatial));
+    workv.set_zero(su->num_generalized_coordinates(DynamicBodyd::eSpatial));
     workv[idx1] = 1.0;
 
     // solve
@@ -990,274 +626,6 @@ void UnilateralConstraint::compute_cross_limit_limit_vconstraint_data(const Unil
   }
 } 
 
-/// Updates the contact data
-void UnilateralConstraint::compute_cross_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M) const
-{
-  // verify that the contacts are linked
-  if (!is_linked(*this, c))
-    return;
-   
-  if (constraint_type == eContact && c.constraint_type == eContact)
-    compute_cross_contact_contact_aconstraint_data(c, M);
-  else
-    M.resize(0,0); 
-}
-
-/// Updates contact/contact cross contact data
-/**
- * From two contact points, we can have up to three separate super bodies. 
- */
-void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M) const
-{
-  // get the unique super bodies
-  DynamicBodyPtr bodies[4];
-  DynamicBodyPtr* end = get_super_bodies(bodies);
-  end = c.get_super_bodies(end);
-  std::sort(bodies, end);
-  end = std::unique(bodies, end);
-
-  // determine how many unique super bodies we have
-  const unsigned NSUPER = end - bodies;
-
-  // determine how many rows and columns
-  const unsigned ROWS = (_ftype == eSlipping) ? 1 : 3;
-  const unsigned COLS = (c._ftype == eSlipping) ? 1 : 3;
-
-  // clear M
-  M.set_zero(ROWS,COLS);
-
-  // if we have exactly two super bodies, process them individually
-  if (NSUPER == 1)
-    compute_cross_contact_contact_aconstraint_data(c, M, bodies[0]);
-  if (NSUPER == 2)
-  {
-    compute_cross_contact_contact_aconstraint_data(c, M, bodies[0]);
-    compute_cross_contact_contact_aconstraint_data(c, M, bodies[1]);
-  }
-  else if (NSUPER == 3)
-  {
-    // find the one common super body
-    DynamicBodyPtr bodies1[2], bodies2[2], isect[1];
-    DynamicBodyPtr* end1 = get_super_bodies(bodies1);
-    DynamicBodyPtr* end2 = c.get_super_bodies(bodies2);
-    std::sort(bodies1, end1);
-    std::sort(bodies2, end2);
-    DynamicBodyPtr* isect_end = std::set_intersection(bodies1, end1, bodies2, end2, isect);
-    assert(isect_end - isect == 1);
-    compute_cross_contact_contact_aconstraint_data(c, M, isect[0]);
-  }
-  else if (NSUPER == 4)
-    assert(false);
-}
-
-/// Computes cross contact data for one super body
-void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M, DynamicBodyPtr su) const
-{
-  static MatrixNd J;
-
-  // setup useful indices
-  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
-
-  // get the first two single bodies
-  SingleBodyPtr sba1 = contact_geom1->get_single_body();
-  SingleBodyPtr sba2 = contact_geom2->get_single_body();
-
-  // get the first two super bodies
-  DynamicBodyPtr sua1 = sba1->get_super_body();
-  DynamicBodyPtr sua2 = sba2->get_super_body();
-
-  // get the number of generalized coordinates for the super body
-  const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
-
-  // verify that the Coulomb friction type has been determined
-  assert(_ftype != eUndetermined);
-
-  // handle the two types of friction separately
-  if (_ftype == eSticking)
-  {
-    // resize Jacobian 
-    J.resize(THREE_D, NGC);
-
-    // setup the contact frame
-    _contact_frame->q.set_identity();
-    _contact_frame->x = contact_point;
-
-    // get the directions in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
-
-    // setup a matrix of contact directions
-    Matrix3d R;
-    R.set_column(N, normal);
-    R.set_column(S, tan1);
-    R.set_column(T, tan2);
-
-    // compute the Jacobians, checking to see whether necessary
-    if (sua1 == su)
-    {
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba1, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      R.transpose_mult(Jlin, J);
-      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
-    }
-    if (sua2 == su)
-    {
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba2, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      (-R).transpose_mult(Jlin, J);
-      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
-    }
-  }
-  else // sliding contact
-  {
-    // resize Jacobian 
-    J.resize(1, NGC);
-
-    // get the row of the Jacobian for output
-    SharedVectorNd Jn = J.row(N); 
-
-    // setup the contact frame
-    _contact_frame->q.set_identity();
-    _contact_frame->x = contact_point;
-
-    // get the normal in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-
-    // compute the Jacobians, checking to see whether necessary
-    if (sua1 == su)
-    {
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba1, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      Jlin.transpose_mult(normal, Jn);
-      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
-    }
-    if (sua2 == su)
-    {
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba2, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      Jlin.transpose_mult(-normal, Jn);
-      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
-    }
-  }
-} 
-
-/// Computes cross contact data for one super body
-void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
-{
-  // setup useful indices
-  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
-
-  // get the second two single bodies
-  SingleBodyPtr sbb1 = c.contact_geom1->get_single_body();
-  SingleBodyPtr sbb2 = c.contact_geom2->get_single_body();
-
-  // get the second two super bodies
-  DynamicBodyPtr sub1 = sbb1->get_super_body();
-  DynamicBodyPtr sub2 = sbb2->get_super_body();
-
-  // get the gc pose for the super body
-  shared_ptr<const Pose3d> P = su->get_gc_pose();
-
-  // get the number of generalized coordinates for the super body
-  const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
-
-  // verify that the friction type is given
-  assert(_ftype != eUndetermined);
-
-  // setup the contact frame
-  _contact_frame->q.set_identity();
-  _contact_frame->x = c.contact_point;
-
-  if (c._ftype == eSticking)
-  {
-    // resize Jacobian 
-    Jx.resize(THREE_D, NGC);
-
-    // get the directions in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, c.contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, c.contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, c.contact_tan2);
-
-    // setup a matrix of contact directions
-    Matrix3d R;
-    R.set_column(N, normal);
-    R.set_column(S, tan1);
-    R.set_column(T, tan2);
-
-    // compute the Jacobians, checking to see whether necessary
-    if (sub1 == su)
-    {
-      // first compute the Jacobian
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb1, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      R.transpose_mult(Jlin, Jx);
-
-      // now update M 
-      su->transpose_solve_generalized_inertia(Jx, workM1);
-      M += J.mult(workM1, workM2);
-    }
-    if (sub2 == su)
-    {
-      // first compute the Jacobian
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb2, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      (-R).transpose_mult(Jlin, Jx);
-
-      // now update M
-      su->transpose_solve_generalized_inertia(Jx, workM1);
-      M += J.mult(workM1, workM2);
-    }
-  }
-  else  // sliding contact
-  {
-    // resize Jacobians 
-    Jx.resize(1, NGC);
-    Jy.resize(1, NGC);
-
-    // setup the shared vectors
-    SharedVectorNd Jxn = Jx.row(N);
-    SharedVectorNd Jyn = Jy.row(N);
-
-    // get the normal and sliding directions in the constraint frame
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, c.contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, c.contact_tan1);
-
-    // compute the Jacobians, checking to see whether necessary
-    if (sub1 == su)
-    {
-      // first compute the Jacobian
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb1, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      Jlin.transpose_mult(normal, Jxn);
-      Jlin.transpose_mult(tan1, Jyn);
-
-      // setup the first solution vector (N - u_s*Q)
-      Jy *= -contact_mu_coulomb; 
-      Jy += Jx; 
-
-      // now update M 
-      su->transpose_solve_generalized_inertia(Jy, workM1);
-      M += J.mult(workM1, workM2);
-    }
-    if (sub2 == su)
-    {
-      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb2, JJ);
-      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
-      Jlin.transpose_mult(-normal, Jxn);
-      Jlin.transpose_mult(-tan1, Jyn);
-
-      // setup the first solution vector (N - u_s*Q)
-      Jy *= -contact_mu_coulomb; 
-      Jy += Jx; 
-
-      // now update M
-      su->transpose_solve_generalized_inertia(Jx, workM1);
-      M += J.mult(workM1, workM2);
-    }
-  }
-}
-
 /// Sets the contact parameters for this constraint
 void UnilateralConstraint::set_contact_parameters(const ContactParameters& cparams)
 {
@@ -1266,9 +634,8 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   contact_penalty_Kp = cparams.penalty_Kp;
   contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
+  contact_compliance = cparams.compliance;
   contact_NK = cparams.NK;
-  stick_tol = cparams.stick_tol;
-  sustained_tol = cparams.sustained_tol;
 
   // redetermine contact tangents
   determine_contact_tangents();
@@ -1276,209 +643,11 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   assert(contact_NK >= 4);
 }
 
-/// Transforms an acceleration in a moving frame
-SAcceld UnilateralConstraint::transform(shared_ptr<const Pose3d> pose, const SAcceld& a, const SVelocityd& v)
-{
-  // get the transform
-  Transform3d T = Pose3d::calc_relative_pose(a.pose, pose);
-
-  #ifndef NEXCEPT
-  if (v.pose != T.source)
-    throw FrameException();
-  #endif
-
-  // setup r and E
-  Matrix3d E = T.q;
-  Origin3d r = E.transpose_mult(-T.x);
-  Vector3d rv(r, T.source);
-
-  // get the components of a
-  Vector3d alpha = a.get_angular();
-  Vector3d xdd = a.get_linear();
-
-  // only need omega from v
-  Vector3d omega = v.get_angular(); 
-
-  // do the calculations
-  Vector3d Etop(E * Origin3d(alpha), T.target);
-  Vector3d cross1 = Vector3d::cross(rv, alpha);
-  Vector3d cross2 = Vector3d::cross(Vector3d::cross(rv, omega), omega);
-  SAcceld result;
-  result.set_angular(Etop);
-  result.set_linear(Vector3d(E * Origin3d(xdd - cross1 + cross2), T.target));
-  result.pose = T.target;
-  return result;
-} 
-
-/// Computes the acceleration of this contact
-/**
- * Positive acceleration indicates acceleration away, negative acceleration
- * indicates acceleration that will lead to impact/interpenetration.
- */
-double UnilateralConstraint::calc_contact_accel(const Vector3d& v, const Vector3d& vdot) const
-{
-  assert(constraint_type == eContact);
-  assert(contact_geom1 && contact_geom2);
-  SingleBodyPtr sba = contact_geom1->get_single_body();
-  SingleBodyPtr sbb = contact_geom2->get_single_body();
-  assert(sba && sbb);
-
-  // get the velocities and accelerations 
-  const SVelocityd& va = sba->get_velocity(); 
-  const SVelocityd& vb = sbb->get_velocity(); 
-  const SAcceld& aa = sba->get_accel(); 
-  const SAcceld& ab = sbb->get_accel(); 
-
-  // setup the constraint frame
-  _contact_frame->x = contact_point;
-  _contact_frame->q.set_identity();
-  _contact_frame->rpose = GLOBAL;
-
-  // compute the velocities and accelerations at the contact point
-  SVelocityd tva = Pose3d::transform(_contact_frame, va); 
-  SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
-
-  // get the contact direction and derivative in the correct pose
-  Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
-  Vector3d dir_dot = Pose3d::transform_vector(_contact_frame, vdot);
-
-  // compute: d<v, dx/dt + w x r>/dt =  
-  // compute: <v,  d^2x/dt^2 + dw/dt x r> + <dv/dt, dx/dt + w x r>  
-  return dir.dot(taa.get_linear() - tab.get_linear()) + dir_dot.dot(tva.get_angular() - tvb.get_angular());
-}  
-
-/// Computes the acceleration of this contact
-/**
- * Positive acceleration indicates acceleration away, negative acceleration
- * indicates acceleration that will lead to impact/interpenetration.
- * \note Contact acceleration will look like v'xdd + \dot{v}'*xd. This function
- *       only computes the first term.
- */
-double UnilateralConstraint::calc_contact_accel(const Vector3d& v) const
-{
-  assert(constraint_type == eContact);
-  assert(contact_geom1 && contact_geom2);
-  SingleBodyPtr sba = contact_geom1->get_single_body();
-  SingleBodyPtr sbb = contact_geom2->get_single_body();
-  assert(sba && sbb);
-
-  // get the velocities and accelerations 
-  const SVelocityd& va = sba->get_velocity(); 
-  const SVelocityd& vb = sbb->get_velocity(); 
-  const SAcceld& aa = sba->get_accel(); 
-  const SAcceld& ab = sbb->get_accel(); 
-
-  // setup the constraint frame
-  _contact_frame->x = contact_point;
-  _contact_frame->q.set_identity();
-  _contact_frame->rpose = GLOBAL;
-
-  // compute the velocities and accelerations at the contact point
-  SVelocityd tva = Pose3d::transform(_contact_frame, va); 
-  SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
-
-  // get the contact direction and derivative in the correct pose
-  Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
-
-  // compute: d<v, dx/dt + w x r>/dt =  
-  // compute: <v,  d^2x/dt^2 + dw/dt x r> + <dv/dt, dx/dt + w x r>  
-  return dir.dot(taa.get_linear() - tab.get_linear());
-}  
-
-/// Computes the acceleration of this constraint 
-/**
- * Positive acceleration indicates acceleration away, negative acceleration
- * indicates acceleration that will lead to impact/interpenetration.
- */
-double UnilateralConstraint::calc_constraint_accel() const
-{
-  if (constraint_type == eContact)
-  {
-    assert(contact_geom1 && contact_geom2);
-    SingleBodyPtr sba = contact_geom1->get_single_body();
-    SingleBodyPtr sbb = contact_geom2->get_single_body();
-    assert(sba && sbb);
-
-    // get the velocities and accelerations 
-    const SVelocityd& va = sba->get_velocity(); 
-    const SVelocityd& vb = sbb->get_velocity(); 
-    const SAcceld& aa = sba->get_accel(); 
-    const SAcceld& ab = sbb->get_accel(); 
-
-    // setup the constraint frame
-    _contact_frame->x = contact_point;
-    _contact_frame->q.set_identity();
-    _contact_frame->rpose = GLOBAL;
-
-    // compute the velocities and accelerations at the contact point
-    SVelocityd tva = Pose3d::transform(_contact_frame, va); 
-    SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-    SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-    SAcceld tab = Pose3d::transform(_contact_frame, ab); 
-
-    // get the contact normal and derivative in the correct pose
-    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d normal_dot = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
-
-    // compute: d<n, dx/dt + w x r>/dt =  
-    // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
-    return normal.dot(taa.get_linear() - tab.get_linear()) +
-           normal_dot.dot(tva.get_linear() - tvb.get_linear());
-  }
-  else if (constraint_type == eLimit)
-  {
-    double qdd = limit_joint->qdd[limit_dof];
-    return (limit_upper) ? -qdd : qdd;
-  }
-  else
-  {
-    assert(false);
-    return 0.0;
-  }
-}  
-
-/// Computes the acceleration of this contact along the contact tangents
-void UnilateralConstraint::calc_contact_tan_accel(double& tan1A, double& tan2A) const
-{
-  assert(constraint_type == eContact);
-  assert(contact_geom1 && contact_geom2);
-  SingleBodyPtr sba = contact_geom1->get_single_body();
-  SingleBodyPtr sbb = contact_geom2->get_single_body();
-  assert(sba && sbb);
-
-  // get the velocities and accelerations 
-  const SVelocityd& va = sba->get_velocity(); 
-  const SVelocityd& vb = sbb->get_velocity(); 
-  const SAcceld& aa = sba->get_accel(); 
-  const SAcceld& ab = sbb->get_accel(); 
-
-  // setup the constraint frame
-  _contact_frame->x = contact_point;
-  _contact_frame->q.set_identity();
-  _contact_frame->rpose = GLOBAL;
-
-  // compute the velocities and accelerations at the contact point
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
-
-  // get the contact tangents and derivative in the correct pose
-  Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
-  Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
-
-  // compute
-  tan1A = tan1.dot(taa.get_linear() - tab.get_linear());
-  tan2A = tan2.dot(taa.get_linear() - tab.get_linear());
-}  
-
 double calc_constraint_vel2(const UnilateralConstraint& e)
 {
   assert (e.constraint_type == UnilateralConstraint::eContact);
-  SingleBodyPtr sba = e.contact_geom1->get_single_body();
-  SingleBodyPtr sbb = e.contact_geom2->get_single_body();
+  shared_ptr<SingleBodyd> sba = e.contact_geom1->get_single_body();
+  shared_ptr<SingleBodyd> sbb = e.contact_geom2->get_single_body();
 
   // get the vels 
   const SVelocityd& va = sba->get_velocity(); 
@@ -1528,8 +697,8 @@ double UnilateralConstraint::calc_constraint_vel() const
   if (constraint_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
-    SingleBodyPtr sba = contact_geom1->get_single_body();
-    SingleBodyPtr sbb = contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sba = contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sbb = contact_geom2->get_single_body();
     assert(sba && sbb);
 
     // get the vels 
@@ -1542,8 +711,9 @@ double UnilateralConstraint::calc_constraint_vel() const
     _contact_frame->rpose = GLOBAL;
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(_contact_frame, va); 
-    SVelocityd tb = Pose3d::transform(_contact_frame, vb); 
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+    SVelocityd ta = Pose3d::transform(const_contact_frame, va); 
+    SVelocityd tb = Pose3d::transform(const_contact_frame, vb); 
 
     // get the contact normal in the correct pose
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
@@ -1593,7 +763,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       o << "(constraint type: contact)" << std::endl;
       break;
   }
- 
+	 
   if (e.compliance == UnilateralConstraint::eRigid) 
     o << "compliance: rigid" << std::endl;
   else
@@ -1611,77 +781,67 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
   {
     if (e.contact_geom1)
     {
-      SingleBodyPtr sb1(e.contact_geom1->get_single_body());
+      shared_ptr<SingleBodyd> sb1(e.contact_geom1->get_single_body());
       if (sb1)
       {
-        o << "body1: " << sb1->id << std::endl;
+	o << "body1: " << sb1->body_id << std::endl;
       }
       else
-        o << "body1: (undefined)" << std::endl;
+	o << "body1: (undefined)" << std::endl;
     }
     else
       o << "geom1: (undefined)" << std::endl;
   
     if (e.contact_geom2)
     {
-      SingleBodyPtr sb2(e.contact_geom2->get_single_body());
+      shared_ptr<SingleBodyd> sb2(e.contact_geom2->get_single_body());
       if (sb2)
       {
-        o << "body2: " << sb2->id << std::endl;
+	o << "body2: " << sb2->body_id << std::endl;
       }    
       else
-        o << "body2: (undefined)" << std::endl;
+	o << "body2: (undefined)" << std::endl;
     }
     else
       o << "geom2: (undefined)" << std::endl;
 
+    Pose3d P;
+    P.rpose = e.contact_point.pose;
+    P.update_relative_pose(GLOBAL);
+    o << "contact point / normal pose: " << P << std::endl;
     o << "contact point: " << e.contact_point << std::endl;
-    o << "normal: " << e.contact_normal << "  normal dot: " << e.contact_normal_dot << std::endl;
-    o << "tangent 1: " << e.contact_tan1 << "  tan1 dot: " << e.contact_tan1_dot << std::endl;
-    o << "tangent 2: " << e.contact_tan2 << "  tan2 dot: " << e.contact_tan2_dot << std::endl;
-    if (e.deriv_type == UnilateralConstraint::eVel)
-    {
-      SingleBodyPtr sba = e.contact_geom1->get_single_body();
-      SingleBodyPtr sbb = e.contact_geom2->get_single_body();
-      assert(sba && sbb);
+    shared_ptr<SingleBodyd> sba = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sbb = e.contact_geom2->get_single_body();
+    assert(sba && sbb);
 
-      // get the vels 
-      const SVelocityd& va = sba->get_velocity(); 
-      const SVelocityd& vb = sbb->get_velocity(); 
+    // get the vels 
+    const SVelocityd& va = sba->get_velocity(); 
+    const SVelocityd& vb = sbb->get_velocity(); 
 
-      // setup the constraint frame
-      shared_ptr<Pose3d> constraint_frame(new Pose3d);
-      constraint_frame->x = e.contact_point;
-      constraint_frame->q.set_identity();
-      constraint_frame->rpose = GLOBAL;
+    // setup the constraint frame
+    shared_ptr<Pose3d> constraint_frame(new Pose3d);
+    constraint_frame->x = e.contact_point;
+    constraint_frame->q.set_identity();
+    constraint_frame->rpose = GLOBAL;
+    shared_ptr<const Pose3d> const_constraint_frame = boost::const_pointer_cast<const Pose3d>(constraint_frame);
 
-      // compute the velocities at the contact point
-      SVelocityd ta = Pose3d::transform(constraint_frame, va); 
-      SVelocityd tb = Pose3d::transform(constraint_frame, vb); 
+    // compute the velocities at the contact point
+    SVelocityd ta = Pose3d::transform(const_constraint_frame, va); 
+    SVelocityd tb = Pose3d::transform(const_constraint_frame, vb); 
 
-      // get the contact normal in the correct pose
-      Vector3d normal = Pose3d::transform_vector(constraint_frame, e.contact_normal);
-      Vector3d tan1 = Pose3d::transform_vector(constraint_frame, e.contact_tan1);
-      Vector3d tan2 = Pose3d::transform_vector(constraint_frame, e.contact_tan2);
+    // get the contact normal in the correct pose
+    Vector3d normal = Pose3d::transform_vector(constraint_frame, e.contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(constraint_frame, e.contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(constraint_frame, e.contact_tan2);
 
-      // get the linear velocities and project against the normal
-      Vector3d rvlin = ta.get_linear() - tb.get_linear();
-      //assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_constraint_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
-      o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
-      o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
-      o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
-      o << "calc_constraint_vel() reports: " << std::endl;
-      e.calc_constraint_vel();
-    }
-    else
-    {
-      o << "relative normal acceleration: " << e.calc_constraint_accel() << std::endl;
-      double tan1A, tan2A;
-      e.calc_contact_tan_accel(tan1A, tan2A);
-      assert(!std::isnan(tan1A));
-      assert(!std::isnan(tan2A));
-      o << "relative tangent accelerations: " << tan1A << " / " << tan2A << std::endl;
-    } 
+    // get the linear velocities and project against the normal
+    Vector3d rvlin = ta.get_linear() - tb.get_linear();
+    //assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_constraint_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
+    o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
+    o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
+    o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
+    o << "calc_constraint_vel() reports: " << std::endl;
+    e.calc_constraint_vel();
   }
 
   return o;
@@ -1777,12 +937,13 @@ osg::Node* UnilateralConstraint::to_visualization_data() const
  * \param constraints the list of constraints
  * \param groups the islands of connected constraints on return
  */
-void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, list<list<UnilateralConstraint*> >& groups)
+void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >& groups, list<vector<shared_ptr<DynamicBodyd> > >& remaining_islands)
 {
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
   // clear the groups
   groups.clear();
+  remaining_islands.clear();
 
   // copy the list of constraints -- only ones with geometry
   list<UnilateralConstraint*> constraints_copy;
@@ -1795,17 +956,17 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
   // to other nodes if (a) they are both present in constraint or (b) they are
   // part of the same articulated body.  Nodes will not be created for disabled
   // bodies.
-  set<SingleBodyPtr> nodes;
-  multimap<SingleBodyPtr, SingleBodyPtr> edges;
-  typedef multimap<SingleBodyPtr, SingleBodyPtr>::const_iterator EdgeIter;
+  set<shared_ptr<SingleBodyd> > nodes;
+  multimap<shared_ptr<SingleBodyd>, shared_ptr<SingleBodyd> > edges;
+  typedef multimap<shared_ptr<SingleBodyd>, shared_ptr<SingleBodyd> >::const_iterator EdgeIter;
 
-  // get all single bodies present in the constraints
+  // get all single bodies present in the unilateral constraints
   for (list<UnilateralConstraint*>::const_iterator i = constraints_copy.begin(); i != constraints_copy.end(); i++)
   {
     if ((*i)->constraint_type == UnilateralConstraint::eContact)
     {
-      SingleBodyPtr sb1((*i)->contact_geom1->get_single_body());
-      SingleBodyPtr sb2((*i)->contact_geom2->get_single_body());
+      shared_ptr<SingleBodyd> sb1((*i)->contact_geom1->get_single_body());
+      shared_ptr<SingleBodyd> sb2((*i)->contact_geom2->get_single_body());
       if (sb1->is_enabled())
         nodes.insert(sb1);
       if (sb2->is_enabled())
@@ -1818,8 +979,8 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     }
     else if ((*i)->constraint_type == UnilateralConstraint::eLimit)
     {
-      RigidBodyPtr inboard = (*i)->limit_joint->get_inboard_link();
-      RigidBodyPtr outboard = (*i)->limit_joint->get_outboard_link();
+      shared_ptr<RigidBodyd> inboard = (*i)->limit_joint->get_inboard_link();
+      shared_ptr<RigidBodyd> outboard = (*i)->limit_joint->get_outboard_link();
       nodes.insert(inboard);
       nodes.insert(outboard);
     }
@@ -1827,19 +988,37 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
       assert(false);
   }
 
+  // get all single bodies present in the implicit bilateral constraints
+  // add nodes and create edges between them
+  for (unsigned i=0; i< implicit_joints.size(); i++)
+  {
+    JointPtr j = implicit_joints[i];
+    shared_ptr<RigidBodyd> inboard = j->get_inboard_link();
+    shared_ptr<RigidBodyd> outboard = j->get_outboard_link();
+    if (inboard->is_enabled())
+      nodes.insert(inboard);
+    if (outboard->is_enabled())
+      nodes.insert(outboard);
+    if (inboard->is_enabled() && outboard->is_enabled())
+    {
+      edges.insert(std::make_pair(inboard, outboard));
+      edges.insert(std::make_pair(outboard, inboard));
+    }
+  } 
+
   FILE_LOG(LOG_CONSTRAINT) << " -- single bodies in constraints:" << std::endl;
   if (LOGGING(LOG_CONSTRAINT))
-    for (set<SingleBodyPtr>::const_iterator i = nodes.begin(); i != nodes.end(); i++)
-      FILE_LOG(LOG_CONSTRAINT) << "    " << (*i)->id << std::endl;
+    for (set<shared_ptr<SingleBodyd> >::const_iterator i = nodes.begin(); i != nodes.end(); i++)
+      FILE_LOG(LOG_CONSTRAINT) << "    " << (*i)->body_id << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << std::endl;
 
   // add connections between articulated rigid bodies -- NOTE: don't process
   // articulated bodies twice!
-  set<ArticulatedBodyPtr> ab_processed;
-  BOOST_FOREACH(SingleBodyPtr sb, nodes)
+  set<shared_ptr<ArticulatedBodyd> > ab_processed;
+  BOOST_FOREACH(shared_ptr<SingleBodyd> sb, nodes)
   {
     // if the body is not part of an articulated body, skip it
-    ArticulatedBodyPtr abody = sb->get_articulated_body();
+    shared_ptr<ArticulatedBodyd> abody = sb->get_articulated_body();
     if (!abody)
       continue;
 
@@ -1850,11 +1029,27 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     // indicate that the articulated body will now have been processed
     ab_processed.insert(abody);
 
+     // process all implicit joints in the articulated body
+    const vector<shared_ptr<Jointd> >& implicit_joints = abody->get_implicit_joints();
+    for (unsigned i=0; i< implicit_joints.size(); i++)
+    {
+      shared_ptr<Jointd> j = implicit_joints[i];
+      shared_ptr<RigidBodyd> inboard = j->get_inboard_link();
+      shared_ptr<RigidBodyd> outboard = j->get_outboard_link();
+      if (inboard->is_enabled() && outboard->is_enabled())
+      {
+        nodes.insert(inboard);
+        nodes.insert(outboard);
+        edges.insert(std::make_pair(inboard, outboard));
+        edges.insert(std::make_pair(outboard, inboard));
+      }
+    }   
+
     // get all links in the articulated body
-    const vector<RigidBodyPtr>& links = abody->get_links();
+    const vector<shared_ptr<RigidBodyd> >& links = abody->get_links();
 
     // add edges between all pairs for which there are links
-    vector<RigidBodyPtr>::const_iterator j, k;
+    vector<shared_ptr<RigidBodyd> >::const_iterator j, k;
     for (j = links.begin(); j != links.end(); j++)
     {
       // no sense iterating over all other links if link pointed to by j is
@@ -1879,31 +1074,38 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
   while (!nodes.empty())
   {
     // get the node from the front
-    SingleBodyPtr node = *nodes.begin();
+    shared_ptr<SingleBodyd> node = *nodes.begin();
 
-    // add a list to the contact groups
-    groups.push_back(list<UnilateralConstraint*>());
+    // add lists to the contact groups
+    groups.push_back(std::pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > >());
     FILE_LOG(LOG_CONSTRAINT) << " -- constraints in group: " << std::endl;
 
     // create a node queue, with this node added
-    std::queue<SingleBodyPtr> node_q;
+    std::queue<shared_ptr<SingleBodyd> > node_q;
     node_q.push(node);
+
+    // setup a set of processed nodes
+    std::set<shared_ptr<SingleBodyd> > processed_nodes;
 
     // loop until the queue is empty
     while (!node_q.empty())
     {
       // get the node off of the front of the node queue
       node = node_q.front();
+      nodes.erase(node);
       node_q.pop();
 
-      // erase the node from the set of nodes
-      nodes.erase(node);
+      // add the node to the groups
+      groups.back().second.push_back(node);
+
+      // indicate that the node has now been processed
+      processed_nodes.insert(node);
 
       // add all neighbors of the node that have not been processed already 
       // to the node queue
       std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
       for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
-        if (nodes.find(i->second) != nodes.end())
+        if (processed_nodes.find(i->second) == processed_nodes.end())
           node_q.push(i->second);
 
       // loop through all remaining constraints
@@ -1911,13 +1113,14 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
       {
         if ((*i)->constraint_type == UnilateralConstraint::eContact)
         {
-          SingleBodyPtr sb1((*i)->contact_geom1->get_single_body());
-          SingleBodyPtr sb2((*i)->contact_geom2->get_single_body());
+          shared_ptr<SingleBodyd> sb1((*i)->contact_geom1->get_single_body());
+          shared_ptr<SingleBodyd> sb2((*i)->contact_geom2->get_single_body());
 
           // see whether one of the bodies is equal to the node
           if (sb1 == node || sb2 == node)
           {
-            groups.back().push_back(*i);
+            assert(!groups.empty());
+            groups.back().first.push_back(*i);
             i = constraints_copy.erase(i);
             continue;
           }
@@ -1930,7 +1133,8 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
           RigidBodyPtr outboard = (*i)->limit_joint->get_outboard_link();
           if (inboard == node || outboard == node)
           {
-            groups.back().push_back(*i);
+            assert(!groups.empty());
+            groups.back().first.push_back(*i);
             i = constraints_copy.erase(i);
             continue;
           }
@@ -1941,422 +1145,64 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
           assert(false);
       }
     }
+
+    // if no unilateral constraints have been added, add to remaining islands
+    if (groups.back().first.empty())
+    {
+      // don't need an empty group of unilateral constraints
+      groups.pop_back();
+
+      // create a new island
+      remaining_islands.push_back(vector<shared_ptr<DynamicBodyd> >());
+
+      // create a secondary node q and secondary processing set
+      std::queue<shared_ptr<SingleBodyd> > node_q2;
+      std::set<shared_ptr<SingleBodyd> > processed_nodes2;        
+
+      // add the node to the queue
+      node_q2.push(node);
+
+      // find all connected bodies
+      while (!node_q2.empty())
+      {
+        // get the node off of the front of the node queue
+        node = node_q2.front();
+        node_q2.pop();
+
+        // indicate that the node has now been processed
+        processed_nodes2.insert(node);
+
+        // add the super body of this node to the island
+        remaining_islands.back().push_back(node->get_super_body());
+
+        // add all neighbors of the node that have not been processed already 
+        // to the node queue
+        std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
+        for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
+          if (processed_nodes2.find(i->second) == processed_nodes2.end())
+            node_q2.push(i->second);
+      }
+
+      // finally, make the island of super bodies unique
+      vector<shared_ptr<DynamicBodyd> >& island = remaining_islands.back();
+      std::sort(island.begin(), island.end());
+      island.erase(std::unique(island.begin(), island.end()), island.end());
+    }
   }
 
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_constraints() exited" << std::endl;
 }
 
-/*
-/// Computes normal and contact Jacobians for a body
-void UnilateralConstraint::compute_contact_jacobian(const UnilateralConstraint& e, MatrixN& Jc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const map<DynamicBodyPtr, unsigned>& gc_indices)
-{
-  map<DynamicBodyPtr, unsigned>::const_iterator miter;
-  SAFESTATIC FastThreadable<VectorN> tmpv, tmpv2, workv, workv2;
-
-  // get the two bodies
-  SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-  SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
-
-  // get the super bodies
-  DynamicBodyPtr ab1 = sb1->get_articulated_body();
-  DynamicBodyPtr ab2 = sb2->get_articulated_body();
-  DynamicBodyPtr super1 = (ab1) ? ab1 : sb1;
-  DynamicBodyPtr super2 = (ab2) ? ab2 : sb2;
-
-  // process the first body
-  miter = gc_indices.find(super1);
-  if (miter != gc_indices.end())
-  {
-    const unsigned index = miter->second;
-
-   // convert the normal force to generalized forces
-    super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_normal, ZEROS_3, tmpv());
-    Jc.set_sub_mat(ci, index, tmpv(), true);
-
-    // convert the tangent forces to generalized forces
-    super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan1, ZEROS_3, workv());
-    super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan2, ZEROS_3, workv2());
-
-    // compute iM_JcT and iM_DcT components
-    super1->solve_generalized_inertia(DynamicBody::eSpatial, tmpv(), tmpv2());
-    iM_JcT.set_sub_mat(index, ci, tmpv2());
-    super1->solve_generalized_inertia(DynamicBody::eSpatial, workv(), tmpv2());
-    iM_DcT.set_sub_mat(index, ci*2, tmpv2());
-    super1->solve_generalized_inertia(DynamicBody::eSpatial, workv2(), tmpv2());
-    iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
-  }
-
-  // process the second body
-  miter = gc_indices.find(super2);
-  if (miter != gc_indices.end())
-  {
-    const unsigned index = miter->second;
-
-    // convert the normal force to generalized forces
-    super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_normal, ZEROS_3, tmpv());
-    Jc.set_sub_mat(ci, index, tmpv(), true);
-
-    // compute iM_JcT components
-    super2->solve_generalized_inertia(DynamicBody::eSpatial, tmpv(), tmpv2());
-    iM_JcT.set_sub_mat(index, ci, tmpv2());
-
-    // convert the tangent forces to generalized forces
-    super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan1, ZEROS_3, workv());
-    super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan2, ZEROS_3, workv2());
-
-    // compute iM_JcT and iM_DcT components
-    super2->solve_generalized_inertia(DynamicBody::eSpatial, tmpv(), tmpv2());
-    iM_JcT.set_sub_mat(index, ci, tmpv2());
-    super2->solve_generalized_inertia(DynamicBody::eSpatial, workv(), tmpv2());
-    iM_DcT.set_sub_mat(index, ci*2, tmpv2());
-    super2->solve_generalized_inertia(DynamicBody::eSpatial, workv2(), tmpv2());
-    iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
-  }
-}
-
-/// Computes normal and contact Jacobians for a body
-void UnilateralConstraint::compute_contact_jacobians(const UnilateralConstraint& e, VectorN& Nc, VectorN& Dcs, VectorN& Dct)
-{
-  SAFESTATIC FastThreadable<VectorN> Nc1, Nc2, Dcs1, Dcs2, Dct1, Dct2;
-
-  // get the two bodies
-  SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-  SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
-
-  // make sure that the two bodies are ordered
-  if (sb2 < sb1)
-    std::swap(sb1, sb2);
-
-  // get the super bodies
-  DynamicBodyPtr ab1 = sb1->get_articulated_body();
-  DynamicBodyPtr ab2 = sb2->get_articulated_body();
-  DynamicBodyPtr super1 = (ab1) ? ab1 : sb1;
-  DynamicBodyPtr super2 = (ab2) ? ab2 : sb2;
-
-  // get the total number of GC's
-  const unsigned GC1 = super1->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned GC2 = super2->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGC = (super1 != super2) ? GC1 + GC2 : GC1;
-
-  // zero the Jacobian vectors
-  Nc.set_zero(NGC);
-  Dcs.set_zero(NGC);
-  Dct.set_zero(NGC);
-
-  // process the first body
-  // compute the 'r' vector
-  Vector3d r1 = e.contact_point - sb1->get_position();
-
-  // convert the normal force to generalized forces
-  super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_normal, ZEROS_3, Nc1());
-
-  // convert first tangent direction to generalized forces
-  super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan1, ZEROS_3, Dcs1());
-
-  // convert second tangent direction to generalized forces
-  super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan2, ZEROS_3, Dct1());
-
-  // convert the normal force to generalized forces
-  super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_normal, ZEROS_3, Nc2());
-
-  // convert first tangent direction to generalized forces
-  super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan1, ZEROS_3, Dcs2());
-
-  // convert second tangent direction to generalized forces
-  super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan2, ZEROS_3, Dct2());
-
-  // now, set the proper elements in the Jacobian
-  if (super1 == super2)
-  {
-    Nc1() += Nc2();
-    Dcs1() += Dcs2();
-    Dct1() += Dct2();
-    Nc.copy_from(Nc1());
-    Dcs.copy_from(Dcs1());
-    Dct.copy_from(Dct1());
-  }
-  else
-  {
-    Nc.set_sub_vec(0, Nc1());
-    Dcs.set_sub_vec(0, Dcs1());
-    Dct.set_sub_vec(0, Dct1());
-    Nc.set_sub_vec(GC1, Nc2());
-    Dcs.set_sub_vec(GC1, Dcs2());
-    Dct.set_sub_vec(GC1, Dct2());
-  }
-}
-*/
-
-/// Uses the convex hull of the contact manifold to reject contact points
-void UnilateralConstraint::determine_convex_set(list<UnilateralConstraint*>& group)
-{
-return;
-}
-
-void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>& group)
-{
-  vector<Point3d*> hull;
-
-  // get all points
-  vector<Point3d*> points;
-  BOOST_FOREACH(UnilateralConstraint* e, group)
-  {
-    assert(e->constraint_type == UnilateralConstraint::eContact);
-    points.push_back(&e->contact_point);
-  }
-
-  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_convex_set() entered" << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << " -- initial number of contact points: " << points.size() << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << " coefficients of friction: ";
-  BOOST_FOREACH(const UnilateralConstraint* e, group)
-    FILE_LOG(LOG_CONSTRAINT) << e->contact_mu_coulomb << " ";
-  FILE_LOG(LOG_CONSTRAINT) << std::endl;
-
-  // determine whether points are collinear
-  const Point3d& pA = *points.front(); 
-  const Point3d& pZ = *points.back();
-  bool collinear = true;
-  for (unsigned i=1; i< points.size()-1; i++)
-    if (!CompGeom::collinear(pA, pZ, *points[i]))
-    {
-      collinear = false;
-      break;
-    }
-
-  // easiest case: collinear
-  if (collinear)
-  {
-    FILE_LOG(LOG_CONSTRAINT) << " -- contact points are all collinear" << std::endl;
-
-    // just get endpoints
-    pair<Point3d*, Point3d*> ep;
-    CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
-
-    // iterate through, looking for the contact points
-    for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
-    {
-      if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
-        i++;
-      else
-        i = group.erase(i);
-    }
-    assert(!group.empty());
-
-    FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal: " << std::endl;
-    if (LOGGING(LOG_CONSTRAINT))
-    {
-      BOOST_FOREACH(const UnilateralConstraint* e, group)
-        FILE_LOG(LOG_CONSTRAINT) << *e << std::endl;
-    }
-
-    return;
-  }
-  // determine whether the contact manifold is 2D or 3D
-  else if (is_contact_manifold_2D(group))
-  { 
-    FILE_LOG(LOG_CONSTRAINT) << " -- contact points appear to be on a 2D contact manifold" << std::endl;
-
-    try
-    {
-      // attempt to fit a plane to the points
-      Vector3d normal;
-      double offset;
-      CompGeom::fit_plane(points.begin(), points.end(), normal, offset);
-
-      // compute the 2D convex hull
-      CompGeom::calc_convex_hull(points.begin(), points.end(), normal, std::back_inserter(hull));
-      if (hull.empty())
-        throw NumericalException();
-    }
-    catch (NumericalException e)
-    {
-      FILE_LOG(LOG_CONSTRAINT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
-
-      // compute the segment endpoints
-      pair<Point3d*, Point3d*> ep;
-      CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
-
-      // iterate through, looking for the contact points
-      for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
-      {
-        if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
-          i++;
-        else
-          i = group.erase(i);
-      }
-
-      FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal: " << std::endl;
-      if (LOGGING(LOG_CONSTRAINT))
-      {
-        BOOST_FOREACH(const UnilateralConstraint* e, group)
-          FILE_LOG(LOG_CONSTRAINT) << *e << std::endl;
-      }
-
-      return;
-    }
-  }
-  else
-  {
-    try
-    {
-      FILE_LOG(LOG_CONSTRAINT) << " -- contact points appear to be on a 3D contact manifold" << std::endl;
-
-      // compute the 3D convex hull
-      CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
-      if (hull.empty())
-        throw NumericalException();
-    }
-    catch (NumericalException e)
-    {
-      try
-      {
-        FILE_LOG(LOG_CONSTRAINT) << " -- 3D convex hull failed; trying 2D convex hull" << std::endl;
-
-        // attempt to fit a plane to the points
-        Vector3d normal;
-        double offset;
-        CompGeom::fit_plane(points.begin(), points.end(), normal, offset);
-
-        // compute the 2D convex hull
-        CompGeom::calc_convex_hull(points.begin(), points.end(), normal, std::back_inserter(hull));
-        if (hull.empty())
-          throw NumericalException();
-
-/*
-        // hull was successful, fix normals as necessary
-        BOOST_FOREACH(UnilateralConstraint* e, group)
-        {
-          double dot = e->contact_normal.dot(normal);
-          if (std::fabs(dot - 1.0) > NEAR_ZERO && std::fabs(dot + 1.0) > NEAR_ZERO)
-          {
-            // need to fix the normal
-          }
-        }
-*/
-      }
-      catch (NumericalException e)
-      {
-        // compute the segment endpoints
-        pair<Point3d*, Point3d*> ep;
-        CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
-
-        // iterate through, looking for the contact points
-        for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
-        {
-          if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
-            i++;
-          else
-            i = group.erase(i);
-        }
-
-        FILE_LOG(LOG_CONSTRAINT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
-        FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal: " << std::endl;
-        if (LOGGING(LOG_CONSTRAINT))
-        {
-          BOOST_FOREACH(const UnilateralConstraint* e, group)
-            FILE_LOG(LOG_CONSTRAINT) << *e << std::endl;
-        }
-
-        return;
-      }      
-    }
-  }
-
-  // if we're here, convex hull was successful. now sort the hull
-  std::sort(hull.begin(), hull.end());
-
-  // remove points
-  for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
-  {
-    if (std::binary_search(hull.begin(), hull.end(), &((*i)->contact_point)))
-      i++;
-    else
-      i = group.erase(i);
-  }
-
-  FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal using convex hull: " << group.size() << std::endl;
-}
-
-/// Determines whether all constraints in a set are 2D or 3D
-bool UnilateralConstraint::is_contact_manifold_2D(const list<UnilateralConstraint*>& constraints)
-{
-  // get the first contact as a plane
-  assert(constraints.front()->constraint_type == UnilateralConstraint::eContact);
-  Plane plane(constraints.front()->contact_normal, constraints.front()->contact_point);
-
-  // iterate over the remaining contacts
-  for (list<UnilateralConstraint*>::const_iterator i = ++(constraints.begin()); i != constraints.end(); i++)
-  {
-    assert((*i)->constraint_type == UnilateralConstraint::eContact);
-    if (!plane.on_plane((*i)->contact_point))
-      return false;
-  }
-
-  return true;
-}
-
-/**
- * Complexity of computing a minimal set:
- * N = # of contacts, NGC = # of generalized coordinates
- * NGC << N
- *
- * Cost of computing J*inv(M)*J', J*v for one contacts: NGC^3
- *                                    for R contacts: NGC^3 + 2*NGC^2*R
- * Cost of Modified Gauss elimination for M contacts (M < NGC), 
-        M x NGC matrix: M^2*NGC
- *
- * Overall cost: 2*NGC^2*R (for R > NGC, where many redundant contact points
-                            present) + NGC^3
- * therefore generalized coordinates are the limiting factor...
- */
-/// Computes a minimal set of contact constraints
-void UnilateralConstraint::determine_minimal_set(list<UnilateralConstraint*>& group)
-{
-  // if there are very few constraints, quit now
-  if (group.size() <= 4)
-    return;
-
-  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_minimal_set() entered" << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << " -- initial number of constraints: " << group.size() << std::endl;
-
-  // setup a mapping from pairs of single bodies to groups of constraints
-  map<sorted_pair<SingleBodyPtr>, list<UnilateralConstraint*> > contact_groups;
-
-  // move all contact constraints into separate groups
-  for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
-  {
-    if ((*i)->constraint_type == UnilateralConstraint::eContact)
-    {
-      // get the two bodies
-      SingleBodyPtr sb1 = (*i)->contact_geom1->get_single_body();
-      SingleBodyPtr sb2 = (*i)->contact_geom2->get_single_body();
-
-      // move the contact to the group
-      contact_groups[make_sorted_pair(sb1, sb2)].push_back(*i);
-      i = group.erase(i);
-    }
-    else
-      i++;
-  }
-
-  // process each group independently, then recombine
-  for (map<sorted_pair<SingleBodyPtr>, list<UnilateralConstraint*> >::iterator i = contact_groups.begin(); i != contact_groups.end(); i++)
-  {
-    determine_convex_set(i->second);
-    group.insert(group.end(), i->second.begin(), i->second.end()); 
-  }
-}
-
 /// Removes groups of contacts that contain no active contacts 
-void UnilateralConstraint::remove_inactive_groups(list<list<UnilateralConstraint*> >& groups)
+void UnilateralConstraint::remove_inactive_groups(list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >& groups)
 {
-  typedef list<list<UnilateralConstraint*> >::iterator ListIter;
+  typedef list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > >::iterator ListIter;
 
   for (ListIter i = groups.begin(); i != groups.end(); )
   {
     // look for impact in list i
     bool active_detected = false;
-    BOOST_FOREACH(UnilateralConstraint* e, *i)
+    BOOST_FOREACH(UnilateralConstraint* e, i->first)
     {
       if (e->determine_constraint_class() == UnilateralConstraint::eNegative)
       {
@@ -2513,8 +1359,8 @@ double UnilateralConstraint::calc_contact_vel(const Vector3d& v) const
   // verify that this is a contact
   assert(constraint_type == eContact);
 
-  SingleBodyPtr sba = contact_geom1->get_single_body();
-  SingleBodyPtr sbb = contact_geom2->get_single_body();
+  shared_ptr<SingleBodyd> sba = contact_geom1->get_single_body();
+  shared_ptr<SingleBodyd> sbb = contact_geom2->get_single_body();
   assert(sba && sbb);
 
   // get the vels 
@@ -2527,8 +1373,9 @@ double UnilateralConstraint::calc_contact_vel(const Vector3d& v) const
   _contact_frame->rpose = GLOBAL;
 
   // compute the velocities at the contact point
-  SVelocityd ta = Pose3d::transform(_contact_frame, va);
-  SVelocityd tb = Pose3d::transform(_contact_frame, vb);
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+  SVelocityd ta = Pose3d::transform(const_contact_frame, va);
+  SVelocityd tb = Pose3d::transform(const_contact_frame, vb);
 
   // transform the vector
   Vector3d vx = Pose3d::transform_vector(_contact_frame, v);
@@ -2542,8 +1389,8 @@ void UnilateralConstraint::determine_contact_tangents()
   // get the two bodies of the contact
   assert(constraint_type == UnilateralConstraint::eContact);
   assert(contact_geom1 && contact_geom2);
-  SingleBodyPtr sba = contact_geom1->get_single_body();
-  SingleBodyPtr sbb = contact_geom2->get_single_body();
+  shared_ptr<SingleBodyd> sba = contact_geom1->get_single_body();
+  shared_ptr<SingleBodyd> sbb = contact_geom2->get_single_body();
   assert(sba && sbb);
 
   // verify the contact point, normal, and tangents are in the global frame
@@ -2559,8 +1406,9 @@ void UnilateralConstraint::determine_contact_tangents()
   // get the velocities at the point of contat
   const SVelocityd& va = sba->get_velocity(); 
   const SVelocityd& vb = sbb->get_velocity();
-  SVelocityd ta = Pose3d::transform(_contact_frame, va);
-  SVelocityd tb = Pose3d::transform(_contact_frame, vb);
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+  SVelocityd ta = Pose3d::transform(const_contact_frame, va);
+  SVelocityd tb = Pose3d::transform(const_contact_frame, vb);
   Vector3d rvel = ta.get_linear() - tb.get_linear();
 
   // get the normal in the same frame
@@ -2575,59 +1423,26 @@ void UnilateralConstraint::determine_contact_tangents()
   double tan_norm = rvel.norm();
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_contact_tangents() - tangent velocity magnitude: " << tan_norm << std::endl;
 
-  if (tan_norm < stick_tol)
-  {
-    _ftype = eSticking;
-
-    // determine an orthonormal basis using the two contact tangents
-    Vector3d::determine_orthonormal_basis(contact_normal, contact_tan1, contact_tan2);
-    assert(!std::isnan(contact_tan1.norm()));
-    assert(!std::isnan(contact_tan2.norm()));
-  }
-  else
-  {
-    _ftype = eSlipping;
-
-    contact_tan1 = rvel / tan_norm;
-    contact_tan1.pose = GLOBAL;
-    contact_tan2 = Vector3d::cross(contact_normal, contact_tan1);
-    contact_tan2.normalize();
-    assert(!std::isnan(contact_tan1.norm()));
-    assert(!std::isnan(contact_tan2.norm()));
-  }
+  // determine an orthonormal basis using the two contact tangents
+  Vector3d::determine_orthonormal_basis(contact_normal, contact_tan1, contact_tan2);
+  assert(!std::isnan(contact_tan1.norm()));
+  assert(!std::isnan(contact_tan2.norm()));
 }
 
 /// Determines the type of constraint 
 UnilateralConstraint::UnilateralConstraintClass UnilateralConstraint::determine_constraint_class() const
 {
-  if (deriv_type == eVel)
-  {
-    // get the constraint velocity
-    double vel = calc_constraint_vel();
+  // get the constraint velocity
+  double vel = calc_constraint_vel();
 
-    FILE_LOG(LOG_SIMULATOR) << "-- constraint type: " << constraint_type << " velocity: " << vel << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "-- constraint type: " << constraint_type << " velocity: " << vel << std::endl;
 
-    if (vel > tol)
-      return ePositive;
-    else if (vel < -tol)
-      return eNegative;
-    else
-      return eZero;
-  }
+  if (vel > tol)
+    return ePositive;
+  else if (vel < -tol)
+    return eNegative;
   else
-  {
-    // get the constraint acceleration
-    double acc = calc_constraint_accel();
-
-    FILE_LOG(LOG_SIMULATOR) << "-- constraint type: " << constraint_type << " acceleration: " << acc << std::endl;
-
-    if (acc > tol)
-      return ePositive;
-    else if (acc < -tol)
-      return eNegative;
-    else
-      return eZero;
-  }
+    return eZero;
 }
 
 /// Computes the constraint tolerance
@@ -2635,13 +1450,13 @@ UnilateralConstraint::UnilateralConstraintClass UnilateralConstraint::determine_
  * Positive velocity indicates separation, negative velocity indicates
  * impact, zero velocity indicates rest.
  */
-double UnilateralConstraint::calc_vconstraint_tol() const
+double UnilateralConstraint::calc_constraint_tol() const
 {
   if (constraint_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
-    SingleBodyPtr sba = contact_geom1->get_single_body();
-    SingleBodyPtr sbb = contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sba = contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sbb = contact_geom2->get_single_body();
     assert(sba && sbb);
 
     // get the vels 
@@ -2654,8 +1469,9 @@ double UnilateralConstraint::calc_vconstraint_tol() const
     _contact_frame->rpose = GLOBAL;
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(_contact_frame, va); 
-    SVelocityd tb = Pose3d::transform(_contact_frame, vb); 
+    shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+    SVelocityd ta = Pose3d::transform(const_contact_frame, va); 
+    SVelocityd tb = Pose3d::transform(const_contact_frame, vb); 
 
     // compute the difference in linear velocities
     return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);
@@ -2672,54 +1488,8 @@ double UnilateralConstraint::calc_vconstraint_tol() const
   }
 }
 
-/// Computes the constraint tolerance
-/**
- * Positive velocity indicates separation, negative acceleration indicates
- * contact must be treated, zero acceleration indicates rest, positive
- * acceleration indicates contact is separating.
- */
-double UnilateralConstraint::calc_aconstraint_tol() const
-{
-  if (constraint_type == eContact)
-  {
-    assert(contact_geom1 && contact_geom2);
-    SingleBodyPtr sba = contact_geom1->get_single_body();
-    SingleBodyPtr sbb = contact_geom2->get_single_body();
-    assert(sba && sbb);
-
-    // get the velocities and accelerations 
-    const SVelocityd& va = sba->get_velocity(); 
-    const SVelocityd& vb = sbb->get_velocity(); 
-    const SAcceld& aa = sba->get_accel(); 
-    const SAcceld& ab = sbb->get_accel(); 
-
-    // compute the velocities and accelerations at the contact point
-    SVelocityd tva = Pose3d::transform(contact_point.pose, va); 
-    SVelocityd tvb = Pose3d::transform(contact_point.pose, vb); 
-    SAcceld taa = Pose3d::transform(contact_point.pose, aa); 
-    SAcceld tab = Pose3d::transform(contact_point.pose, ab); 
-
-    // get the relative velocity and acceleration norms
-    double rv_norm = (tva.get_linear() - tvb.get_linear()).norm();
-    double ra_norm = (taa.get_linear() - tab.get_linear()).norm();
-
-    // compute the tolerance
-    return std::max(std::max(rv_norm, ra_norm*contact_normal_dot.norm()*2.0), 1.0);
-  }
-  else if (constraint_type == eLimit)
-  {
-    double qdd = limit_joint->qdd[limit_dof];
-    return std::max((double) 1.0, std::fabs(qdd));
-  }
-  else
-  {
-    assert(false);
-    return 0.0;
-  }
-}
-
 /// Gets the super bodies for the constraint
-unsigned UnilateralConstraint::get_super_bodies(DynamicBodyPtr& db1, DynamicBodyPtr& db2) const
+unsigned UnilateralConstraint::get_super_bodies(shared_ptr<DynamicBodyd>& db1, shared_ptr<DynamicBodyd>& db2) const
 {
   // look for empty constraint
   if (constraint_type == UnilateralConstraint::eNone)
@@ -2729,28 +1499,28 @@ unsigned UnilateralConstraint::get_super_bodies(DynamicBodyPtr& db1, DynamicBody
   if (constraint_type == UnilateralConstraint::eLimit)
   {
     RigidBodyPtr outboard = limit_joint->get_outboard_link();
-    db1 = outboard->get_articulated_body();
+    db1 = dynamic_pointer_cast<DynamicBodyd>(outboard->get_articulated_body());
     return 1;
   }
   else if (constraint_type == UnilateralConstraint::eContact)
   {
-    SingleBodyPtr sb1 = contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = contact_geom2->get_single_body();
-    ArticulatedBodyPtr ab1 = sb1->get_articulated_body();
-    ArticulatedBodyPtr ab2 = sb2->get_articulated_body();
+    shared_ptr<SingleBodyd> sb1 = contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = contact_geom2->get_single_body();
+    ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(sb1->get_articulated_body());
+    ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(sb2->get_articulated_body());
     if (ab1)
       db1 = ab1;
     else
     {
       if (sb1->is_enabled())
-        db1 = sb1;
+        db1 = dynamic_pointer_cast<DynamicBodyd>(sb1);
     }
     if (ab2)
       db2 = ab2;
     else
     {
       if (sb2->is_enabled())
-        db2 = sb2;
+        db2 = dynamic_pointer_cast<DynamicBodyd>(sb2);
     }
     return 2;
   }

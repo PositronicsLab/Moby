@@ -30,7 +30,7 @@ StokesDragForce::StokesDragForce(const StokesDragForce& source)
 }
 
 /// Adds gravity to a body
-void StokesDragForce::add_force(DynamicBodyPtr body)
+void StokesDragForce::add_force(shared_ptr<DynamicBodyd> body)
 {
   // if the body is rigid, add drag
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
@@ -49,10 +49,10 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
     ArticulatedBodyPtr ab = boost::dynamic_pointer_cast<ArticulatedBody>(body);
       
     // get the vector of links
-    const std::vector<RigidBodyPtr>& links = ab->get_links();
+    const std::vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
       
     // apply drag force to all links
-    BOOST_FOREACH(RigidBodyPtr rb, links)
+    BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, links)
     {
       SForced w;
       w.set_force(rb->get_velocity().get_linear() * -this->b);

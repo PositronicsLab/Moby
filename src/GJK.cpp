@@ -548,33 +548,13 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
 
     // look and see whether the origin is contained in the simplex
     double pnorm = p.norm();
-    if (pnorm < NEAR_ZERO)
+    if (pnorm <= 0.0)
     {
       FILE_LOG(LOG_COLDET) << "GJK::do_gjk() shapes are intersecting"  << std::endl;
 
-      // A and B are intersecting
-      // determine the interpenetration distance
-      // THE CORRECT WAY to compute interpenetration for convex bodies
-      // using GJK is to construct the minkowski difference (NOTE: not sure
-      // if actual construction is necessary); the interpenetration distance
-      // (corresponds to minimum translation necessary to separate the bodies)
-      // will be the minimum l2-norm of a point on the boundary of the
-      // Minkowski difference. Note that there may be several such points with
-      // minimum norm (which would correspond to several points of deepest
-      // interpenetration) 
-      double pen_dist = INF;
-      const unsigned NV = S.num_vertices();
-      for (unsigned i=0; i< NV; i++)
-      {
-        double dA = A->calc_signed_dist(Pose3d::transform_point(PA, S.get_vertex(i).vB));
-        if (dA < 0.0) 
-          pen_dist = std::min(pen_dist, -dA);
-        double dB = B->calc_signed_dist(Pose3d::transform_point(PB, S.get_vertex(i).vA));
-        if (dB < 0.0) 
-          pen_dist = std::min(pen_dist, -dB);
-      }
-
-      return -pen_dist;
+      // A and B are intersecting, do not attempt to determine interpenetrating
+      // distance
+      return -1.0;
     }
     // look for no progress
     else if (pnorm > min_dist-NEAR_ZERO)

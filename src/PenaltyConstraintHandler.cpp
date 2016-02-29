@@ -15,7 +15,6 @@
 #include <Moby/Constants.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
@@ -60,6 +59,17 @@ void PenaltyConstraintHandler::process_constraints(const vector<UnilateralConstr
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
   FILE_LOG(LOG_CONSTRAINT) << "PenaltyConstraintHandler::process_constraints() exited" << endl;
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
+}
+
+/// Signum function
+static double sgn(double a)
+{
+  if (a > 0.0)
+    return 1.0;
+  else if (a < 0.0)
+    return -1.0;
+  else
+    return 0.0;
 }
 
 /// Applies the model to a set of constraints
@@ -130,8 +140,8 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     Vector3d penalty_force(0,0,0,contact_frame);
 
     // get contacting bodies
-    SingleBodyPtr sba = e.contact_geom1->get_single_body();
-    SingleBodyPtr sbb = e.contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sba = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sbb = e.contact_geom2->get_single_body();
     assert(sba && sbb);
 
     // get the vels
@@ -139,8 +149,9 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     const SVelocityd& vb = sbb->get_velocity();
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(contact_frame, va);
-    SVelocityd tb = Pose3d::transform(contact_frame, vb);
+    shared_ptr<const Pose3d> contact_frame_const = boost::const_pointer_cast<const Pose3d>(contact_frame);
+    SVelocityd ta = Pose3d::transform(contact_frame_const, va);
+    SVelocityd tb = Pose3d::transform(contact_frame_const, vb);
 
     // get the linear velocities and project against the normal
     Vector3d rvlin = ta.get_linear() - tb.get_linear();
@@ -170,27 +181,35 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     FILE_LOG(LOG_CONSTRAINT) << "contact_mu_viscous: " << e.contact_mu_viscous << endl;
 
     if(depth < 0){
-      // Depth
-      penalty_force -= depth * normal * e.contact_penalty_Kp;
+      // compute fN
+      double fN = -depth * e.contact_penalty_Kp - rvlin.dot(normal) * e.contact_penalty_Kv;
+      if (fN > 0.0)
+      { 
+        // setup normal component
+        penalty_force += normal * fN;
 
-      // Velocity
-      penalty_force += -rvlin.dot(normal) * normal * e.contact_penalty_Kv;
+        // sliding friction
+        double tan1_vel = tan1.dot(rvlin);
+        double tan2_vel = tan2.dot(rvlin);
+        double tan_vel = std::sqrt(tan1_vel*tan1_vel + tan2_vel*tan2_vel);
+        if (tan_vel > NEAR_ZERO)
+        {
+          penalty_force += -sgn(tan1.dot(rvlin)) * tan1 * fN * e.contact_mu_viscous;
+          penalty_force += -sgn(tan2.dot(rvlin)) * tan2 * fN * e.contact_mu_viscous;
+        }
 
-      // Friction
-      penalty_force += -tan1.dot(rvlin) * tan1 * e.contact_mu_viscous;
-      penalty_force += -tan2.dot(rvlin) * tan2 * e.contact_mu_viscous;
+        FILE_LOG(LOG_CONSTRAINT) << "Penalty Force: " << penalty_force << endl;
 
-      FILE_LOG(LOG_CONSTRAINT) << "Penalty Force: " << penalty_force << endl;
+        Ravelin::VectorNd gf;
+        if(sba->is_enabled()){
+          sba->convert_to_generalized_force(sba,Ravelin::SForced(penalty_force,Vector3d(0,0,0,contact_frame),contact_frame),gf);
+          sba->add_generalized_force(gf);
+       }
 
-      Ravelin::VectorNd gf;
-      if(sba->is_enabled()){
-        sba->convert_to_generalized_force(sba,Ravelin::SForced(penalty_force,Vector3d(0,0,0,contact_frame),contact_frame),gf);
-        sba->add_generalized_force(gf);
-     }
-
-      if(sbb->is_enabled()){
-        sbb->convert_to_generalized_force(sbb,Ravelin::SForced(-penalty_force,Vector3d(0,0,0,contact_frame),contact_frame),gf);
-        sbb->add_generalized_force(gf);
+        if(sbb->is_enabled()){
+          sbb->convert_to_generalized_force(sbb,Ravelin::SForced(-penalty_force,Vector3d(0,0,0,contact_frame),contact_frame),gf);
+          sbb->add_generalized_force(gf);
+        }
       }
     }
   }

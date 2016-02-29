@@ -1,0 +1,42 @@
+<!-- a double pendulum; doesn't really illustrate anything novel -->
+
+<XML>
+
+  <DRIVER step-size="0.01">
+    <camera position="0 0 30" target="0 -5 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Cylinder id="c" radius="1" height="5" num-circle-points="100" num-rings="100" density="1.0" />
+    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
+
+    <GravityForce id="gravity" accel="0 -9.81 0 " />
+
+  <TimeSteppingSimulator>
+    <RecurrentForce recurrent-force-id="gravity" /> 
+    <DynamicBody dynamic-body-id="pendulum" />
+    <DisabledPair object1-id="l1" object2-id="l2" />
+  </TimeSteppingSimulator>
+
+  <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
+
+      <RigidBody id="base" position="0 0 0"/>
+
+      <RigidBody id="l1" position="0 -2.5 0" visualization-id="c" color=".6 .05 .92 1">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c"  />
+      </RigidBody>
+
+      <RigidBody id="l2" position="0 -7.5 0" visualization-id="c" color=".6 .05 .92 1">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c"  />
+      </RigidBody>
+
+      <RevoluteJoint id="q" q="1.57079632679" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-1" upper-limits="3.14" axis="0 0 1" />
+      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" lower-limits="-.1" upper-limits=".1" axis="0 0 1" />
+    </RCArticulatedBody>
+
+  </MOBY>
+</XML>
+

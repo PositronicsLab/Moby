@@ -24,7 +24,7 @@ void UnilateralConstraint::insertion_sort(BidirectionalIterator first, Bidirecti
 template <class OutputIterator>
 OutputIterator UnilateralConstraint::get_super_bodies(OutputIterator begin) const
 {
-  DynamicBodyPtr db1, db2;
+  boost::shared_ptr<Ravelin::DynamicBodyd> db1, db2;
   unsigned nb = get_super_bodies(db1, db2);
   switch (nb)
   {

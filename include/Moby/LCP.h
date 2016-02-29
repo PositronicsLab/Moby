@@ -8,6 +8,8 @@
 #define _MOBY_LCP_H
 
 #include <Ravelin/MatrixNd.h>
+#include <Ravelin/SparseMatrixNd.h>
+#include <Ravelin/LinAlgd.h>
 #include <Ravelin/VectorNd.h>
 
 namespace Moby {
@@ -21,6 +23,7 @@ class LCP
     bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double zero_tol = -1.0);
+    bool lcp_fast_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
     bool fast_pivoting(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double eps = std::sqrt(std::numeric_limits<double>::epsilon()));
 
   private:

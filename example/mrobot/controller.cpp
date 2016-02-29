@@ -1,7 +1,7 @@
 /*****************************************************************************
  * Controller for mobile robot
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/Vector3d.h>
@@ -23,7 +23,7 @@ using namespace Ravelin;
 using namespace Moby;
 
 // global vars
-boost::shared_ptr<Moby::EventDrivenSimulator> sim;
+boost::shared_ptr<Moby::TimeSteppingSimulator> sim;
 RigidBodyPtr left_wheel_link, right_wheel_link, chassis_link;
 
 // set the desired wheel speeds
@@ -79,7 +79,7 @@ void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, Vect
 }
 
 // the controller (applies a force)
-void controller(DynamicBodyPtr body, double t, void*)
+void controller(ControlledBodyPtr body, double t, void*)
 {
   // get the robot
   RCArticulatedBodyPtr robot = boost::dynamic_pointer_cast<RCArticulatedBody>(body);
@@ -100,7 +100,7 @@ void controller(DynamicBodyPtr body, double t, void*)
 
 // the controller (feedback + possibly inverse dynamics) 
 /*
-void controller(DynamicBodyPtr body, double t, void*)
+void controller(ControlledBodyPtr body, double t, void*)
 {
   const unsigned LEFT = 0, RIGHT = 1;
   static bool first_time = true;
@@ -238,13 +238,13 @@ extern "C" {
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
   Moby::RCArticulatedBodyPtr robot;
-  // get a reference to the EventDrivenSimulator instance and the robot
+  // get a reference to the TimeSteppingSimulator instance and the robot
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<Moby::EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<Moby::TimeSteppingSimulator>(i->second);
 
     // find the robot reference
     if (!robot)

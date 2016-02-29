@@ -1,0 +1,35 @@
+<!-- A pendulum modeled using contact constraints -->
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Sphere id="sphere" radius="1.5811" mass="1" />
+
+    <GravityForce id="gravity" accel="0 -9.81 0 " />
+
+  <CollisionDetectionPlugin id="pendulum-coldet" plugin="libcontact-constrained-pendulum-coldet-plugin.so" />
+
+  <TimeSteppingSimulator collision-detection-plugin="pendulum-coldet" constraint-stabilization-max-iterations="25">
+    <RecurrentForce recurrent-force-id="gravity" /> 
+    <DynamicBody dynamic-body-id="l1" />
+    <DynamicBody dynamic-body-id="world" />
+    <ContactParameters object1-id="world" object2-id="l1" epsilon="0" mu-coulomb="0" />
+  </TimeSteppingSimulator>
+
+  <RigidBody id="world" enabled="false">
+    <CollisionGeometry />
+  </RigidBody>
+
+  <RigidBody id="l1" position="1 0 0" rpy="0 0 1.57079632679490">
+    <InertiaFromPrimitive primitive-id="sphere" />
+    <CollisionGeometry />
+    <Visualization visualization-id="sphere" />
+  </RigidBody>
+
+  </MOBY>
+</XML>
+

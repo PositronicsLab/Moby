@@ -56,6 +56,8 @@ CCD::CCD()
 {
 }
 
+// TODO: remove this as integrator is Euler 8/11/15
+/*
 /// Computes a conservative advancement step between two collision geometries
 double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
 {
@@ -114,11 +116,63 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
   // return the maximum safe step
   return maxt;
 }
+*/
 
 /// Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval
 double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
 {
+  // get primitives 
+  PrimitivePtr pA = pdi.a->get_geometry(); 
+  PrimitivePtr pB = pdi.b->get_geometry();
+
+  // look for case of sphere
+  if (dynamic_pointer_cast<SpherePrimitive>(pA) || 
+      dynamic_pointer_cast<SpherePrimitive>(pB))
+    return calc_CA_Euler_step_sphere(pdi);  
+
+  // no special cases apply: call generic
+  return calc_CA_Euler_step_generic(pdi);
+}
+
+/// Computes the conservative advancement time for a sphere
+double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
+{
+  // reset the minimum observed distance, if possible
+  if (pdi.dist >= 0.0)
+    _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
+
+  // if the distance is greater than zero, use standard conservative
+  // advancement
+  if (pdi.dist > NEAR_ZERO)
+    return calc_CA_Euler_step_generic(pdi);
+
+  // if the relative velocity at the point of contact is zero, return infinity
+  std::vector<UnilateralConstraint> contacts;
+  find_contacts(pdi.a, pdi.b, std::back_inserter(contacts), NEAR_ZERO);
+  if ((contacts.size() == 1 && 
+      std::fabs(contacts.front().calc_constraint_vel()) < NEAR_ZERO*10))
+  {
+    FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << "; reporting infinite conservative advancement time" << std::endl;
+    return std::numeric_limits<double>::max();
+  }
+  else
+  {
+    if (contacts.size() >= 1)
+      FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << std::endl;
+  }
+ 
+  // otherwise, use standard conservative advancement 
+  return calc_CA_Euler_step_generic(pdi);
+}
+
+/// Generic method for conservative step calculation
+double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
+{
   double maxt = std::numeric_limits<double>::max();
+
+  // reset the minimum observed distance, if possible
+  if (pdi.dist >= 0.0)
+    _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
 
   // get geometries, distance, and closest points
   CollisionGeometryPtr cgA = pdi.a; 
@@ -131,30 +185,36 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
   FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
 
-  // if the distance is (essentially) zero, quit now
+  // if the distance is (essentially) zero, do process for bodies in contact 
   if (pdi.dist <= 0.0)
-  {
-    FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
-    return 0.0;
-  }
+    return calc_next_CA_Euler_step(pdi);
 
   // get the direction of the vector from body B to body A
   Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
                 Pose3d::transform_point(GLOBAL, pB);
   double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << "closest point on " << rbA->id << ": " << Pose3d::transform_point(GLOBAL, pA) << std::endl;
+  FILE_LOG(LOG_COLDET) << "closest point on " << rbB->id << ": " << Pose3d::transform_point(GLOBAL, pB) << std::endl;
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
   FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
 
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;
-  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
-  Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
+
+  // if bodies are interpenetrating, reverse n0
+  double dist = pdi.dist;
+  if (pdi.dist < 0.0)
+  {
+    double& min_dist = _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)];
+    min_dist = std::min(min_dist, pdi.dist);
+    dist = NEAR_ZERO + (pdi.dist - min_dist);
+  }
 
   // compute the distance that body A can move toward body B
-  double dist_per_tA = calc_max_velocity(rbA, -nA, _rmax[cgA]);
+  double dist_per_tA = calc_max_dist(rbA, -n0, _rmax[cgA]);
 
   // compute the distance that body B can move toward body A
-  double dist_per_tB = calc_max_velocity(rbB, nB, _rmax[cgB]);
+  double dist_per_tB = calc_max_dist(rbB, n0, _rmax[cgB]); 
 
   // compute the total distance
   double total_dist_per_t = dist_per_tA + dist_per_tB;
@@ -166,7 +226,7 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
 
   // compute the maximum safe step
-  maxt = std::min(maxt, pdi.dist/total_dist_per_t);
+  maxt = std::min(maxt, dist/total_dist_per_t);
 
   FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
 
@@ -174,18 +234,380 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   return maxt;
 }
 
+/// Generic method for *next* conservative step calculation (only for bodies in contact)
+double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
+{
+  const double INF = std::numeric_limits<double>::max();
+  const double MIN_STEP = 1e-5;
+  const double ZERO_VEL = NEAR_ZERO;
+
+  // get the contacts
+  vector<UnilateralConstraint> contacts;
+  find_contacts(pdi.a, pdi.b, contacts);
+
+  // ensure that at least one contact was found
+  if (contacts.empty())
+  {
+    FILE_LOG(LOG_COLDET) << "No contacts found and at least one expected" << std::endl;
+    return INF;
+  }
+
+  // get the contact offset <n, x> = d
+  const UnilateralConstraint& c = contacts.front();
+  double d = c.contact_normal.dot(c.contact_point);
+
+  // get the contact points
+  vector<Vector3d> contact_points(contacts.size());
+  for (unsigned i=0; i< contacts.size(); i++)
+    contact_points[i] = contacts[i].contact_point;
+
+  if (LOGGING(LOG_COLDET))
+  {
+    for (unsigned i=0; i< contact_points.size(); i++)
+      FILE_LOG(LOG_COLDET) << "CCD::::calc_next_CA_Euler_step_generic() contact point: " << contact_points[i] << std::endl;
+  }
+
+  // if the constraint velocity is non-zero at a contact point, contact 
+  // manifold is changing- return minimum step size (for now) 
+  for (unsigned i=0; i< contacts.size(); i++)
+  {
+    const double CVEL = contacts[i].calc_contact_vel(contacts[i].contact_normal);
+    FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - contact point velocity: " << CVEL << std::endl;
+/*
+    if (CVEL > ZERO_VEL)
+      return MIN_STEP;
+    else if (CVEL < -ZERO_VEL)
+      return 0.0;
+*/
+    if (CVEL < -ZERO_VEL)
+      return 0.0;
+  }
+
+  // if there are three or more contact points, contact points define a plane, 
+  // and constraint velocity at all points of contact is zero, return infinity
+  if (contacts.size() >= 3)
+  {
+    // ensure that all contact points have the same offset and normal  
+    for (unsigned i=1; i< contacts.size(); i++)
+    {
+      // compute the dot product between the original normal and this one
+      double dot = contacts[i].contact_normal.dot(c.contact_normal);
+      if (false && std::fabs(dot - 1.0) > NEAR_ZERO)
+      {
+        std::cerr << "CCD::calc_next_CA_Euler_step_generic() - contact normal unexpectedly mis-aligned (returning minimum step)" << std::endl;
+        return MIN_STEP;
+      }
+
+      // compute the offset
+      double dprime = c.contact_normal.dot(contacts[i].contact_point);
+      if (false && std::fabs(dprime - d) > NEAR_ZERO)
+      {
+        std::cerr << "CCD::calc_next_CA_Euler_step_generic() - unexpected contact offset (returning minimum step)" << std::endl;
+        return MIN_STEP;
+      }
+    }
+
+    FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - checking whether contact points are a 2-simplex" << std::endl;
+
+    // just need to find one non-collinear set of points
+    bool twosimplex = false;
+    for (unsigned i=2; i< contact_points.size(); i++)
+      if (!CompGeom::collinear(contact_points[0], contact_points[1],
+                               contact_points[2]))
+      {
+        twosimplex = true;
+        break;
+      }
+
+    // if it's not a two simplex, go through polygonal
+    // process; otherwise, continue below
+    if (twosimplex)
+    {
+      FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - contact points lie on a proper 2-simplex" << std::endl;
+
+      return INF;
+    }
+  }
+
+  // get the two geometries
+  shared_ptr<CollisionGeometry> cgA = c.contact_geom1;
+  shared_ptr<CollisionGeometry> cgB = c.contact_geom2; 
+
+  // contacts do not form a plane; first get two rigid bodies 
+  shared_ptr<RigidBodyd> rbA = dynamic_pointer_cast<RigidBodyd>(cgA->get_single_body());
+  shared_ptr<RigidBodyd> rbB = dynamic_pointer_cast<RigidBodyd>(cgB->get_single_body());
+
+  // now get relative velocities at centers-of-mass
+  SVelocityd vA = Pose3d::transform(rbA->get_mixed_pose(), rbA->get_velocity());
+  SVelocityd vB = Pose3d::transform(rbB->get_mixed_pose(), rbB->get_velocity());
+
+  // contacts do not form a plane; many pairwise cases follow
+  shared_ptr<PolyhedralPrimitive> pA = dynamic_pointer_cast<PolyhedralPrimitive>(cgA->get_geometry());
+  if (pA)
+  {
+    // look for another polyhedron
+    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
+    if (pB)
+    {
+      // compute the relative velocity at each polyhedron's pose
+      shared_ptr<const Pose3d> poseA = pA->get_pose(cgA);
+      shared_ptr<const Pose3d> poseB = pB->get_pose(cgB);
+      Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
+
+      // get the velocity in the A pose
+      SVelocityd rvA = Pose3d::transform(poseA, rbA->get_velocity()) -
+                       Pose3d::transform(poseA, rbB->get_velocity());
+
+      // now transform it to the B pose
+      SVelocityd rvB = aTb.inverse_transform(rvA);
+
+      return calc_next_CA_Euler_step_polyhedron_polyhedron(pA, pB, poseA, poseB, rvA, rvB, c.contact_normal, d);
+    }
+
+    // look for a plane
+    shared_ptr<PlanePrimitive> planeB = dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
+    if (planeB)
+    {
+      // compute the relative velocity at the polyhedron's pose
+      shared_ptr<const Pose3d> poseA = pA->get_pose(cgA);
+      SVelocityd rv = Pose3d::transform(poseA, rbA->get_velocity()) -
+                      Pose3d::transform(poseA, rbB->get_velocity());
+
+      return calc_next_CA_Euler_step_polyhedron_plane(pA, rv, poseA, c.contact_normal, d);
+    }
+  }
+
+  // look for plane case
+  shared_ptr<PlanePrimitive> planeA = dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
+  if (planeA)
+  {
+    // look for a polyhedron
+    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
+    if (pB)
+    {
+      // compute the relative velocity at the polyhedron's pose
+      shared_ptr<const Pose3d> poseB = pB->get_pose(cgB);
+      SVelocityd rv = Pose3d::transform(poseB, rbA->get_velocity()) -
+                      Pose3d::transform(poseB, rbB->get_velocity());
+
+      return calc_next_CA_Euler_step_polyhedron_plane(pB, -rv, poseB, -c.contact_normal, -d);
+    }
+  }
+
+  // still here? we don't know what to do- return infinity and count on
+  // constraint stabilization to patch things up
+  return INF;  
+}
+
+/// Computes the next step between a polyhedron and a plane
+/**
+ * \param nA the contact normal in frame A, given that polyhedron is defined in frame A
+ * \param offset the offset of the contact plane
+ */
+double CCD::calc_next_CA_Euler_step_polyhedron_plane(shared_ptr<PolyhedralPrimitive> p, const SVelocityd& rv, shared_ptr<const Pose3d> P, const Vector3d& normal, double offset0)
+{
+  const double INF = std::numeric_limits<double>::max();
+  double max_step = INF;
+
+  // for illustration purposes, assume that polyhedron is body A, plane is
+  // body B, contact normal is [0 1 0], and A's linear velocity is [0 -1 0]
+
+  // get the polyhedron and its vertices
+  const Polyhedron& poly = p->get_polyhedron();
+  const std::vector<shared_ptr<Polyhedron::Vertex> >& v = poly.get_vertices();
+
+  // get the normal in P's frame
+  Vector3d nP = Pose3d::transform_vector(P, normal);
+
+  // get the new offset
+  Vector3d p0 = normal * offset0;
+  const double offset = nP.dot(Pose3d::transform_point(P, p0));
+
+  // get the Euclidean norm of the angular velocity
+  double av_norm = rv.get_angular().norm();
+
+  // compute the dot product of the relative linear velocity and the normal
+  double lv_dot_n = -nP.dot(rv.get_linear());
+
+  FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_polyhedron_plane(): contact normal: " << normal << " offset: " << offset0 << std::endl;  
+  FILE_LOG(LOG_COLDET) << "  lv'n: " << lv_dot_n << std::endl;  
+
+  // loop over all vertices of the polyhedron (assumed to be in P frame)
+  for (unsigned i=0; i< v.size(); i++)
+  {
+    // get the distance of the vertex from the origin
+    double r = v[i]->o.norm();
+
+    // setup the vertex
+    Vector3d vertex(v[i]->o, P);
+
+    // compute the distance from the vertex to the contact plane <n, x> = d
+    double dist = nP.dot(vertex) - offset;
+    FILE_LOG(LOG_COLDET) << "vertex: " << Pose3d::transform_point(GLOBAL, vertex) << " distance: " << dist << " speed: " << std::max(0.0, lv_dot_n + av_norm*r) << "  max step: " << dist/std::max(0.0, lv_dot_n + av_norm*r) << std::endl;  
+
+    // if the distance is effectively zero, ignore the vertex
+    if (dist < NEAR_ZERO)
+      continue;
+
+    // compute the speed of the vertex
+    double speed = std::max(0.0, lv_dot_n + av_norm*r);
+
+    // divide the distance by the maximum speed of that vertex   
+    max_step = std::min(max_step, dist/speed);
+  }
+
+  return max_step;
+}
+
+/// Computes the next step between two polyhedra
+/**
+ * \param nA the contact normal in frame A, given that polyhedron is defined in frame A
+ * \param offset the offset of the contact plane
+ */
+double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralPrimitive> pA, shared_ptr<PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, const SVelocityd& rvA, const SVelocityd& rvB, const Vector3d& n0, double offset0)
+{
+  const double INF = std::numeric_limits<double>::max();
+  double max_step = INF;
+
+  // get the normal in A and B's frames
+  Vector3d nA = Pose3d::transform_vector(poseA, n0);
+  Vector3d nB = Pose3d::transform_vector(poseB, -n0);
+
+  // compute offsets w.r.t. nA/nB frame
+  Vector3d p0 = n0 * offset0;
+  const double offsetA = nA.dot(Pose3d::transform_point(poseA, p0));
+  const double offsetB = nB.dot(Pose3d::transform_point(poseB, p0));
+
+  // get the polyhedra and vertices
+  const Polyhedron& polyA = pA->get_polyhedron();
+  const Polyhedron& polyB = pB->get_polyhedron();
+  const std::vector<shared_ptr<Polyhedron::Vertex> >& vA = polyA.get_vertices();
+  const std::vector<shared_ptr<Polyhedron::Vertex> >& vB = polyB.get_vertices();
+
+  // get the Euclidean norms of the angular velocities
+  double avA_norm = rvA.get_angular().norm();
+  double avB_norm = rvB.get_angular().norm();
+
+  // compute the dot products of the relative linear velocities and the normals
+  double lvA_dot_n = -nA.dot(rvA.get_linear());
+  double lvB_dot_n = nB.dot(rvB.get_linear());
+
+  // loop over all vertices of polyhedron A 
+  for (unsigned i=0; i< vA.size(); i++)
+  {
+    // get the distance of the vertex from the origin
+    double r = vA[i]->o.norm();
+
+    // get the vertex in the pose
+    Vector3d vertex(vA[i]->o, poseA);
+
+    // compute the distance from the vertex to the contact plane <n, x> = d
+    double dist = nA.dot(vertex) - offsetA;
+
+    // if the distance is effectively zero, ignore the vertex
+    if (dist < NEAR_ZERO)
+      continue;
+
+    // compute the speed of the vertex
+    double speed = std::max(0.0, lvA_dot_n + avA_norm*r);
+
+    // divide the distance by the maximum speed of that vertex   
+    max_step = std::min(max_step, dist/speed);
+  }
+
+  // loop over all vertices of polyhedron B 
+  for (unsigned i=0; i< vB.size(); i++)
+  {
+    // get the distance of the vertex from the origin
+    double r = vB[i]->o.norm();
+
+    // get the vertex in the pose
+    Vector3d vertex(vB[i]->o, poseB);
+
+    // compute the distance from the vertex to the contact plane <n, x> = d
+    double dist = nB.dot(vertex) - offsetB;
+
+    // if the distance is effectively zero, ignore the vertex
+    if (dist < NEAR_ZERO)
+      continue;
+
+    // compute the speed of the vertex
+    double speed = std::max(0.0, lvB_dot_n + avB_norm*r);
+
+    // divide the distance by the maximum speed of that vertex   
+    max_step = std::min(max_step, dist/speed);
+  }
+
+  return max_step;
+}
+
 /// Computes the maximum velocity along a particular direction (n)
-double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
+double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d& n, double rmax)
+{
+  // get the base link
+  RigidBodyPtr base = dynamic_pointer_cast<RigidBody>(ab->get_base_link());
+
+  // get the base link's velocity
+  const SVelocityd& base_v0 = Pose3d::transform(GLOBAL, base->get_velocity());
+  Vector3d base_xd0 = base_v0.get_linear();
+
+  // setup the initial movement
+  double mvmt = n.dot(base_xd0);
+
+  // get the inner joint
+  JointPtr inner = rb->get_inner_joint_explicit();
+
+  // add the movement in for the rigid body
+  mvmt += 2.0 * rmax * inner->qd.norm();
+
+  // get the joint pose
+  Pose3d joint_pose = *inner->get_pose();
+  joint_pose.update_relative_pose(GLOBAL);
+
+  // keep looping until we arrive at the base link
+  while (true)
+  {
+    rb = inner->get_inboard_link();
+    if (rb == base)
+      break;
+    JointPtr next_inner = rb->get_inner_joint_explicit();
+    Pose3d next_joint_pose = *next_inner->get_pose();
+    next_joint_pose.update_relative_pose(GLOBAL);
+    mvmt += next_inner->qd.norm() * (next_joint_pose.x - joint_pose.x).norm(); 
+    joint_pose = next_joint_pose;
+    inner = next_inner;
+  }
+
+  return mvmt; 
+}
+
+/// Computes the maximum velocity along a particular direction (n)
+double CCD::calc_max_dist(RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+  if (!rb->is_enabled())
+    return 0.0;
+
+  // if the body is part of an articulated body, do that calculation instead
+  if (rb->get_articulated_body() && rb->get_articulated_body()->get_base_link() != rb)
+    return calc_max_dist(dynamic_pointer_cast<ArticulatedBody>(rb->get_articulated_body()), rb, n, rmax);
+
   // get the velocities at t0
-  const SVelocityd& v0 = Pose3d::transform(rb->get_pose(), rb->get_velocity());
+  const SVelocityd& v0 = Pose3d::transform(GLOBAL, rb->get_velocity());
   Vector3d xd0 = v0.get_linear();
   Vector3d w0 = v0.get_angular();
-  return n.dot(xd0) + w0.norm()*rmax;
+  FILE_LOG(LOG_COLDET) << "CCD::calc_max_velocity() called on " << rb->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "  n = " << n << std::endl;
+  FILE_LOG(LOG_COLDET) << "  xd0 = " << xd0 << std::endl;
+  FILE_LOG(LOG_COLDET) << "  w0 = " << w0 << std::endl;
+  FILE_LOG(LOG_COLDET) << "  <n, xd0> = " << n.dot(xd0) << std::endl;
+  FILE_LOG(LOG_COLDET) << "  ||w0 x n|| * r = " << Vector3d::cross(w0, n).norm()*rmax << std::endl;
+  return n.dot(xd0) + Vector3d::cross(w0, n).norm()*rmax;
 }
 
+// NOTE: migration of dynamics computations to Ravelin break this function; slated for removal on 8/10/15
+/*
 /// Solves the LP that maximizes <n, v + w x r>
 double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
 {
@@ -246,14 +668,18 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
 
   return std::fabs(dist);
 }
+*/
 
 /// Implements Base::load_from_xml()
 void CCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
-  // verify that the node name is correct
-  assert(strcasecmp(node->name.c_str(), "CCD") == 0);
+  // do not verify that the node name is correct; class may be subclassed
+  // assert(strcasecmp(node->name.c_str(), "CCD") == 0);
+
+  // call parent
+  CollisionDetection::load_from_xml(node, id_map);
 }
 
 /// Implements Base::save_to_xml()
@@ -263,14 +689,17 @@ void CCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr
  */
 void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
-  // (re)set the node name
-  node->name = "CCD";
+  // do not (re)set the node name - there can be derived classes
+  // node->name = "CCD";
+
+  // call the parent method 
+  CollisionDetection::save_to_xml(node, shared_objects);
 }
 
 /****************************************************************************
  Methods for broad phase begin
 ****************************************************************************/
-void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void CCD::broad_phase(double dt, const vector<ControlledBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() entered" << std::endl;
 
@@ -283,7 +712,10 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
   {
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
     if (ab)
-      rbs.insert(rbs.end(), ab->get_links().begin(), ab->get_links().end());
+    {
+      BOOST_FOREACH(shared_ptr<RigidBodyd> rb, ab->get_links())
+        rbs.push_back(dynamic_pointer_cast<RigidBody>(rb));
+    }
     else
       rbs.push_back(dynamic_pointer_cast<RigidBody>(bodies[i]));
   }
@@ -411,7 +843,7 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
   // now setup pairs to check
   for (map<sorted_pair<CollisionGeometryPtr>, unsigned>::const_iterator i = overlaps.begin(); i != overlaps.end(); i++)
   {
-    FILE_LOG(LOG_COLDET) << i->second << " overlaps between " << i->first.first << " (" << i->first.first->get_single_body()->id << ") and " << i->first.second << " (" << i->first.second->get_single_body()->id << ")" << std::endl;
+    FILE_LOG(LOG_COLDET) << i->second << " overlaps between " << i->first.first << " (" << i->first.first->get_single_body()->body_id << ") and " << i->first.second << " (" << i->first.second->get_single_body()->body_id << ")" << std::endl;
 
     // only consider the pair if they overlap in all three dimensions
     if (i->second < 3)
@@ -457,22 +889,10 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
 
   // get the current velocity and the velocity limits
   const SVelocityd& v = rb->get_velocity();
-  Vector3d v_lo = rb->get_vel_lower_bounds().get_linear();
-  Vector3d v_hi = rb->get_vel_upper_bounds().get_linear();
 
   // compute the swept BV
   BVPtr swept_bv = bv->calc_swept_BV(cg, v*dt);
   FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
-
-  // attempt to get the swept BV as a SSL
-  shared_ptr<SSL> ssl = dynamic_pointer_cast<SSL>(swept_bv);
-  if (ssl)
-  {
-    // update the radius
-    ssl->radius += dt*std::max(std::fabs(v_lo[X]), std::fabs(v_hi[X]));
-    ssl->radius += dt*std::max(std::fabs(v_lo[Y]), std::fabs(v_hi[Y]));
-    ssl->radius += dt*std::max(std::fabs(v_lo[Z]), std::fabs(v_hi[Z]));
-  }
 
   // store the bounding volume
   _swept_BVs[cg] = swept_bv;
@@ -537,7 +957,7 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Axis
 
     // get the bound for the bounding volume
     Point3d bound = (bounds[i].second.end) ? swept_bv->get_upper_bounds() : swept_bv->get_lower_bounds();
-    FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
+    FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->body_id << std::endl;
 
     // update the bounds for the given axis
     switch (axis)
@@ -625,11 +1045,27 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
     return sph;
   }
 
+  // look for torus primitive (also an easy case)
+  shared_ptr<TorusPrimitive> torus_p = dynamic_pointer_cast<TorusPrimitive>(p);
+  if (torus_p)
+  {
+    sph->radius = torus_p->get_major_radius() + torus_p->get_minor_radius();
+    return sph;
+  }
+
   // look for box primitive (also an easy case)
   shared_ptr<BoxPrimitive> box_p = dynamic_pointer_cast<BoxPrimitive>(p);
   if (box_p)
   {
     sph->radius = Origin3d(box_p->get_x_len()/2.0, box_p->get_y_len()/2.0, box_p->get_z_len()/2.0).norm();
+    return sph;
+  }
+
+  // look for generic polyhedral primitive
+  shared_ptr<PolyhedralPrimitive> pp = dynamic_pointer_cast<PolyhedralPrimitive>(p);
+  if (pp)
+  {
+    sph->radius = pp->get_bounding_radius();
     return sph;
   }
 
@@ -668,355 +1104,4 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
  Methods for broad phase end
 ****************************************************************************/
 
-/****************************************************************************
- Methods for solving LP start
-****************************************************************************/
-
-/// Solves a linear program using the method of Seidel
-/**
- * This method exhibits complexity of O(d!n), where d is the dimension of the
- * variables and n is the number of constraints.
- * \param A the matrix for which Ax < b
- * \param b the vector for which Ax < b
- * \param c the optimization vector (maximizes c'x)
- * \param l the lower variable constraints on x
- * \param u the upper variable constraints on x
- * \param x the optimal solution (on successful return)
- * \return <b>true</b> if successful, <b>false</b> otherwise
- * \note using limits of +/- inf can result in overflow with this algorithm
- *       and is not recommended; use lower limits
- */
-bool CCD::lp_seidel(const MatrixNd& A, const VectorNd& b, const VectorNd& c, const VectorNd& l, const VectorNd& u, VectorNd& x)
-{
-  // get number of rows and columns in A
-  unsigned n = A.rows();
-  unsigned d = A.columns();
-
-  FILE_LOG(LOG_OPT) << "LP::lp() entered" << endl;
-  FILE_LOG(LOG_OPT) << "A: " << endl << A;
-  FILE_LOG(LOG_OPT) << "b: " << b << endl;
-  FILE_LOG(LOG_OPT) << "c: " << c << endl;
-  FILE_LOG(LOG_OPT) << "l: " << l << endl;
-  FILE_LOG(LOG_OPT) << "u: " << u << endl;
-
-  // base case d = 1
-  if (d == 1)
-  {
-    FILE_LOG(LOG_OPT) << "base case, d = 1" << endl;
-
-    double high = u[0]; 
-    double low = l[0];
-
-    for (unsigned i=0; i< n; i++)
-    {
-      if (A(i,0) > std::numeric_limits<double>::epsilon())
-        high = std::min(high, b[i]/A(i,0));
-      else if (A(i,0) < -std::numeric_limits<double>::epsilon())
-        low = std::max(low, b[i]/A(i,0));
-      else if (b[i] < -std::numeric_limits<double>::epsilon())
-      {
-        FILE_LOG(LOG_OPT) << "infeasible; b is negative and A is zero" << endl;
-
-        return false; 
-      }
-    }
-
-    // do a check for infeasibility
-    if (high < low)
-    {
-      FILE_LOG(LOG_OPT) << "infeasible; high (" << high << ") < low (" << low << ")" << endl;
-
-      return false; 
-    }
-  
-    // set x
-    x.resize(1);
-    x[0] = (c[0] >= 0.0) ? high : low;
-
-    FILE_LOG(LOG_OPT) << "optimal 1D x=" << x << endl;
-    FILE_LOG(LOG_OPT) << "LP::lp() exited" << endl;
-
-    // otherwise, good return
-    return true; 
-  }
-
-  // all work variables
-  #ifdef REENTRANT
-  vector<VectorNd> aac;
-  vector<VectorNd> aa;
-  vector<unsigned> permut;
-  vector<double> bbc;
-  MatrixNd Aprime;
-  VectorNd bb, aak, cprime, lprime, uprime, bprime, workv, f, g;
-  #else 
-  static vector<VectorNd> aac;
-  static vector<VectorNd> aa;
-  static vector<unsigned> permut;
-  static vector<double> bbc;
-  static MatrixNd Aprime;
-  static VectorNd bb, aak, cprime, lprime, uprime, bprime, workv, f, g;
-  #endif
-
-  // pick a random shuffle for A and b
-  permut.resize(n);
-  for (unsigned i=0; i< n; i++)
-    permut[i] = i;
-  std::random_shuffle(permut.begin(), permut.end());
-
-  // setup aa and bb
-  aa.resize(n);
-  bb.resize(n);
-  for (unsigned i=0; i< n; i++)
-  {
-    A.get_row(permut[i], aa[i]);
-    bb[i] = b[permut[i]];
-  }
-
-  FILE_LOG(LOG_OPT) << "A (permuted): " << endl;
-  for (unsigned i=0; i< n; i++)
-    FILE_LOG(LOG_OPT) << aa[i] << endl;
-  FILE_LOG(LOG_OPT) << "b (permuted): " << bb << endl;
-
-  // setup optimum vector
-  x.resize(d);
-  for (unsigned i=0; i< d; i++)
-    if (c[i] > 0.0)
-        x[i] = u[i];
-    else if (c[i] < 0.0) 
-        x[i] = l[i];
-    else
-        x[i] = (std::fabs(l[i]) < std::fabs(u[i])) ? l[i] : u[i];
-
-  FILE_LOG(LOG_OPT) << "initial x=" << x << endl;
-
-  // process half-space constraints 
-  for (unsigned i=0; i< n; i++)
-  {
-    FILE_LOG(LOG_OPT) << "-- processing halfspace constraint " << i << endl;
-
-    // if x respects new halfspace constraint, nothing else to do..
-    double val = bb[i] - VectorNd::dot(aa[i], x);
-    if (val >= -EPS_DOUBLE)
-    {    
-      FILE_LOG(LOG_OPT) << "  ** constraint already satisfied!" << endl;
-      continue;
-    }
-
-    FILE_LOG(LOG_OPT) << "  -- constraint not satisfied (" << val << "); solving recursively" << endl;
-
-    // search for maximum value in the a vector
-    unsigned k = std::numeric_limits<unsigned>::max();
-    double maximal = -std::numeric_limits<double>::max();
-    for (unsigned j=0; j< d; j++)
-      if (std::fabs(aa[i][j]) > maximal && aa[i][j] != 0.0)
-      {
-        maximal = std::fabs(aa[i][j]);
-        k = j;
-      }
-
-    FILE_LOG(LOG_OPT) << "  -- determined k: " << k << endl;
-
-    // look for infeasibility
-    if (k == std::numeric_limits<unsigned>::max())
-    {
-      FILE_LOG(LOG_OPT) << "  -- k is infeasible; problem is infeasible" << endl;
-
-      return false; 
-    }
-
-    // setup useful vector and constant
-    aak = aa[i];
-    aak /= aa[i][k];
-    double bak = bb[i]/aa[i][k];
-
-    FILE_LOG(LOG_OPT) << "  -- vector a/a(k): " << aak << " " << bak << endl;
-
-    // copy vectors aa and bb
-    aac.resize(i);
-    bbc.resize(i);
-    for (unsigned j=0; j< i; j++)
-    {
-      aac[j] = aa[j];
-      bbc[j] = bb[j];
-    }
-
-    // modify copy of vector aa
-    for (unsigned j=0; j< i; j++)
-    {
-      workv = aak;
-      workv *= aa[j][k];
-      aac[j] -= workv;
-      assert(std::fabs(aac[j][k]) < EPS_DOUBLE);
-      aac[j] = remove_component(aac[j], k, workv);
-    }
-
-    // modify copy of vector bb 
-    for (unsigned j=0; j< i; j++)
-    {
-      bbc[j] -= bak * aa[j][k];
-      if (std::isinf(bbc[j]))
-        bbc[j] = finitize(bbc[j]);
-    }
-
-    // modify copy of c
-    assert(std::fabs((c[k] - aak[k]*c[k])) < EPS_DOUBLE);
-    workv = aak;
-    workv *= c[k];
-    workv -= c;
-    workv.negate(); 
-    remove_component(workv, k, cprime);  
-
-    // generate new lower and upper bounds for variables
-    remove_component(l, k, lprime);
-    remove_component(u, k, uprime);
-
-    // setup two new constraints 
-    f.set_zero(d);
-    g.set_zero(d);
-    f[k] = 1;
-    g[k] = -1;
-    assert(std::fabs((f[k] - aak[k])) < EPS_DOUBLE);
-    assert(std::fabs((g[k] + aak[k])) < EPS_DOUBLE);
-    f = remove_component(f -= aak, k, workv);
-    g = remove_component(g += aak, k, workv);
-    double bf = u[k] - bak;
-    double bg = -l[k] + bak;
-    if (std::isinf(bf))
-      bf = finitize(bf);
-    if (std::isinf(bg))
-      bg = finitize(bg);
-    aac.push_back(f);
-    bbc.push_back(bf);
-    aac.push_back(g);
-    bbc.push_back(bg);
-
-    // create the Aprime matrix from aac
-    Aprime.resize(aac.size(), d-1);  
-    for (unsigned j=0; j< aac.size(); j++)
-      Aprime.set_row(j, aac[j]);
-
-    // create the bprime vector from bbc
-    bprime.resize(bbc.size());
-    for (unsigned j=0; j< bbc.size(); j++)
-      bprime[j] = bbc[j];
-
-    FILE_LOG(LOG_OPT) << "  -- A': " << endl << Aprime;
-    FILE_LOG(LOG_OPT) << "  -- b': " << bprime << endl;
-    FILE_LOG(LOG_OPT) << "  -- c': " << cprime << endl;
-    FILE_LOG(LOG_OPT) << "  -- u': " << uprime << endl;
-    FILE_LOG(LOG_OPT) << "  -- l': " << lprime << endl;
-    FILE_LOG(LOG_OPT) << "  -- f: " << f << " " << bf << endl;
-    FILE_LOG(LOG_OPT) << "  -- g: " << g << " " << bg << endl;
-    FILE_LOG(LOG_OPT) << " + solving recursive subproblem" << endl;
-
-    // solve the (d-1)-dimensional problem and ``lift'' the solution
-    if (!lp_seidel(Aprime,bprime,cprime,lprime,uprime,x))
-      return false;
-
-    FILE_LOG(LOG_OPT) << "  -- recursively determined x: " << x << endl;
-    FILE_LOG(LOG_OPT) << "  -- k: " << k << endl;
-
-    // insert a zero into the k'th dimension of x
-    x = insert_component(x, k, workv);
-    FILE_LOG(LOG_OPT) << "  -- x w/inserted component at k: " << x << endl;
-
-    // solve for the proper k'th value of x
-    x[k] = (bb[i] - VectorNd::dot(aa[i], x))/aa[i][k];
-    FILE_LOG(LOG_OPT) << "  -- optimal x (to this point): " << x << endl;
-
-    // verify that half-plane constraints still met
-    for (unsigned j=0; j<= i; j++)
-      assert(VectorNd::dot(aa[j], x) - bb[j] <= EPS_DOUBLE);
-
-    // verify that lower constraints still met
-    for (unsigned j=0; j< l.size(); j++)
-      assert(x[j] >= l[j] - EPS_DOUBLE);
-
-    // verify that upper constraints still met
-    for (unsigned j=0; j< l.size(); j++)
-      assert(x[j] <= u[j] + EPS_DOUBLE);
-  }
-
-  // verify that half-plane constraints still met
-  if (LOGGING(LOG_OPT))
-  {
-    for (unsigned i=0; i< b.rows(); i++)
-      FILE_LOG(LOG_OPT) << i << ": b - A*x = " << (b[i] - VectorNd::dot(A.row(i), x)) << endl;
-  }
-  for (unsigned j=0; j < n; j++)
-    assert(VectorNd::dot(aa[j], x) - bb[j] <= EPS_DOUBLE);
-
-  // verify that lower constraints still met
-  for (unsigned i=0; i< l.size(); i++)
-    assert(x[i] >= l[i] - EPS_DOUBLE);
-
-  // verify that upper constraints still met
-  for (unsigned i=0; i< l.size(); i++)
-    assert(x[i] <= u[i] + EPS_DOUBLE);
-  FILE_LOG(LOG_OPT) << "all halfspace constraints satisfied; optimum found!" << endl;
-  FILE_LOG(LOG_OPT) << "optimum = " << x << endl;
-  FILE_LOG(LOG_OPT) << "LP::lp_seidel() exited" << endl;
-
-  return true; 
-}
-
-/// Inserts a component (value will be zero) at the k'th position in the given vector and returns a new vector
-VectorNd& CCD::insert_component(const VectorNd& x, unsigned k, VectorNd& xn)
-{
-  xn.resize(x.size()+1);
-
-  if (k == 0)
-    xn.set_sub_vec(1, x);
-  else if (k == x.size())
-    xn.set_sub_vec(0, x);
-  else
-  {
-    xn.set_sub_vec(0,x.segment(0,k));
-    xn.set_sub_vec(k+1,x.segment(k,x.size()));
-  }  
-  xn[k] = 0;
-  
-  return xn;
-}
-
-/// Gets a subvector with the k'th component removed
-/**
- * \note for use by lp()
- */
-VectorNd& CCD::remove_component(const VectorNd& v, unsigned k, VectorNd& vp)
-{
-  const unsigned d = v.size();
-
-  if (k == 0)
-    return v.get_sub_vec(1,d,vp);
-  else if (k == d-1)
-    return v.get_sub_vec(0,d-1,vp);
-  else
-  {
-    // setup v w/component k removed
-    vp.resize(d-1);    
-    vp.set_sub_vec(0, v.segment(0, k));
-    vp.set_sub_vec(k, v.segment(k+1, d)); 
-    return vp;
-  }
-}
-
-/// Makes a (possibly) infinite value finite again
-/**
- * Converts values of -inf to -DBL_MAX and inf to DBL_MAX
- * \note utility function for lp()
- */
-double CCD::finitize(double x)
-{
-  if (x == std::numeric_limits<double>::infinity())
-    return std::numeric_limits<double>::max();
-  else if (x == -std::numeric_limits<double>::infinity())
-    return -std::numeric_limits<double>::max();
-  else
-    return x;
-}
-
-/****************************************************************************
- Methods for solving LP end 
-****************************************************************************/
 

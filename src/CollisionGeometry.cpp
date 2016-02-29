@@ -54,26 +54,21 @@ double CollisionGeometry::get_farthest_point_distance() const
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
 
-  // get the vertices
-  vector<Point3d> verts;
-  get_vertices(verts);
-  if (verts.empty())
-    return 0.0;
+  // get the bounding radius of the primitive
+  double r = primitive->get_bounding_radius();
 
-  // get the rigid body pose in P's frame
+  // get the pose of the primitive compared to the rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(get_single_body());
-  Point3d rbX = Pose3d::transform_point(verts.front().pose, Point3d(0,0,0,rb->get_pose()));
- 
-  // find which point is closest
-  double max_dist = 0.0;
-  for (unsigned i=0; i< verts.size(); i++)
-    max_dist = std::max(max_dist, (verts[i] - rbX).norm()); 
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
+  Transform3d rbTp = Pose3d::calc_relative_pose(P, rb->get_pose());
 
-  return max_dist; 
+  return r + rbTp.x.norm();
 }
 
 /// Sets the single body associated with this CollisionGeometry
-void CollisionGeometry::set_single_body(SingleBodyPtr s)
+void CollisionGeometry::set_single_body(shared_ptr<SingleBodyd> s)
 {
   _single_body = s;
   _F->rpose = s->get_pose();
@@ -94,7 +89,7 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
   if (_single_body.expired())
     throw std::runtime_error("CollisionGeometry::set_geometry() called before single body set!");
 
-  SingleBodyPtr sb(_single_body);
+  shared_ptr<SingleBodyd> sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
   if (rb && !Quatd::rel_equal(rb->get_pose()->q, EYE))
   {
@@ -248,7 +243,7 @@ double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeo
   pA.pose = primA->get_pose(gA);
   pB.pose = primB->get_pose(gB);
 
-  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_signed_dist() - computing signed distance between " << gA->get_single_body()->id << " and " << gB->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_signed_dist() - computing signed distance between " << gA->get_single_body()->body_id << " and " << gB->get_single_body()->body_id << std::endl;
 
   // now compute the signed distance
   return primA->calc_signed_dist(primB, pA, pB);

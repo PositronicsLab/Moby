@@ -1,7 +1,7 @@
 /*****************************************************************************
  * Initializer for rimless wheel 
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
 #include <Ravelin/Pose3d.h>
@@ -17,7 +17,7 @@ using namespace Moby;
 
 Moby::RigidBodyPtr ground;
 Moby::RigidBodyPtr wheel;
-boost::shared_ptr<EventDrivenSimulator> sim;
+boost::shared_ptr<TimeSteppingSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
 // setup simulator callback
@@ -26,7 +26,7 @@ void post_step_callback(Simulator* sim)
   const unsigned Z = 2;
   std::ofstream out("energy.dat", std::ostream::app);
   double KE = wheel->calc_kinetic_energy();
-  Transform3d gTw = Pose3d::calc_relative_pose(wheel->get_inertial_pose(), GLOBAL);
+  Transform3d gTw = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL);
   double PE = wheel->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
   out << sim->current_time << " " << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();
@@ -38,7 +38,7 @@ void post_step_callback(Simulator* sim)
   out.close(); 
 
   // see whether we are in a ballistic flight phase
-  EventDrivenSimulator* esim = (EventDrivenSimulator*) sim;
+  TimeSteppingSimulator* esim = (TimeSteppingSimulator*) sim;
   boost::shared_ptr<CollisionDetection> coldet = esim->get_collision_detection(); 
   CollisionGeometryPtr cgw = wheel->geometries.front();
   CollisionGeometryPtr cgg = ground->geometries.front();
@@ -85,7 +85,7 @@ void post_step_callback(Simulator* sim)
 }
 
 // setup simulator mini-callback
-void post_ministep_callback(EventDrivenSimulator* sim)
+void post_ministep_callback(ConstraintSimulator* sim)
 {
   const unsigned Y = 1;
 
@@ -115,15 +115,17 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   out.close();
   out.open("velocity.dat");
   out.close();
+  out.open("cvio.dat");
+  out.close();
 
   // If use robot is active also init dynamixel controllers
-  // get a reference to the EventDrivenSimulator instance
+  // get a reference to the TimeSteppingSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(i->second);
     if (i->first == "WHEEL")
       wheel = boost::dynamic_pointer_cast<RigidBody>(i->second);
     if (i->first == "GROUND")

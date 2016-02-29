@@ -32,6 +32,7 @@ class Plane
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _normal.pose; }
     Point3d project(const Point3d& p) const;
     Ravelin::Origin2d to_2D(const Point3d& p) const;
+    Plane transform(const Ravelin::Transform3d& T) const;
 
     /// Gets the outward pointing normal to the plane
     const Ravelin::Vector3d& get_normal() const { return _normal; }
@@ -45,6 +46,28 @@ class Plane
   private:
     Ravelin::Vector3d _normal;
 }; // end class
+
+/// Transforms a plane
+inline Plane Plane::transform(const Ravelin::Transform3d& T) const
+{
+  // setup the new plane
+  Plane p;
+
+  // get the new normal
+  p._normal = T.transform_vector(_normal);
+
+  // compute the new offset using a point on the old plane
+  // NOTE: n' * (n*offset) - offset = 0
+  Point3d plane_point = _normal * offset;
+
+  // transform that point
+  Point3d new_plane_point = T.transform_point(plane_point);
+
+  // now compute the offset
+  p.offset = p._normal.dot(new_plane_point);
+
+  return p;
+}
 
 /// Transforms a point to 2D
 inline Ravelin::Origin2d Plane::to_2D(const Point3d& p) const

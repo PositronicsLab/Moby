@@ -14,13 +14,13 @@
 
     <GravityForce id="gravity" accel="0 0 -9.81" />
 
-    <EventDrivenSimulator integrator-id="rk4" max-event-time="inf" Euler-step="0.001">
+    <TimeSteppingSimulator integrator-id="rk4" max-event-time="inf" Euler-step="0.001">
       <RecurrentForce recurrent-force-id="gravity" />
       <DisabledPair object1-id="FEEDER" object2-id="FEEDER"/>
       <DynamicBody dynamic-body-id="FEEDER" />
       <DynamicBody dynamic-body-id="PART" />
       <ContactParameters object1-id="PART" object2-id="FEEDER" mu-coulomb="0.01" mu-viscous="0" epsilon="0.0"/>
-    </EventDrivenSimulator>
+    </TimeSteppingSimulator>
 
     <!-- the ROBOT [R. LINKS] "LYNX" -->
     <Box id="slide1-viz" rpy="1.5708 0 0" xlen="1.0" ylen="0.0001" zlen="0.11"  mass="1.0" />

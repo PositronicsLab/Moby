@@ -312,7 +312,7 @@ IndexedTriArray IndexedTriArray::transform(const Transform3d& T) const
   it._vertices = new_vertices;
   vector<Origin3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.q * vertices[i] + T.x;
+    vertices[i] = Origin3d(T.transform_point(Point3d(vertices[i], T.source)));
 
   return it;
 }

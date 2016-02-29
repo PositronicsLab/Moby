@@ -1,7 +1,7 @@
 /*****************************************************************************
  * Controller plugin template 
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
 #include <Moby/ContactParameters.h>
@@ -16,7 +16,7 @@ using namespace Ravelin;
 using namespace Moby;
 
 // pointers to objects found within the XML file
-boost::shared_ptr<EventDrivenSimulator> sim;
+boost::shared_ptr<TimeSteppingSimulator> sim;
 
 // post-simulation step callback
 void post_step_callback(Simulator* s)
@@ -24,7 +24,7 @@ void post_step_callback(Simulator* s)
 }
 
 // control function
-void controller(DynamicBodyPtr body, double time, void* controller_data)
+void controller(ControlledBodyPtr body, double time, void* controller_data)
 {
   
 }
@@ -35,18 +35,18 @@ extern "C" {
 // initialization function is called by Moby; setup callbacks here 
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
-  // get a reference to the EventDrivenSimulator instance
+  // get a reference to the TimeSteppingSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(i->second);
 
     // example of looking for a body and setting up a callback function for it
 //    if (i->first == "ground")
 //    {
-//      DynamicBodyPtr ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
+//      ControlledBodyPtr ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
 //	assert(ground);
 //      ground->controller = &controller;
 //    }

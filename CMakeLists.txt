@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp SustainedUnilateralConstraintHandler.cpp ADF.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CP.cpp CRBAlgorithm.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp SDFReader.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SignedDistDot.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -20,13 +20,15 @@ option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 option (USE_QLCPD "Build against QLCPD library?" OFF)
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
+option (USE_SIGNED_DIST_CONSTRAINT "Use signed distance constraint? (experimental)" OFF)
 
 # look for QLCPD
 find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
 if (USE_QLCPD AND QLCPD_FOUND)
   set (SOURCES ${SOURCES} QLCPD.cpp)
   set (EXTRA_LIBS qlcpd-dense)
-  add_definitions (-DUSE_QLCPD)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
+  set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
 
 # modify C++ flags
@@ -37,8 +39,13 @@ if (OMP)
   set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS})
 endif (OMP)
 if (PROFILE)
-  set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pg -g")
+  set_source_files_properties(programs/driver.cpp PROPERTIES COMPILE_FLAGS -DGOOGLE_PROFILER) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} profiler)
 endif (PROFILE)
+if (USE_SIGNED_DIST_CONSTRAINT)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_SIGNED_DIST_CONSTRAINT)
+  set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_SIGNED_DIST_CONSTRAINT)
+endif (USE_SIGNED_DIST_CONSTRAINT)
 
 # fix the C++ linking error on 64-bit Linux
 set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")
@@ -60,7 +67,7 @@ find_package (OpenThreads)
 
 # see whether the Anitescu-Potra model should be activated
 if (USE_AP)
-  add_definitions (-DUSE_AP_MODEL)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_AP_MODEL) 
 endif (USE_AP)
 # see whether IPOPT was detected
 if (USE_IPOPT AND IPOPT_FOUND)
@@ -94,6 +101,7 @@ if (USE_OSG AND OSG_FOUND)
         include_directories (${OSGVIEWER_INCLUDE_DIR})
         include_directories (${OPENTHREADS_INCLUDE_DIR})
         add_definitions (-DUSE_OSG)
+        set (SOURCES ${SOURCES} OsgTorus.cpp)
       else (OPENTHREADS_FOUND)
         unset (OSG_FOUND)
       endif (OPENTHREADS_FOUND)
@@ -163,22 +171,25 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
 endif (USE_OSG AND OSG_FOUND)
 
+add_library(MobyDriver "" "" programs/driver.cpp)
+target_link_libraries (MobyDriver Moby)
+
 # build the tools?
 if (BUILD_TOOLS)
-  add_executable(moby-driver example/driver.cpp)
+  add_executable(moby-driver programs/main.cpp)
   if (USE_OSG AND OSG_FOUND)
-    add_executable(moby-view example/view.cpp)
+    add_executable(moby-view programs/view.cpp)
   endif (USE_OSG AND OSG_FOUND)
 
   # tools
-  add_executable(moby-render example/render.cpp)
-  add_executable(moby-regress example/regress.cpp)
-  add_executable(moby-compare-trajs example/compare-trajs.cpp)
-#  add_executable(moby-conv-decomp example/conv-decomp.cpp)
-  add_executable(moby-convexify example/convexify.cpp)
-  add_executable(moby-adjust-center example/adjust-center.cpp)
-  add_executable(moby-center example/center.cpp)
-  target_link_libraries(moby-driver Moby)
+  add_executable(moby-render programs/render.cpp)
+  add_executable(moby-regress programs/regress.cpp)
+  add_executable(moby-compare-trajs programs/compare-trajs.cpp)
+#  add_executable(moby-conv-decomp programs/conv-decomp.cpp)
+  add_executable(moby-convexify programs/convexify.cpp)
+  add_executable(moby-adjust-center programs/adjust-center.cpp)
+  add_executable(moby-center programs/center.cpp)
+  target_link_libraries(moby-driver MobyDriver Moby)
   if (USE_OSG AND OSG_FOUND)
     target_link_libraries(moby-render ${OSG_LIBRARIES})
     target_link_libraries(moby-render ${OSGVIEWER_LIBRARIES})
@@ -207,37 +218,27 @@ endif (BUILD_TOOLS)
 file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
 
 # plugins
-# sphere plugin
-add_library(sphere-plugin MODULE example/contact_simple/sphere-plugin.cpp)
-target_link_libraries(sphere-plugin Moby Ravelin)
-
 # box plugin
-add_library(box-plugin MODULE example/contact_simple/box-plugin.cpp)
-target_link_libraries(box-plugin Moby Ravelin)
+add_library(box-plugin MODULE example/simple-contact/box-plugin.cpp)
+target_link_libraries(box-plugin Moby)
 
 # rimless wheel plugins
 add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
 add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
-target_link_libraries(rimless-wheel-init Moby Ravelin)
-target_link_libraries(rimless-wheel-coldet-plugin Moby Ravelin)
-
-# ball in parabloid plugins
-add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
-add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
-target_link_libraries(ball-parabloid-init Moby Ravelin)
-target_link_libraries(ball-parabloid-coldet-plugin Moby Ravelin)
+target_link_libraries(rimless-wheel-init Moby)
+target_link_libraries(rimless-wheel-coldet-plugin Moby)
 
 # passive dynamic walker plugins
 add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
 add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
-target_link_libraries(passive-walker-init Moby Ravelin)
-target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
+target_link_libraries(passive-walker-init Moby)
+target_link_libraries(passive-walker-coldet-plugin Moby)
 
 # contact constrained pendulum plugins
-add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact_simple/contact-constrained-pendulum-coldet-plugin.cpp)
-add_library(contact-constrained-pendulum-init MODULE example/contact_simple/contact-constrained-pendulum-init.cpp)
-target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
-target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
+add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact-constrained-pendulum/contact-constrained-pendulum-coldet-plugin.cpp)
+add_library(contact-constrained-pendulum-init MODULE example/contact-constrained-pendulum/contact-constrained-pendulum-init.cpp)
+target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby)
+target_link_libraries(contact-constrained-pendulum-init Moby)
 
 #sims-in-code examples
 add_executable(sim-in-code-block example/sims-in-code/block.cpp)
@@ -261,6 +262,8 @@ target_link_libraries(sim-in-code-linearactuator Moby Ravelin)
 # setup source file
 install (CODE "file(WRITE setup.sh \"#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")
 install (FILES ${CMAKE_BINARY_DIR}/setup.sh DESTINATION share/Moby)
+install (FILES programs/render-movie.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install (FILES programs/render-movie-simple.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 # setup install locations for plugins
 install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
@@ -269,15 +272,13 @@ install (TARGETS contact-constrained-pendulum-coldet-plugin DESTINATION lib/Moby
 install (TARGETS contact-constrained-pendulum-init DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-coldet-plugin DESTINATION lib/Moby/plugins)
-install (TARGETS ball-parabloid-init DESTINATION lib/Moby/plugins)
-install (TARGETS ball-parabloid-coldet-plugin DESTINATION lib/Moby/plugins)
 install (TARGETS rimless-wheel-init DESTINATION lib/Moby/plugins)
 install (TARGETS rimless-wheel-coldet-plugin DESTINATION lib/Moby/plugins)
 install (TARGETS box-plugin DESTINATION lib/Moby/plugins)
-install (TARGETS sphere-plugin DESTINATION lib/Moby/plugins)
 
 # setup install locations for library
 install (TARGETS Moby DESTINATION lib)
+install (TARGETS MobyDriver DESTINATION lib)
 
 # setup install locations for binaries
 install (TARGETS moby-driver DESTINATION bin)
@@ -294,8 +295,7 @@ install (TARGETS moby-center DESTINATION bin)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
 
 # setup install locations for examples
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share/Moby)
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share/Moby)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/simple-contact DESTINATION share/Moby)
 
 # uninstall target
 configure_file(

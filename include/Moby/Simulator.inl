@@ -9,86 +9,49 @@
  * \return the size of step taken
  */
 template <class ForwardIterator>
-double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIterator end)
+double Simulator::integrate(double dt, ForwardIterator begin, ForwardIterator end)
 {
+  Ravelin::VectorNd gc, gv, ga, gve;
+  std::vector<JointPtr> island_ijoints;
+
   // begin timing dynamics
   tms cstart;  
   clock_t start = times(&cstart);
 
-  // get the simulator pointer
-  boost::shared_ptr<Simulator> shared_this = boost::dynamic_pointer_cast<Simulator>(shared_from_this());
+  // pre-calculate dynamics
+  precalc_fwd_dyn();
 
-  // get the state size
-  unsigned state_sz = 0;
-  for (ForwardIterator i = begin; i != end; i++)
+  // calculate forward dynamics
+  calc_fwd_dyn(dt);
+
+  // update generalized velocities and use new generalized 
+  // velocities to calculate new generalized coordinates 
+  for (unsigned j=0; j< _bodies.size(); j++)
   {
-    // if the body is kinematically updated, call its controller and otherwise
-    // ignore it
-    if ((*i)->get_kinematic())
-    {
-      if ((*i)->controller)
-        (*(*i)->controller)(*i, current_time, (*i)->controller_arg);
+    // NOTE: coordinates must be set first to ensure that frame information
+    // is correct for velocities: mixed pose will be incorrect if
+    // generalized_velocity is set first
+    boost::shared_ptr<Ravelin::DynamicBodyd> db = boost::dynamic_pointer_cast<Ravelin::DynamicBodyd>(_bodies[j]); 
+    db->get_generalized_acceleration(ga);
+    db->get_generalized_velocity(Ravelin::DynamicBodyd::eSpatial, gv);
+    db->get_generalized_velocity(Ravelin::DynamicBodyd::eEuler, gve);
+    ga *= dt;
+    gv += ga;
 
-      // ignore body otherwise
-      continue;
-    }
-
-    // update the state size
-    state_sz += (*i)->num_generalized_coordinates(DynamicBody::eEuler);
-    state_sz += (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
-  }
-
-  // init x and work vectors
-  Ravelin::VectorNd x(state_sz);
-
-  // get the current generalized coordinates and velocity for each body
-  unsigned idx = 0;
-  for (ForwardIterator i = begin; i != end; i++)
-  {
-    // see whether to skip the body
-    if ((*i)->get_kinematic())
-      continue;
-
-    // get number of generalized coordinates and velocities
-    const unsigned NGC = (*i)->num_generalized_coordinates(DynamicBody::eEuler);
-    const unsigned NGV = (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
-
-    // get the shared vectors
-    Ravelin::SharedVectorNd xgc = x.segment(idx, idx+NGC); idx += NGC;
-    Ravelin::SharedVectorNd xgv = x.segment(idx, idx+NGV); idx += NGV;
-    (*i)->get_generalized_coordinates(DynamicBody::eEuler, xgc);
-    (*i)->get_generalized_velocity(DynamicBody::eSpatial, xgv);
-  }
-
-  // call the integrator
-  integrator->integrate(x, &ode, current_time, step_size, (void*) &shared_this);
-
-  // update the generalized coordinates and velocity
-  idx = 0;
-  for (ForwardIterator i = begin; i != end; i++)
-  {
-    // see whether to skip the body
-    if ((*i)->get_kinematic())
-      continue;
-
-    // get number of generalized coordinates and velocities
-    const unsigned NGC = (*i)->num_generalized_coordinates(DynamicBody::eEuler);
-    const unsigned NGV = (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
-
-    // get the shared vectors
-    Ravelin::SharedConstVectorNd xgc = x.segment(idx, idx+NGC); idx += NGC;
-    Ravelin::SharedConstVectorNd xgv = x.segment(idx, idx+NGV); idx += NGV;
-
-    // set the generalized coordinates and velocity
-    (*i)->set_generalized_coordinates(DynamicBody::eEuler, xgc);
-    (*i)->set_generalized_velocity(DynamicBody::eSpatial, xgv);
-  }
+    // integrate the generalized position forward
+    gve *= dt;
+    db->get_generalized_coordinates_euler(gc);
+    gc += gve;
+    db->set_generalized_coordinates_euler(gc);
+    db->set_generalized_velocity(Ravelin::DynamicBodyd::eSpatial, gv);
+  } 
 
   // tabulate dynamics computation
   tms cstop;  
   clock_t stop = times(&cstop);
   dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
-  return step_size;
+  return dt;
 }
+
 

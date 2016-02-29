@@ -23,9 +23,9 @@
 /*
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/CSG.h>
-#include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 */
+#include <Moby/CylinderPrimitive.h>
 #include <Ravelin/AAngled.h>
 #include <Moby/Primitive.h>
 #include <Moby/IndexedTetraArray.h>
@@ -35,7 +35,6 @@
 #include <Moby/BoxPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
-#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/PrismaticJoint.h>
 #include <Moby/RevoluteJoint.h>
@@ -558,8 +557,6 @@ void URDFReader::read_limits(shared_ptr<const XMLTree> node, URDFData& data, Joi
           joint->lolimit[0] = lower_attrib->get_real_value();
         if (upper_attrib)
           joint->hilimit[0] = upper_attrib->get_real_value(); 
-        if (effort_attrib)
-          joint->maxforce[0] = effort_attrib->get_real_value();
 
         // multiple tags unsupported
         return;
@@ -616,14 +613,13 @@ void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, R
       // verify that inertial properties are good
       Matrix3d inertia_copy = inertia;
       if (mass <= 0.0 || !LA.is_SPD(inertia_copy, -1.0))
-        throw std::runtime_error("Read bad inertial properties"); 
+        link->set_enabled(false); 
 
       // read the inertial frame
       shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
 
       // set the inertial frame relative to the link frame
       origin->rpose = link->get_pose();
-      link->set_inertial_pose(*origin);
 
       // set inertial properties
       SpatialRBInertiad J(origin);
@@ -827,8 +823,8 @@ PrimitivePtr URDFReader::read_primitive(shared_ptr<const XMLTree> node, URDFData
       // read geometry 
       if ((primitive = read_box(*i, data)))
         return primitive;
-//      else if ((primitive = read_cylinder(*i, data)))
-//        return primitive;
+      else if ((primitive = read_cylinder(*i, data)))
+        return primitive;
       else if ((primitive = read_sphere(*i, data)))
         return primitive;
 //      else if ((primitive = read_trimesh(*i, data)))
@@ -890,6 +886,7 @@ shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(shared_ptr<const XMLT
 
   return shared_ptr<TriangleMeshPrimitive>();
 }
+*/
 
 /// Reads a cylinder primitive
 shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree> node, URDFData& data)
@@ -918,7 +915,6 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree
 
   return shared_ptr<CylinderPrimitive>();
 }
-*/
 
 /// Reads a sphere primitive
 shared_ptr<SpherePrimitive> URDFReader::read_sphere(shared_ptr<const XMLTree> node, URDFData& data)

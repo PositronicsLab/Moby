@@ -15,7 +15,6 @@
 
 #include <Moby/Base.h>
 #include <Moby/Log.h>
-#include <Moby/Integrator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
 
@@ -26,10 +25,11 @@ namespace osg {
 
 namespace Moby {
 
+class Dissipation;
 class RigidBody;
 class ArticulatedBody;
+class RCArticulatedBody;
 class VisualizationData;
-class DynamicBody;
 
 /// Simulator for both unarticulated and articulated rigid bodies without contact
 /**
@@ -39,13 +39,18 @@ class DynamicBody;
  */
 class Simulator : public virtual Base
 {
+  friend class ConstraintStabilization;
+  friend class ImpactConstraintHandler;
+  friend class RigidBody;
+  friend class RCArticulatedBody;
+
   public:
     Simulator();
     virtual ~Simulator(); 
     virtual double step(double step_size);
-    DynamicBodyPtr find_dynamic_body(const std::string& name) const;
-    void add_dynamic_body(DynamicBodyPtr body);
-    void remove_dynamic_body(DynamicBodyPtr body);
+    ControlledBodyPtr find_dynamic_body(const std::string& name) const;
+    void add_dynamic_body(ControlledBodyPtr body);
+    void remove_dynamic_body(ControlledBodyPtr body);
     void update_visualization();
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
@@ -53,15 +58,15 @@ class Simulator : public virtual Base
     /// The current simulation time
     double current_time;
 
-    /// The integrator used to step the simulation
-    boost::shared_ptr<Integrator> integrator;
+    /// The dissipation mechanism for larger time steps
+    boost::shared_ptr<Dissipation> dissipator;
 
     /// Gets the list of dynamic bodies in the simulator
     /**
      * \note if a dynamic body is articulated, only the articulated body is
      *       returned, not the links
      */
-    const std::vector<DynamicBodyPtr>& get_dynamic_bodies() const { return _bodies; }
+    const std::vector<ControlledBodyPtr>& get_dynamic_bodies() const { return _bodies; }
 
     void add_transient_vdata(osg::Node* vdata);
 
@@ -77,14 +82,22 @@ class Simulator : public virtual Base
     /// User time spent by dynamics on the last step
     double dynamics_time;
 
+    /// Set of implicit joints maintained in the simulation (does not include implicit joints belonging to RCArticulatedBody objects)
+    std::vector<JointPtr> implicit_joints;
+
   protected:
+    void apply_impulse(boost::shared_ptr<Ravelin::DynamicBodyd> db, const Ravelin::SharedVectorNd& gj);
+    void solve(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& v, const Ravelin::VectorNd& f, double dt, Ravelin::VectorNd& a, Ravelin::VectorNd& lambda) const;
     virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
+    void find_islands(std::vector<std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > >& islands);
+    unsigned num_generalized_coordinates(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > & island) const;
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
-    void update_bounds() const;
+    void calc_fwd_dyn(double dt);
+    void precalc_fwd_dyn();
 
     /// The set of bodies in the simulation
-    std::vector<DynamicBodyPtr> _bodies;
+    std::vector<ControlledBodyPtr> _bodies;
   
     /// The derivative at the current time
     Ravelin::VectorNd _current_dx;

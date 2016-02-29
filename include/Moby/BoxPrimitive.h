@@ -23,6 +23,7 @@ class BoxPrimitive : public PolyhedralPrimitive
     BoxPrimitive(double xlen, double ylen, double zlen);
     BoxPrimitive(double xlen, double ylen, double zlen, const Ravelin::Pose3d& T);
     BoxPrimitive(const Ravelin::Pose3d& T);
+    virtual void set_polyhedron(const Polyhedron& p);
     void set_size(double xlen, double ylen, double zlen);
     virtual unsigned num_facets() const { return 6; }
     virtual bool is_convex() const { return true; }
@@ -40,6 +41,7 @@ class BoxPrimitive : public PolyhedralPrimitive
     virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p) const;
     virtual double calc_signed_dist(const Point3d& p) const;
     double calc_closest_points(boost::shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const;
+    virtual double get_bounding_radius() const { return std::sqrt(_xlen*_xlen + _ylen*_ylen + _zlen*_zlen); }
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }
@@ -55,6 +57,7 @@ class BoxPrimitive : public PolyhedralPrimitive
     static double sqr(double x) { return x*x; }
 
     virtual void calc_mass_properties();
+    void construct_polyhedron();
 
     /// The maximum edge length for the box
     double _edge_sample_length;

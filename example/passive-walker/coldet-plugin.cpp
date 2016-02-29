@@ -1,6 +1,6 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/CCD.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #define NDEBUG
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -10,23 +10,23 @@ using namespace Moby;
 class TorusPlanePlugin : public CollisionDetection
 {
   private:
-    boost::shared_ptr<EventDrivenSimulator> sim;
+    boost::shared_ptr<TimeSteppingSimulator> sim;
     boost::shared_ptr<CCD> ccd;
-    DynamicBodyPtr walker;
+    ControlledBodyPtr walker;
     RigidBodyPtr ground_body, left_foot_body, right_foot_body;
     CollisionGeometryPtr ground_cg, left_foot_cg, right_foot_cg;
 
   public:
     TorusPlanePlugin() {}
 
-    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim)
+    virtual void set_simulator(boost::shared_ptr<TimeSteppingSimulator> sim)
     {
       this->sim = sim;
 
       // find the necessary objects
       for (unsigned i=0; i< sim->get_dynamic_bodies().size(); i++)
       {
-        DynamicBodyPtr body = sim->get_dynamic_bodies()[i];
+        ControlledBodyPtr body = sim->get_dynamic_bodies()[i];
         if (body->id == "WALKER")
         {
           walker = body;
@@ -37,10 +37,10 @@ class TorusPlanePlugin : public CollisionDetection
           // look for left foot and right foot
           for (unsigned j=0; j< ab->get_links().size(); j++)
           {
-            if (ab->get_links()[j]->id == "LLEG")
-              left_foot_body = ab->get_links()[j];
-            else if (ab->get_links()[j]->id == "RLEG")
-              right_foot_body = ab->get_links()[j];
+            if (ab->get_links()[j]->body_id == "LLEG")
+              left_foot_body = dynamic_pointer_cast<RigidBody>(ab->get_links()[j]);
+            else if (ab->get_links()[j]->body_id == "RLEG")
+              right_foot_body = dynamic_pointer_cast<RigidBody>(ab->get_links()[j]);
           }
         }
         else if (body->id == "GROUND")
@@ -69,13 +69,13 @@ class TorusPlanePlugin : public CollisionDetection
     virtual ~TorusPlanePlugin() {}
 
     /// Does broad phase collision detection
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
     {
       // clear to_check
       to_check.clear();
 
       // remove the walker from bodies
-      std::vector<DynamicBodyPtr> remainder = bodies;
+      std::vector<ControlledBodyPtr> remainder = bodies;
       for (unsigned i=0; i< remainder.size(); i++)
         if (remainder[i] == walker)
         {
@@ -90,12 +90,6 @@ class TorusPlanePlugin : public CollisionDetection
       // now add in collision geometries for the plane and the walker
       to_check.push_back(std::make_pair(ground_cg, left_foot_cg));
       to_check.push_back(std::make_pair(ground_cg, right_foot_cg));
-    }
-
-    /// Computes a conservative advancement step for general integration
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi)
-    {
-      return ccd->calc_CA_step(pdi);
     }
 
     /// Computes a conservative advancement step for Euler integration
@@ -352,6 +346,11 @@ class TorusPlanePlugin : public CollisionDetection
         return ccd->calc_signed_dist(cgA, cgB, pA, pB);
     }
 
+    protected:
+      virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
+      {
+        return std::numeric_limits<double>::max();
+      }
 };
 
 extern "C"
