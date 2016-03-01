@@ -143,18 +143,14 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       FILE_LOG(LOG_COLDET) << "qhull unable to compute intersection *volume*" << std::endl;
 
       // setup the normal
-      Ravelin::Vector3d normal;
+      std::vector<std::pair<Plane, bool> > planes;
 
       // init sets of vertices
-      std::set<boost::shared_ptr<Polyhedron::Vertex> > vertsA, vertsB;
+      std::set<boost::shared_ptr<Polyhedron::Vertex> > svertsA, svertsB;
 
       // get the interior point in poseA and poseB
       Point3d ipA = Ravelin::Pose3d::transform_point(poseA, Point3d(ip, GLOBAL));
       Point3d ipB = Ravelin::Pose3d::transform_point(poseB, Point3d(ip, GLOBAL));
-
-      // get all faces on the interior point plane from polyhedron B; pick
-      // normal from this too
-      bool normal_unset = true, bad_normal_A = false;
 
       // get all faces on the interior point plane from polyhedron A
       for (unsigned i=0; i< polyA.get_faces().size(); i++)
@@ -172,34 +168,21 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         if (std::fabs(sdist) > NEAR_ZERO)
           continue;
 
-        // add all vertices of the face to the set
-        BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyA.get_faces()[i]->e)
-        {
-          boost::shared_ptr<Polyhedron::Edge> e(we);
-          vertsA.insert(e->v1);
-          vertsA.insert(e->v2);
-        }
-
         // if the normal hasn't been set, set it
-        if (normal_unset)
-        {
-          normal_unset = false;
-          normal = -wTa.transform_vector(plane.get_normal());
-        }
+        if (planes.empty())
+          planes.push_back(std::make_pair(-plane.transform(wTa), true));
         else
         {
           // normal has already been set; make sure normal is aligned with
           // set normal
-          if (normal.dot(-wTa.transform_vector(plane.get_normal())) < 1.0 - NEAR_ZERO)
-            bad_normal_A = true; 
+          Ravelin::Vector3d normal_cand = -wTa.transform_vector(plane.get_normal());
+          bool aligned_with_one = false;
+          for (unsigned j=0; j< planes.size(); j++)
+            if (planes[j].first.get_normal().dot(normal_cand) > 1.0 - NEAR_ZERO)
+              aligned_with_one = true;
+          if (!aligned_with_one)
+            planes.push_back(std::make_pair(-plane.transform(wTa), true)); 
         } 
-      }
-
-      // see whether we need to try to reset the normal
-      if (bad_normal_A)
-      {
-        normal_unset = true;
-        FILE_LOG(LOG_COLDET) << "normal from A bad- unsetting it" << std::endl;
       }
 
       // loop over B's faces
@@ -219,37 +202,96 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           continue;
 
         // if the normal hasn't been set, set it
-        if (normal_unset)
-        {
-          normal_unset = false;
-          normal = wTb.transform_vector(plane.get_normal());
-        }
+        if (planes.empty())
+          planes.push_back(std::make_pair(plane.transform(wTb), false));
         else
         {
           // normal has already been set; make sure normal is aligned with
           // set normal
-          if (normal.dot(wTb.transform_vector(plane.get_normal())) < 1.0 - NEAR_ZERO)
-          {
-            FILE_LOG(LOG_COLDET) << "degenerate normal detected!" << std::endl;
-            return output_begin; 
-          }
+          Ravelin::Vector3d normal_cand = wTb.transform_vector(plane.get_normal());
+          bool aligned_with_one = false;
+          for (unsigned j=0; j< planes.size(); j++)
+            if (planes[j].first.get_normal().dot(normal_cand) > 1.0 - NEAR_ZERO)
+              aligned_with_one = true;
+          if (!aligned_with_one)
+            planes.push_back(std::make_pair(plane.transform(wTb), false)); 
         } 
-
-        // add all vertices of the face to the set
-        BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyB.get_faces()[i]->e)
-        {
-          boost::shared_ptr<Polyhedron::Edge> e(we);
-          vertsB.insert(e->v1);
-          vertsB.insert(e->v2);
-        }
       }
 
-      // if normal isn't set, quit
-      if (normal_unset)
+      // get all vertices from A and B
+      const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
+      const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
+
+      // now we need to find *exactly* one normal
+      if (planes.empty())
       {
         FILE_LOG(LOG_COLDET) << "unable to find normal!" << std::endl;
         return output_begin;
       }
+      else if (planes.size() > 1)
+      {
+        // look for planes with non-zero distances on both sides 
+        for (unsigned i=0; i< planes.size(); i++)
+        {
+          // get the plane
+          const Plane& plane = planes[i].first;
+
+          // see whether all vertices from the other polyhedron are all on
+          // one side of the plane 
+          double min_neg = 0.0;
+          double max_pos = 0.0;
+
+          // see which polyhedron plane was taken from and process the other
+          if (!planes[i].second)
+          { 
+            // loop through all vertices from A
+            for (unsigned j=0; j< vertsA.size(); j++)
+            {
+              double sdist = plane.calc_signed_distance(wTa.transform_point(Point3d(vertsA[j]->o, poseA)));
+              if (sdist < min_neg)
+                min_neg = sdist;
+              if (sdist > max_pos)
+                max_pos = sdist;
+              if (-min_neg > NEAR_ZERO && max_pos > NEAR_ZERO)
+              {
+                planes[i] = planes.back();
+                planes.pop_back();
+                i--;
+                break;
+              }
+            }
+          }
+          else
+          {            
+            // loop through all vertices from B
+            for (unsigned j=0; j< vertsB.size(); j++)
+            {
+              double sdist = plane.calc_signed_distance(wTb.transform_point(Point3d(vertsB[j]->o, poseB)));
+              if (sdist < min_neg)
+                min_neg = sdist;
+              if (sdist > max_pos)
+                max_pos = sdist;
+              if (-min_neg > NEAR_ZERO && max_pos > NEAR_ZERO)
+              {
+                planes[i] = planes.back();
+                planes.pop_back();
+                i--;
+                break;
+              }
+            }
+          }
+        } 
+      } 
+
+      // if we still have more than one plane, normal is indeterminate 
+      if (planes.size() > 1)
+      {
+        FILE_LOG(LOG_COLDET) << "normal is indeterminate!" << std::endl;
+        return output_begin;
+      }
+
+      // get the normal
+      const Ravelin::Vector3d& n = planes.front().first.get_normal(); 
 
       // compute the convex hulls of the two sets of vertices
       std::vector<Point3d> voA, voB, hullA, hullB;
@@ -257,18 +299,18 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         voA.push_back(wTa.transform_point(Point3d(v->o, poseA)));
       BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsB)
         voB.push_back(wTb.transform_point(Point3d(v->o, poseB)));
-      CompGeom::calc_convex_hull(voA.begin(), voA.end(), normal, std::back_inserter(hullA));
-      CompGeom::calc_convex_hull(voB.begin(), voB.end(), normal, std::back_inserter(hullB));
+      CompGeom::calc_convex_hull(voA.begin(), voA.end(), n, std::back_inserter(hullA));
+      CompGeom::calc_convex_hull(voB.begin(), voB.end(), n, std::back_inserter(hullB));
 
       // compute the intersection of the convex hulls 
       std::vector<Point3d> isect;
       CompGeom::intersect_convex_polygons(hullA.begin(), hullA.end(), 
-                                          hullB.begin(), hullB.end(), normal, 
+                                          hullB.begin(), hullB.end(), n, 
                                           std::back_inserter(isect));
 
       // create the contacts
       for (unsigned i=0; i< isect.size(); i++)
-        *output_begin++ = create_contact(cgA, cgB, isect[i], normal, 0.0);
+        *output_begin++ = create_contact(cgA, cgB, isect[i], n, 0.0);
 
       return output_begin;
     }

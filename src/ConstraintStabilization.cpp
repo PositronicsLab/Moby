@@ -53,10 +53,10 @@ using std::list;
 ConstraintStabilization::ConstraintStabilization()
 {
   // set maximum iterations to infinity, by default 
-  max_iterations = std::numeric_limits<unsigned>::infinity();
+  max_iterations = std::numeric_limits<unsigned>::max();
 
   // set unilateral tolerance to negative NEAR_ZERO by default
-  eps = -NEAR_ZERO;
+  eps = NEAR_ZERO;
 
   // set bilateral tolerance
   bilateral_eps = 1e-6;
@@ -114,12 +114,13 @@ double ConstraintStabilization::evaluate_unilateral_constraints(shared_ptr<Const
       const std::vector<shared_ptr<Jointd> >& joints = rcab->get_joints();
       for (unsigned j=0; j< joints.size(); j++)
       {
-        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[i]); 
+        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[i]);
+        const VectorNd& tare = joint->get_q_tare(); 
         for (unsigned k=0; k< joint->num_dof(); k++)
         {
-          uC.push_back(joint->q[k] > joint->hilimit[k]);
+          uC.push_back(joint->hilimit[k] - joint->q[k] - tare[k]);
           vio = std::min(vio, uC.back());
-          uC.push_back(joint->q[k] - joint->lolimit[k]);
+          uC.push_back(joint->q[k] + tare[k] - joint->lolimit[k]);
           vio = std::min(vio, uC.back());
         }
       }
@@ -170,8 +171,11 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   std::vector<UnilateralConstraintProblemData> pd;
   std::vector<VectorNd> qd_save;
   std::vector<double> C, uC;
-
   std::map<shared_ptr<DynamicBodyd>, unsigned> body_index_map;
+
+  // look for no constraint stabilization
+  if (max_iterations == 0)
+    return;
 
   // save the generalized velocities
   save_velocities(sim, qd_save);
@@ -263,9 +267,11 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
       const std::vector<shared_ptr<Jointd> >& joints = rcab->get_joints();
       for (unsigned j=0; j< joints.size(); j++)
       {
-        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[i]); 
+        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[j]); 
         for (unsigned k=0; k< joint->num_dof(); k++)
         {
+          const VectorNd& tare = joint->get_q_tare(); 
+
           // only add an upper limit constraint if the upper limit < inf
           if (joint->hilimit[k] < INF)
           {
@@ -275,6 +281,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
             e.limit_dof = k;
             e.limit_epsilon = 0.0;
             e.limit_upper = true;
+            e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
             constraints.push_back(e);
           }
 
@@ -287,6 +294,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
             e.limit_dof = k;
             e.limit_epsilon = 0.0;
             e.limit_upper = false;
+            e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
             constraints.push_back(e);
           }
         }
@@ -420,9 +428,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     // Cn_v is set to the signed distance between the two bodies
     Point3d pa,pb;
     for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
-    {
-      pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation - NEAR_ZERO;//CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
-    }
+      pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation - std::fabs(eps) - NEAR_ZERO;
 
     // set the elements of L_v 
     for (unsigned i=0; i< pd.limit_constraints.size(); i++)
@@ -430,7 +436,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
       JointPtr j = pd.limit_constraints[i]->limit_joint;
       UnilateralConstraint* u = pd.limit_constraints[i];
       unsigned dof = u->limit_dof;
-      pd.L_v[i] = (u->limit_upper) ? j->hilimit[dof] - j->q[dof] : j->q[dof] - j->lolimit[dof];
+      pd.L_v[i] = u->signed_violation - std::fabs(eps) - NEAR_ZERO;
     } 
 
     // set Jx_v
@@ -708,7 +714,7 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   BOOST_FOREACH(shared_ptr<SingleBodyd> sb, single_bodies)
   {
     shared_ptr<DynamicBodyd> super = get_super_body(sb);
-    if (super->is_enabled())
+    if (super && super->is_enabled())
       q.super_bodies.push_back(super);
   }
 

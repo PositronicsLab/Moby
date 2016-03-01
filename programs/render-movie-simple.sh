@@ -15,13 +15,12 @@ usage()
 main ()
 {
   # ffmpeg requires particular numbering
-  a=1
-  for i in $6/driver.out-*.osg; do
+a=1
+for i in $6/driver.out-*.osg; do
   new=$(printf "img%04d.png" ${a});
+  echo $2/moby-render $i -p $3 $4 $5 -t $7 $8 $9  -u ${11} ${12} ${13} $6/${new};
+  [ -f $6/$new ] && echo "Already created $new" || screen -d -m $2/moby-render $i -p $3 $4 $5 -t $7 $8 $9  -u ${11} ${12} ${13} $6/${new};
   let a=a+1;
-  #render-osg $i -p 0.55 -0.75 0.5 -t $(awk 'NR == n' n=${a} $1/com.mat) -s=$1/scene.osg $1/${new};
-echo $2/moby-render $i -p $3 $4 $5 -t $7 $8 $9 -u ${11} ${12} ${13} $6/${new}; 
-  $2/moby-render $i -p $3 $4 $5 -t $7 $8 $9  -u ${11} ${12} ${13} $6/${new};
 done
 
 # number all images img0001.png, etc...

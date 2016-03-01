@@ -247,6 +247,8 @@ target_link_libraries(contact-constrained-pendulum-init Moby)
 # setup source file
 install (CODE "file(WRITE setup.sh \"#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")
 install (FILES ${CMAKE_BINARY_DIR}/setup.sh DESTINATION share/Moby)
+install (FILES programs/render-movie.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install (FILES programs/render-movie-simple.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 # setup install locations for plugins
 install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
@@ -279,7 +281,6 @@ install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
 
 # setup install locations for examples
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/simple-contact DESTINATION share/Moby)
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share/Moby)
 
 # uninstall target
 configure_file(

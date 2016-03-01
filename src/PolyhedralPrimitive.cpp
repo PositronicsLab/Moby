@@ -286,7 +286,7 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
   // find a point interior to both
   Ravelin::Origin3d ip;
   double dist2 = -CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
-  if (dist2 > NEAR_ZERO)
+  if (dist2 >= NEAR_ZERO)
     return dist2;
   assert(dist2 < NEAR_ZERO);
 

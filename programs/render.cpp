@@ -85,12 +85,12 @@ renderSceneToImage(::osg::Node* node, const ::std::string& sFileName_,double pos
   // node node as a child of the transform.
 
   root->addChild(nodeXform);
-    
-  {
-  Moby::CcolorVisitor  newColor;
-    newColor.setColor(0,0,0,0);
-    node->accept( newColor );
-  } 
+//    
+//  {
+//  Moby::CcolorVisitor  newColor;
+//    newColor.setColor(0,0,0,0);
+//    node->accept( newColor );
+//  } 
     nodeXform->addChild(node);
 
   

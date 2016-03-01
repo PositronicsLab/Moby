@@ -68,6 +68,7 @@ class CCD : public CollisionDetection
     // the 3 axes
     enum AxisType { eXAxis, eYAxis, eZAxis };
 
+    static double sqr(double x) { return x*x; }
     double calc_next_CA_Euler_step_polyhedron_plane(boost::shared_ptr<PolyhedralPrimitive> p, const Ravelin::SVelocityd& rv, boost::shared_ptr<const Ravelin::Pose3d> P, const Ravelin::Vector3d& normal, double offset);
     double calc_next_CA_Euler_step_polyhedron_polyhedron(boost::shared_ptr<PolyhedralPrimitive> pA, boost::shared_ptr<PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, const Ravelin::SVelocityd& rvA, const Ravelin::SVelocityd& rvB, const Ravelin::Vector3d& n0, double offset);
     virtual double calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi);
