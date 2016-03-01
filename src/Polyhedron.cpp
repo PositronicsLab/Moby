@@ -1239,6 +1239,15 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 {
  // return -1.0;
   FeatureType fA, fB;
+  Polyhedron polyA, polyB;
+  polyA = pA->get_polyhedron();
+  polyB = pB->get_polyhedron();
+
+  // defining the maximum iteration based on the number of total features 
+  // in the two polyhedra
+  int feature_sum = polyA.get_faces().size()+polyA.get_vertices().size()+polyA.get_edges().size()
+                  + polyB.get_faces().size()+polyB.get_vertices().size()+polyB.get_edges().size();
+  int MAX_ITERATION = feature_sum;
 
   // get the transformation between A and B, and vice versa
   Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
@@ -1275,10 +1284,11 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   else
     fB = eFace;
 
+  int iteration_count = 0;
   // iterate through the algorithm
   while (true)
   {
-
+    iteration_count++;
     // handle vertex/vertex case
     if (fA == eVertex && fB == eVertex)
     {
@@ -1393,6 +1403,14 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       Polyhedron::UpdateRule r = update_edge_face(fA, fB, aTb, closestA, closestB);
       
       // look for continuing to run algorithm
+
+      if(r == eContinue && iteration_count > MAX_ITERATION)
+      {
+        std::cerr << "Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        r=eInterpenetrating;
+      }
+
+
       if (r == eContinue)
         continue;
 
@@ -1432,6 +1450,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       FILE_LOG(LOG_COLDET) << "=====Entering Face Edge Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
      
       Polyhedron::UpdateRule r = update_edge_face(fB, fA, bTa, closestB, closestA);
+
+      if(r == eContinue && iteration_count > MAX_ITERATION)
+      {
+        std::cerr << "Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        r=eInterpenetrating;
+      }
 
       // look for continuing to run algorithm
       if (r == eContinue)
@@ -1485,6 +1509,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       FILE_LOG(LOG_COLDET) << "=====Entering Vertex Face Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
      
       Polyhedron::UpdateRule r = update_vertex_face(fA, fB, aTb, closestA, closestB, pB->get_polyhedron());
+
+      if(r == eContinue && iteration_count > MAX_ITERATION)
+      {
+        std::cerr << "Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        r=eInterpenetrating;
+      }
       
       // look for continuing to run algorithm
       if (r == eContinue)
@@ -1511,6 +1541,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       FILE_LOG(LOG_COLDET) << "=====Entering Face Vertex Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
      
       Polyhedron::UpdateRule r = update_vertex_face(fB, fA, bTa, closestB, closestA, pA->get_polyhedron());
+
+      if(r == eContinue && iteration_count > MAX_ITERATION)
+      {
+        std::cerr << " Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        r=eInterpenetrating;
+      }
       
       // look for continuing to run algorithm
       if (r == eContinue)

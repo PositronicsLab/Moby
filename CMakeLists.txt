@@ -222,6 +222,10 @@ file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=$
 add_library(box-plugin MODULE example/simple-contact/box-plugin.cpp)
 target_link_libraries(box-plugin Moby)
 
+# ur10 plugin
+add_library(ur10-plugin MODULE example/ur10/controller.cpp)
+target_link_libraries(ur10-plugin Moby)
+
 # rimless wheel plugins
 add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
 add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
