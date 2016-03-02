@@ -18,6 +18,15 @@ Moby::RCArticulatedBodyPtr robot;
 boost::shared_ptr<TimeSteppingSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
+void check_constraint_num(std::vector<UnilateralConstraint>& constraints, boost::shared_ptr<void> data)
+{
+  std::vector<UnilateralConstraint> c_constraints = sim->get_rigid_constraints();
+  //std::cout<<"callback implement";
+  assert (c_constraints.size() >= 3);
+  return;
+}
+
+
 VectorNd& controller(shared_ptr<ControlledBody> body, VectorNd& u, double t, void*)
 {
   // get the generalized coordinates and velocity
@@ -105,10 +114,12 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
     // Find the simulator reference
     if (!sim)
       sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(i->second);
+    
     if (i->first == "ur10_schunk_hybrid")
       robot = boost::dynamic_pointer_cast<RCArticulatedBody>(i->second);
   }
-
+  assert(sim);
+  sim -> constraint_callback_fn = &check_constraint_num;
   assert(robot);
   robot->controller = &controller; 
 
