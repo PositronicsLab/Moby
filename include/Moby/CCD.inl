@@ -1205,7 +1205,15 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
     Point3d psph_global = Ravelin::Pose3d::transform_point(GLOBAL, psph);
     Point3d pbox_global = Ravelin::Pose3d::transform_point(GLOBAL, pbox);
     p = (psph_global + pbox_global)*0.5;
-    normal = Ravelin::Vector3d::normalize(pbox_global - psph_global);
+    normal = pbox_global - psph_global;
+    double nrm = normal.norm();
+    if (nrm > NEAR_ZERO)
+      normal /= nrm;
+    else
+    {
+      normal = Ravelin::Pose3d::transform_vector(GLOBAL, psph);
+      normal.normalize();
+    }
   }
   else
   {
