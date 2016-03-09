@@ -44,7 +44,8 @@ using namespace Moby;
 
     TessellatedPolyhedronPtr p_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
     TessellatedPolyhedronPtr q_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
-    Polyhedron p_test = p_tess->to_polyhedron();
+    Polyhedron p_test;
+    p_tess->to_polyhedron(p_test);
 std::ofstream out("box.wrl");
     Polyhedron::to_vrml(out, p_test);
 out.close();
@@ -209,12 +210,13 @@ out.close();
     TessellatedPolyhedronPtr q_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
 
     Polyhedron p_poly,q_poly;
-    p_poly = p_tess->to_polyhedron();
-    q_poly = q_tess->to_polyhedron();
+    p_tess->to_polyhedron(p_poly);
+    q_tess->to_polyhedron(q_poly);
     boost::shared_ptr<Moby::PolyhedralPrimitive> p(new PolyhedralPrimitive());
     p->set_polyhedron(p_poly);
     boost::shared_ptr<Moby::PolyhedralPrimitive> q(new PolyhedralPrimitive());
     q->set_polyhedron(q_poly);
+    boost::shared_ptr<const Moby::Primitive> qconst = q;
 
     double trans_q_x, trans_q_y, trans_q_z, quat_q_x, quat_q_y, quat_q_z, quat_q_w;
     double total_vc,total_m;
@@ -245,7 +247,7 @@ out.close();
         tms vcstart;  
         clock_t v_start_c = times(&vcstart);
         
-        double dist_vclip = p->calc_signed_dist(q, pointp, pointq);
+        double dist_vclip = p->calc_signed_dist(qconst, pointp, pointq);
         
         tms vcstop;  
         clock_t v_end_c = times(&vcstart);
