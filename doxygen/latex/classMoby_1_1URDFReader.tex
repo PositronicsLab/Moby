@@ -1,0 +1,49 @@
+\section{Moby\-:\-:U\-R\-D\-F\-Reader Class Reference}
+\label{classMoby_1_1URDFReader}\index{Moby\-::\-U\-R\-D\-F\-Reader@{Moby\-::\-U\-R\-D\-F\-Reader}}
+
+
+Used to read the simulator state from U\-R\-D\-F.  
+
+
+
+
+{\ttfamily \#include $<$U\-R\-D\-F\-Reader.\-h$>$}
+
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static bool {\bf read} (const std\-::string \&fname, std\-::string \&name, std\-::vector$<$ {\bf Rigid\-Body\-Ptr} $>$ \&links, std\-::vector$<$ {\bf Joint\-Ptr} $>$ \&joints)
+\begin{DoxyCompactList}\small\item\em Reads an X\-M\-L file and constructs all read objects. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Used to read the simulator state from U\-R\-D\-F. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-U\-R\-D\-F\-Reader@{Moby\-::\-U\-R\-D\-F\-Reader}!read@{read}}
+\index{read@{read}!Moby::URDFReader@{Moby\-::\-U\-R\-D\-F\-Reader}}
+\subsubsection[{read}]{\setlength{\rightskip}{0pt plus 5cm}bool U\-R\-D\-F\-Reader\-::read (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{fname, }
+\item[{std\-::string \&}]{name, }
+\item[{std\-::vector$<$ {\bf Rigid\-Body\-Ptr} $>$ \&}]{links, }
+\item[{std\-::vector$<$ {\bf Joint\-Ptr} $>$ \&}]{joints}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1URDFReader_a763e391ee889c1aac098091895e45e5f}
+
+
+Reads an X\-M\-L file and constructs all read objects. 
+
+\begin{DoxyReturn}{Returns}
+a map of I\-Ds to read objects 
+\end{DoxyReturn}
+
+
+Referenced by Moby\-::\-Articulated\-Body\-::load\-\_\-from\-\_\-xml().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/U\-R\-D\-F\-Reader.\-h\item 
+/home/drum/\-Moby/src/U\-R\-D\-F\-Reader.\-cpp\end{DoxyCompactItemize}

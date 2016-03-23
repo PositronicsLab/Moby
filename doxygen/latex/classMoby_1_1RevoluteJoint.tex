@@ -1,0 +1,90 @@
+\section{Moby\-:\-:Revolute\-Joint Class Reference}
+\label{classMoby_1_1RevoluteJoint}\index{Moby\-::\-Revolute\-Joint@{Moby\-::\-Revolute\-Joint}}
+
+
+Defines an actuated revolute joint.  
+
+
+
+
+{\ttfamily \#include $<$Revolute\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Revolute\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.070176cm]{classMoby_1_1RevoluteJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Revolute\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Revolute\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1RevoluteJoint_ab0b80e92ddf0b9726d48c6ec73470ea5}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1RevoluteJoint_a4be56bf8fbf338cff6c4354220e9f99b}
+
+\item 
+virtual void {\bfseries evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1RevoluteJoint_a555e5b5ef08d7598b5c59c973a0e3fb9}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1RevoluteJoint_a42c7b2a5e37860c3c0cc96f76a10efbe}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1RevoluteJoint_a8035f5b87dd890e55cf4bcbab321e3dd}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1RevoluteJoint_ab13d9a0845aa59083792f23aac5c174d}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1RevoluteJoint_af72df350d32e71d76b3505f29a633cce}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1RevoluteJoint_a97b43695c74e98937997e30f71b3b26d}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an actuated revolute joint. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Revolute\-Joint@{Moby\-::\-Revolute\-Joint}!Revolute\-Joint@{Revolute\-Joint}}
+\index{Revolute\-Joint@{Revolute\-Joint}!Moby::RevoluteJoint@{Moby\-::\-Revolute\-Joint}}
+\subsubsection[{Revolute\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Revolute\-Joint\-::\-Revolute\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1RevoluteJoint_aa36d84d49ebe6bed2aaf93cc1de46a84}
+
+
+Initializes the joint. 
+
+The axis of rotation is set to [0 0 0]. The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+\index{Moby\-::\-Revolute\-Joint@{Moby\-::\-Revolute\-Joint}!Revolute\-Joint@{Revolute\-Joint}}
+\index{Revolute\-Joint@{Revolute\-Joint}!Moby::RevoluteJoint@{Moby\-::\-Revolute\-Joint}}
+\subsubsection[{Revolute\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Revolute\-Joint\-::\-Revolute\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1RevoluteJoint_a6d20f72ec980aa64f2731ef055d2e0e6}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+The axis of rotation is set to [0 0 0]. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Revolute\-Joint.\-h\item 
+/home/drum/\-Moby/src/Revolute\-Joint.\-cpp\end{DoxyCompactItemize}

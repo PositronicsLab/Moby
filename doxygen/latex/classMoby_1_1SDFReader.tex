@@ -1,0 +1,68 @@
+\section{Moby\-:\-:S\-D\-F\-Reader Class Reference}
+\label{classMoby_1_1SDFReader}\index{Moby\-::\-S\-D\-F\-Reader@{Moby\-::\-S\-D\-F\-Reader}}
+
+
+Used to read the simulator state from X\-M\-L.  
+
+
+
+
+{\ttfamily \#include $<$S\-D\-F\-Reader.\-h$>$}
+
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Time\-Stepping\-Simulator} $>$ {\bf read} (const std\-::string \&fname)
+\begin{DoxyCompactList}\small\item\em Reads an X\-M\-L file and constructs all read objects. \end{DoxyCompactList}\item 
+static std\-::map$<$ std\-::string, \\*
+{\bf Controlled\-Body\-Ptr} $>$ {\bf read\-\_\-models} (const std\-::string \&fname)
+\begin{DoxyCompactList}\small\item\em Reads models only from S\-D\-F file. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Used to read the simulator state from X\-M\-L. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-S\-D\-F\-Reader@{Moby\-::\-S\-D\-F\-Reader}!read@{read}}
+\index{read@{read}!Moby::SDFReader@{Moby\-::\-S\-D\-F\-Reader}}
+\subsubsection[{read}]{\setlength{\rightskip}{0pt plus 5cm}shared\-\_\-ptr$<$ {\bf Time\-Stepping\-Simulator} $>$ S\-D\-F\-Reader\-::read (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{fname}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1SDFReader_a89ab64e69a1189a01b3e0c4d0204d714}
+
+
+Reads an X\-M\-L file and constructs all read objects. 
+
+\begin{DoxyReturn}{Returns}
+a map of I\-Ds to read objects 
+\end{DoxyReturn}
+
+
+References Moby\-::\-X\-M\-L\-Tree\-::processed.
+
+\index{Moby\-::\-S\-D\-F\-Reader@{Moby\-::\-S\-D\-F\-Reader}!read\-\_\-models@{read\-\_\-models}}
+\index{read\-\_\-models@{read\-\_\-models}!Moby::SDFReader@{Moby\-::\-S\-D\-F\-Reader}}
+\subsubsection[{read\-\_\-models}]{\setlength{\rightskip}{0pt plus 5cm}std\-::map$<$ std\-::string, {\bf Controlled\-Body\-Ptr} $>$ S\-D\-F\-Reader\-::read\-\_\-models (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{fname}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1SDFReader_aa0050780256411dad5169a4d7b1ddc13}
+
+
+Reads models only from S\-D\-F file. 
+
+\begin{DoxyReturn}{Returns}
+a map of I\-Ds to read objects 
+\end{DoxyReturn}
+
+
+References Moby\-::\-X\-M\-L\-Tree\-::processed.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/S\-D\-F\-Reader.\-h\item 
+/home/drum/\-Moby/src/S\-D\-F\-Reader.\-cpp\end{DoxyCompactItemize}

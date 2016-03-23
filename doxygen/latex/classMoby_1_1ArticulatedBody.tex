@@ -1,0 +1,102 @@
+\section{Moby\-:\-:Articulated\-Body Class Reference}
+\label{classMoby_1_1ArticulatedBody}\index{Moby\-::\-Articulated\-Body@{Moby\-::\-Articulated\-Body}}
+
+
+Abstract class for articulated bodies.  
+
+
+
+
+{\ttfamily \#include $<$Articulated\-Body.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Articulated\-Body\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.526316cm]{classMoby_1_1ArticulatedBody}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual void {\bf update\-\_\-visualization} ()\label{classMoby_1_1ArticulatedBody_a25e7ceab132042083e42c97d202d7f72}
+
+\begin{DoxyCompactList}\small\item\em Updates visualization for the body. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1ArticulatedBody_a7d86b8e81bee372ba5cd5de35ccfde59}
+
+\begin{DoxyCompactList}\small\item\em Loads a M\-C\-Articulated\-Body object from an X\-M\-L node. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1ArticulatedBody_a7575e65e7721f2f2f10b1d83c18c50e1}
+
+\begin{DoxyCompactList}\small\item\em Saves this object to a X\-M\-L tree. \end{DoxyCompactList}\item 
+void {\bf update\-\_\-joint\-\_\-constraint\-\_\-violations} ()\label{classMoby_1_1ArticulatedBody_ab8ddbc9ebb0c4bea926e20db703962dd}
+
+\begin{DoxyCompactList}\small\item\em Updates joint constraint violation (after integration) \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-joint\-\_\-constraint\-\_\-violated} () const \label{classMoby_1_1ArticulatedBody_a9cef68d126a420e21cad2be2f201b6a1}
+
+\begin{DoxyCompactList}\small\item\em Checks for a joint constraint violation. \end{DoxyCompactList}\item 
+virtual void {\bf prepare\-\_\-to\-\_\-calc\-\_\-ode} (Ravelin\-::\-Shared\-Const\-Vector\-Nd \&x, double t, double dt, void $\ast$data)\label{classMoby_1_1ArticulatedBody_aee3394378fd462a5e26693963bd284db}
+
+\begin{DoxyCompactList}\small\item\em Prepares to compute the O\-D\-E. \end{DoxyCompactList}\item 
+virtual void {\bf prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints} (Ravelin\-::\-Shared\-Const\-Vector\-Nd \&x, double t, double dt, void $\ast$data)
+\begin{DoxyCompactList}\small\item\em Integrates a dynamic body. \end{DoxyCompactList}\item 
+virtual void {\bf ode} (double t, double dt, void $\ast$data, Ravelin\-::\-Shared\-Vector\-Nd \&dx)\label{classMoby_1_1ArticulatedBody_ac63d7eb817824cd6950cf99dd8639099}
+
+\begin{DoxyCompactList}\small\item\em Returns the O\-D\-E's for position and velocity (concatenated into x) \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-limit\-\_\-constraints} (Output\-Iterator begin) const 
+\begin{DoxyCompactList}\small\item\em Finds (joint) limit constraints. \end{DoxyCompactList}\item 
+{\bf Articulated\-Body\-Ptr} {\bf get\-\_\-this} ()\label{classMoby_1_1ArticulatedBody_ac61a241230348acc8ce3d89e4205cb64}
+
+\begin{DoxyCompactList}\small\item\em Gets shared pointer to this object as type \doxyref{Articulated\-Body}{p.}{classMoby_1_1ArticulatedBody}. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+{\bf Articulated\-Body} $>$ {\bf get\-\_\-this} () const \label{classMoby_1_1ArticulatedBody_aa5157709347a4a5825ea37118388675d}
+
+\begin{DoxyCompactList}\small\item\em Gets shared pointer to this object as type const Articulate\-Body. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-limit\-\_\-constraints} (Output\-Iterator output\-\_\-begin) const \label{classMoby_1_1ArticulatedBody_accfe42433b3a6f9877c73b306756263f}
+
+\begin{DoxyCompactList}\small\item\em Gets joint limit constraints. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Abstract class for articulated bodies. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Articulated\-Body@{Moby\-::\-Articulated\-Body}!find\-\_\-limit\-\_\-constraints@{find\-\_\-limit\-\_\-constraints}}
+\index{find\-\_\-limit\-\_\-constraints@{find\-\_\-limit\-\_\-constraints}!Moby::ArticulatedBody@{Moby\-::\-Articulated\-Body}}
+\subsubsection[{find\-\_\-limit\-\_\-constraints}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-Articulated\-Body\-::find\-\_\-limit\-\_\-constraints (
+\begin{DoxyParamCaption}
+\item[{Output\-Iterator}]{begin}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1ArticulatedBody_acdffb965a0b6aa6143b9b3a0b9ec1452}
+
+
+Finds (joint) limit constraints. 
+
+Gets joint limit constraints. 
+
+Referenced by Moby\-::\-Constraint\-Simulator\-::find\-\_\-unilateral\-\_\-constraints().
+
+\index{Moby\-::\-Articulated\-Body@{Moby\-::\-Articulated\-Body}!prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints@{prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints}}
+\index{prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints@{prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints}!Moby::ArticulatedBody@{Moby\-::\-Articulated\-Body}}
+\subsubsection[{prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints}]{\setlength{\rightskip}{0pt plus 5cm}void Articulated\-Body\-::prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints (
+\begin{DoxyParamCaption}
+\item[{Ravelin\-::\-Shared\-Const\-Vector\-Nd \&}]{x, }
+\item[{double}]{t, }
+\item[{double}]{dt, }
+\item[{void $\ast$}]{data}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1ArticulatedBody_afb57aa1ffee8c64fb1a829b1ad2124c6}
+
+
+Integrates a dynamic body. 
+
+Prepares to compute the O\-D\-E 
+
+Implements {\bf Moby\-::\-Controlled\-Body} \doxyref{}{p.}{classMoby_1_1ControlledBody_a6df8a844762bcc3cacd27b21e1e3b0c9}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Articulated\-Body.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Articulated\-Body.\-inl\item 
+/home/drum/\-Moby/src/Articulated\-Body.\-cpp\end{DoxyCompactItemize}

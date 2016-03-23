@@ -1,0 +1,92 @@
+\section{Moby\-:\-:Dummy\-B\-V Class Reference}
+\label{classMoby_1_1DummyBV}\index{Moby\-::\-Dummy\-B\-V@{Moby\-::\-Dummy\-B\-V}}
+
+
+An abstract bounding volume.  
+
+
+
+
+{\ttfamily \#include $<$Dummy\-B\-V.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Dummy\-B\-V\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1DummyBV}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const \label{classMoby_1_1DummyBV_aed1c7debf70d6ea5d0409f62b8f76138}
+
+\begin{DoxyCompactList}\small\item\em Nothing will be output. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const \label{classMoby_1_1DummyBV_a1b058556ddb6bf278e4cbfba5f65d94e}
+
+\begin{DoxyCompactList}\small\item\em Gets the associated pose for this bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1DummyBV_a8dbed5c75418e7ade58f1c05bcd0e642}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const \label{classMoby_1_1DummyBV_ad0b1338078a440a912d7293349f2d9af}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const 
+\begin{DoxyCompactList}\small\item\em Virtual function that calculates a velocity-\/expanded \doxyref{B\-V}{p.}{classMoby_1_1BV}. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const \label{classMoby_1_1DummyBV_a0dec635421190be5ad8659bef388a5c4}
+
+\begin{DoxyCompactList}\small\item\em Volume will be zero. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const \label{classMoby_1_1DummyBV_afbe95bd0b88c3172bc85d8b7b11d0729}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bounds. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const \label{classMoby_1_1DummyBV_ac0a9e6fb85f42791eca7b1537fcd6f1c}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bounds. \end{DoxyCompactList}\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const \label{classMoby_1_1DummyBV_a4b23e7d6e308ef3c1a857e3d6d8f1047}
+
+\begin{DoxyCompactList}\small\item\em Transforms the dummy \doxyref{B\-V}{p.}{classMoby_1_1BV} (does nothing) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+An abstract bounding volume. 
+
+\begin{DoxyNote}{Note}
+the \doxyref{B\-V}{p.}{classMoby_1_1BV} is generally constructed such that its frame is aligned with that of the underlying rigid body (or collision geometry). Therefore, the center of the \doxyref{B\-V}{p.}{classMoby_1_1BV} is computed relative to the center-\/of-\/mass of the body (or the center of the geometry). The orientation of the \doxyref{B\-V}{p.}{classMoby_1_1BV} will always be identical to the orientation of the rigid body (or collision geometry). 
+\end{DoxyNote}
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Dummy\-B\-V@{Moby\-::\-Dummy\-B\-V}!calc\-\_\-swept\-\_\-\-B\-V@{calc\-\_\-swept\-\_\-\-B\-V}}
+\index{calc\-\_\-swept\-\_\-\-B\-V@{calc\-\_\-swept\-\_\-\-B\-V}!Moby::DummyBV@{Moby\-::\-Dummy\-B\-V}}
+\subsubsection[{calc\-\_\-swept\-\_\-\-B\-V}]{\setlength{\rightskip}{0pt plus 5cm}virtual {\bf B\-V\-Ptr} Moby\-::\-Dummy\-B\-V\-::calc\-\_\-swept\-\_\-\-B\-V (
+\begin{DoxyParamCaption}
+\item[{{\bf Collision\-Geometry\-Ptr}}]{g, }
+\item[{const Ravelin\-::\-S\-Velocityd \&}]{v}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [virtual]}}\label{classMoby_1_1DummyBV_a025ef57dac043eb93f23f250e3817b7a}
+
+
+Virtual function that calculates a velocity-\/expanded \doxyref{B\-V}{p.}{classMoby_1_1BV}. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em g} & the geometry that this bounding volume represents \\
+\hline
+{\em dt} & the time step \\
+\hline
+{\em v} & the velocity \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+the velocity-\/expanded bounding volume 
+\end{DoxyReturn}
+
+
+Implements {\bf Moby\-::\-B\-V} \doxyref{}{p.}{classMoby_1_1BV_a6aeddf29519a8d71d7318ca406d84582}.
+
+
+
+The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Dummy\-B\-V.\-h\end{DoxyCompactItemize}

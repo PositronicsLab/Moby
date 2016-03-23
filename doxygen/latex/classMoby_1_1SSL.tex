@@ -1,0 +1,117 @@
+\section{Moby\-:\-:S\-S\-L Class Reference}
+\label{classMoby_1_1SSL}\index{Moby\-::\-S\-S\-L@{Moby\-::\-S\-S\-L}}
+
+
+A sphere-\/swept line (\doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}) that optionally allows building an \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} tree.  
+
+
+
+
+{\ttfamily \#include $<$S\-S\-L.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:S\-S\-L\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1SSL}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf S\-S\-L} ()\label{classMoby_1_1SSL_ab5fad6b6b913f8373162231040829fa8}
+
+\begin{DoxyCompactList}\small\item\em Initializes an empty \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}. \end{DoxyCompactList}\item 
+{\bfseries S\-S\-L} (const {\bf S\-S\-L} \&obb)\label{classMoby_1_1SSL_aff636b617cb61b04d4932ddf8b1277bf}
+
+\item 
+{\bf S\-S\-L} (const {\bf Point3d} \&{\bf p1}, const {\bf Point3d} \&{\bf p2}, double {\bf radius})\label{classMoby_1_1SSL_a52c88d87c5b2cd60560a314c868608db}
+
+\begin{DoxyCompactList}\small\item\em Initializes a \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} from the given values. \end{DoxyCompactList}\item 
+{\bfseries S\-S\-L} (const {\bf S\-S\-L} \&s, const Ravelin\-::\-Vector3d \&v)\label{classMoby_1_1SSL_acaf7d1c0e7cccae8d2967664d4ac471b}
+
+\item 
+{\bf S\-S\-L} \& {\bf operator=} (const {\bf S\-S\-L} \&s)\label{classMoby_1_1SSL_aaf79f8a9e5c1ecbaeb1277b0fb119aba}
+
+\begin{DoxyCompactList}\small\item\em Copies one \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} to another. \end{DoxyCompactList}\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const \label{classMoby_1_1SSL_a8b353299fb254e39dca28deda8078d84}
+
+\begin{DoxyCompactList}\small\item\em Transforms the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} using the given transform. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const \label{classMoby_1_1SSL_a6984388248b9437ce29433de1a264234}
+
+\begin{DoxyCompactList}\small\item\em Calculates the velocity-\/expanded bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const \label{classMoby_1_1SSL_ab205ccce0f836469625a75aea794bb8e}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1SSL_aac14e017684280b0ebf45929b01ddf2b}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ {\bf S\-S\-L} $>$ {\bfseries get\-\_\-this} ()\label{classMoby_1_1SSL_a8f1486ea726e7b4cf7b6df70c8b5f02d}
+
+\item 
+boost\-::shared\-\_\-ptr$<$ const {\bf S\-S\-L} $>$ {\bfseries get\-\_\-this} () const \label{classMoby_1_1SSL_a7602d505a815004794329c404823a09d}
+
+\item 
+virtual std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const \label{classMoby_1_1SSL_af43430a716fbbb826d74147575f62db9}
+
+\begin{DoxyCompactList}\small\item\em Outputs the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} to V\-R\-M\-L (not yet implemented) \end{DoxyCompactList}\item 
+unsigned {\bf calc\-\_\-size} () const \label{classMoby_1_1SSL_a440ff5c757b3ea94f0e071e258219932}
+
+\begin{DoxyCompactList}\small\item\em Calculates the size (number of elements in) a \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} tree. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const \label{classMoby_1_1SSL_a4e1e627916b22674b1662094735fcc1c}
+
+\begin{DoxyCompactList}\small\item\em Gets the associated pose for this bounding volume. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const \label{classMoby_1_1SSL_adf1bbe2d6cf4261665d0a2b5f3fcf92e}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bounds of the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const \label{classMoby_1_1SSL_a92fb9325b3b776970ab5a904debc8ee2}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bounds of the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const \label{classMoby_1_1SSL_ac1ba452b2d95c028575c7958d16d81a7}
+
+\begin{DoxyCompactList}\small\item\em Calculates (approximate?) volume of the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static double {\bf calc\-\_\-dist} (const {\bf S\-S\-L} \&o, const {\bf Point3d} \&p)\label{classMoby_1_1SSL_a166bbd791f7258ca87a4fb5862bc1f45}
+
+\begin{DoxyCompactList}\small\item\em Calculates the distance of the sphere-\/swept line from a point. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-dist} (const {\bf S\-S\-L} \&a, const {\bf S\-S\-L} \&b, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1SSL_a95a5b76ff550fd7bfbcf685028a1453b}
+
+\begin{DoxyCompactList}\small\item\em Calculates the distance between two sphere-\/swept lines and also calculates closest points. \end{DoxyCompactList}\item 
+static double {\bfseries calc\-\_\-dist} (const {\bf S\-S\-L} \&a, const {\bf S\-S\-L} \&b, const Ravelin\-::\-Transform3d \&a\-Tb, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1SSL_a0232d1635147bd1633dd15560b815fe8}
+
+\item 
+static bool {\bf intersects} (const {\bf S\-S\-L} \&a, const {\bf S\-S\-L} \&b)\label{classMoby_1_1SSL_a6289697931b62da21faef5d36a78a5be}
+
+\begin{DoxyCompactList}\small\item\em Determines whether two S\-S\-Ls intersect. \end{DoxyCompactList}\item 
+static bool {\bfseries intersects} (const {\bf S\-S\-L} \&a, const {\bf S\-S\-L} \&b, const Ravelin\-::\-Transform3d \&a\-Tb)\label{classMoby_1_1SSL_a1e50b42599045b88909b0280aef6e22f}
+
+\item 
+static bool {\bf intersects} (const {\bf S\-S\-L} \&a, const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q)\label{classMoby_1_1SSL_a60d5a569d63eb7664c2915600b1858ce}
+
+\begin{DoxyCompactList}\small\item\em Determines whether (and when) a line segment intersects with the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}. \end{DoxyCompactList}\item 
+static bool {\bf outside} (const {\bf S\-S\-L} \&a, const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1SSL_af483c88fea5031a8664f7e6172524d43}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Point3d} {\bf p1}\label{classMoby_1_1SSL_a2693320556687c9826eb74c0f36b09bf}
+
+\begin{DoxyCompactList}\small\item\em The first point of the line segment. \end{DoxyCompactList}\item 
+{\bf Point3d} {\bf p2}\label{classMoby_1_1SSL_a606a8aa6ae6d8452ee74db400af65b87}
+
+\begin{DoxyCompactList}\small\item\em The second point of the line segment. \end{DoxyCompactList}\item 
+double {\bf radius}\label{classMoby_1_1SSL_ad8db6aece89c6c37ff9835027e75d4ee}
+
+\begin{DoxyCompactList}\small\item\em Radius of the spherical addition. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+A sphere-\/swept line (\doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}) that optionally allows building an \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} tree. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/S\-S\-L.\-h\item 
+/home/drum/\-Moby/src/S\-S\-L.\-cpp\end{DoxyCompactItemize}

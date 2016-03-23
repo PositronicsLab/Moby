@@ -1,0 +1,94 @@
+\section{Moby\-:\-:Prismatic\-Joint Class Reference}
+\label{classMoby_1_1PrismaticJoint}\index{Moby\-::\-Prismatic\-Joint@{Moby\-::\-Prismatic\-Joint}}
+
+
+Defines an actuated prismatic joint.  
+
+
+
+
+{\ttfamily \#include $<$Prismatic\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Prismatic\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.070176cm]{classMoby_1_1PrismaticJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Prismatic\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Prismatic\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1PrismaticJoint_ad4cf2215b4f41f6f1383ae4635e7c0e4}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1PrismaticJoint_a81a0107883c2a688c6c95cb3bbf55a04}
+
+\item 
+virtual void {\bfseries evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1PrismaticJoint_a8b61e8338f4a9d4797b5f7ab65a2dfa5}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1PrismaticJoint_a3dd12d8f3d283223f107a86583f26f85}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1PrismaticJoint_a498035832680da0091e868c9c52990fa}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1PrismaticJoint_af002260f11d6e4d183db6d6638c31e96}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1PrismaticJoint_a32fce63f6af0d1508aeb741941f58996}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1PrismaticJoint_ac5d2ef542aa70f2efe38b59cfade8ced}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an actuated prismatic joint. 
+
+\begin{DoxyRefDesc}{Todo}
+\item[{\bf Todo}]implement a rest position for q? \end{DoxyRefDesc}
+
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Prismatic\-Joint@{Moby\-::\-Prismatic\-Joint}!Prismatic\-Joint@{Prismatic\-Joint}}
+\index{Prismatic\-Joint@{Prismatic\-Joint}!Moby::PrismaticJoint@{Moby\-::\-Prismatic\-Joint}}
+\subsubsection[{Prismatic\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Prismatic\-Joint\-::\-Prismatic\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1PrismaticJoint_a8ca0b8c847a3593ec5ffbb21c3b8373b}
+
+
+Initializes the joint. 
+
+The axis of rotation is set to [0 0 0]. The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+\index{Moby\-::\-Prismatic\-Joint@{Moby\-::\-Prismatic\-Joint}!Prismatic\-Joint@{Prismatic\-Joint}}
+\index{Prismatic\-Joint@{Prismatic\-Joint}!Moby::PrismaticJoint@{Moby\-::\-Prismatic\-Joint}}
+\subsubsection[{Prismatic\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Prismatic\-Joint\-::\-Prismatic\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1PrismaticJoint_a5120edb291a7ea06ffc15cc70417da7b}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+The axis of rotation is set to [0 0 0]. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Prismatic\-Joint.\-h\item 
+/home/drum/\-Moby/src/Prismatic\-Joint.\-cpp\end{DoxyCompactItemize}

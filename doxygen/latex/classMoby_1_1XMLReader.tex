@@ -1,0 +1,47 @@
+\section{Moby\-:\-:X\-M\-L\-Reader Class Reference}
+\label{classMoby_1_1XMLReader}\index{Moby\-::\-X\-M\-L\-Reader@{Moby\-::\-X\-M\-L\-Reader}}
+
+
+Used to read the simulator state from X\-M\-L.  
+
+
+
+
+{\ttfamily \#include $<$X\-M\-L\-Reader.\-h$>$}
+
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static std\-::map$<$ std\-::string, \\*
+{\bf Base\-Ptr} $>$ {\bf read} (const std\-::string \&fname)
+\begin{DoxyCompactList}\small\item\em Reads an X\-M\-L file and constructs all read objects. \end{DoxyCompactList}\item 
+static std\-::map$<$ std\-::string, \\*
+{\bf Base\-Ptr} $>$ {\bf construct\-\_\-\-I\-D\-\_\-map} (boost\-::shared\-\_\-ptr$<$ {\bf X\-M\-L\-Tree} $>$ node)\label{classMoby_1_1XMLReader_af7876728bc78da5720aa748f315fecc5}
+
+\begin{DoxyCompactList}\small\item\em Constructs an I\-D map from a tree. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Used to read the simulator state from X\-M\-L. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-X\-M\-L\-Reader@{Moby\-::\-X\-M\-L\-Reader}!read@{read}}
+\index{read@{read}!Moby::XMLReader@{Moby\-::\-X\-M\-L\-Reader}}
+\subsubsection[{read}]{\setlength{\rightskip}{0pt plus 5cm}std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ X\-M\-L\-Reader\-::read (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{fname}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1XMLReader_a460f374f7c587ac8bb377e610e041bb2}
+
+
+Reads an X\-M\-L file and constructs all read objects. 
+
+\begin{DoxyReturn}{Returns}
+a map of I\-Ds to read objects 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/X\-M\-L\-Reader.\-h\item 
+/home/drum/\-Moby/src/X\-M\-L\-Reader.\-cpp\end{DoxyCompactItemize}

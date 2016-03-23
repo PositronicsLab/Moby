@@ -1,0 +1,90 @@
+\section{Moby\-:\-:Planar\-Joint Class Reference}
+\label{classMoby_1_1PlanarJoint}\index{Moby\-::\-Planar\-Joint@{Moby\-::\-Planar\-Joint}}
+
+
+Defines an actuated spherical joint.  
+
+
+
+
+{\ttfamily \#include $<$Planar\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Planar\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.070176cm]{classMoby_1_1PlanarJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Planar\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Planar\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1PlanarJoint_a0933a67e787a8c1510551356ea62e7c5}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1PlanarJoint_a3cd2bfbd203ee41b8d093f3950853932}
+
+\item 
+virtual void {\bfseries evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1PlanarJoint_ab4a4b8a9235c71c9cb228280a877338c}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1PlanarJoint_adc7a0dee7253ed2fd4cbeff9cff37b6c}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1PlanarJoint_acc0879d3f08a40b05beaf915dad07d5c}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1PlanarJoint_ab9c9a213d0296de995f0ebe822aad527}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1PlanarJoint_abc73fa718eff71b90bbd0ce4ba92106d}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1PlanarJoint_a3614b2d0ff84262b8eb3656320e484a1}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an actuated spherical joint. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Planar\-Joint@{Moby\-::\-Planar\-Joint}!Planar\-Joint@{Planar\-Joint}}
+\index{Planar\-Joint@{Planar\-Joint}!Moby::PlanarJoint@{Moby\-::\-Planar\-Joint}}
+\subsubsection[{Planar\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Planar\-Joint\-::\-Planar\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1PlanarJoint_a97e2084bce8d998d891aac3f281f70ca}
+
+
+Initializes the joint. 
+
+The axes of rotation are each set to [0 0 0]. The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+\index{Moby\-::\-Planar\-Joint@{Moby\-::\-Planar\-Joint}!Planar\-Joint@{Planar\-Joint}}
+\index{Planar\-Joint@{Planar\-Joint}!Moby::PlanarJoint@{Moby\-::\-Planar\-Joint}}
+\subsubsection[{Planar\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Planar\-Joint\-::\-Planar\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1PlanarJoint_a24b1e7f2b4317f4a91b020bed31abbde}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+The axis of rotation is set to [0 0 0]. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Planar\-Joint.\-h\item 
+/home/drum/\-Moby/src/Planar\-Joint.\-cpp\end{DoxyCompactItemize}

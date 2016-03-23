@@ -1,0 +1,270 @@
+\section{Moby\-:\-:Indexed\-Tri\-Array Class Reference}
+\label{classMoby_1_1IndexedTriArray}\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}}
+
+
+An array of triangles indexed into shared vertices.  
+
+
+
+
+{\ttfamily \#include $<$Indexed\-Tri\-Array.\-h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Indexed\-Tri\-Array} (boost\-::shared\-\_\-ptr$<$ const std\-::vector$<$ Ravelin\-::\-Origin3d $>$ $>$ vertices, const std\-::vector$<$ {\bf Indexed\-Tri} $>$ \&facets)\label{classMoby_1_1IndexedTriArray_a22bc8543dd13db0238cb80b08fff0484}
+
+\item 
+{\bfseries Indexed\-Tri\-Array} (boost\-::shared\-\_\-ptr$<$ const std\-::vector$<$ Ravelin\-::\-Origin3d $>$ $>$ vertices, boost\-::shared\-\_\-ptr$<$ const std\-::vector$<$ {\bf Indexed\-Tri} $>$ $>$ facets)\label{classMoby_1_1IndexedTriArray_aa886b9d42b2e5d3b610f4ee649fd77b8}
+
+\item 
+{\footnotesize template$<$class Forward\-Iterator1 , class Forward\-Iterator2 $>$ }\\{\bf Indexed\-Tri\-Array} (Forward\-Iterator1 vertices, Forward\-Iterator1 verts\-\_\-end, Forward\-Iterator2 facets\-\_\-begin, Forward\-Iterator2 facets\-\_\-end)
+\begin{DoxyCompactList}\small\item\em Creates an indexed triangle mesh from containers of vertices and facets. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-tris} (Output\-Iterator output\-\_\-begin, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P) const \label{classMoby_1_1IndexedTriArray_a6cc28fe1ba69b1890ce7d282748d510c}
+
+\begin{DoxyCompactList}\small\item\em Converts an indexed triangle mesh to a container of triangles. \end{DoxyCompactList}\item 
+unsigned {\bfseries num\-\_\-tris} () const \label{classMoby_1_1IndexedTriArray_af5b749ac6544676b390da254bce6a031}
+
+\item 
+Triangle {\bf get\-\_\-triangle} (unsigned i, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P) const \label{classMoby_1_1IndexedTriArray_a16489b4bc4467ca28b0e633d16f0c56b}
+
+\begin{DoxyCompactList}\small\item\em Gets the i'th triangle from this mesh. \end{DoxyCompactList}\item 
+{\bf Indexed\-Tri\-Array} {\bf transform} (const Ravelin\-::\-Transform3d \&T) const \label{classMoby_1_1IndexedTriArray_ae4fc00db00077b5d4d33c92831f21ad3}
+
+\begin{DoxyCompactList}\small\item\em Transforms this mesh to a new mesh. \end{DoxyCompactList}\item 
+{\bf Indexed\-Tri\-Array} {\bf compress\-\_\-vertices} () const \label{classMoby_1_1IndexedTriArray_a37fec43458e96f2e785b3a35fc0f1def}
+
+\begin{DoxyCompactList}\small\item\em Compresses the vertices used in an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray} to create a new mesh. \end{DoxyCompactList}\item 
+void {\bfseries write\-\_\-to\-\_\-obj} (const std\-::string \&filename) const \label{classMoby_1_1IndexedTriArray_a0227a7d0f0e7c28f72bf9e7c38636b83}
+
+\item 
+{\bf Indexed\-Tri\-Array} \& {\bf operator=} (const {\bf Indexed\-Tri\-Array} \&mesh)\label{classMoby_1_1IndexedTriArray_a9f6554fc8f73927a85265a7d30574850}
+
+\begin{DoxyCompactList}\small\item\em Copies one mesh to another. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::list\\*
+$<$ unsigned $>$ $>$ {\bf determine\-\_\-vertex\-\_\-edge\-\_\-map} () const 
+\begin{DoxyCompactList}\small\item\em Determines a map from vertices to edges. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::list\\*
+$<$ unsigned $>$ $>$ {\bf determine\-\_\-vertex\-\_\-facet\-\_\-map} () const \label{classMoby_1_1IndexedTriArray_abe943acd02d88d27eef8affa9947ba4a}
+
+\begin{DoxyCompactList}\small\item\em Determines a map from vertices to facet indices. \end{DoxyCompactList}\item 
+std\-::map$<$ Ravelin\-::sorted\-\_\-pair\\*
+$<$ unsigned $>$, std\-::list\\*
+$<$ unsigned $>$ $>$ {\bf determine\-\_\-edge\-\_\-facet\-\_\-map} () const \label{classMoby_1_1IndexedTriArray_a7ec78943c2c285fff89acac35f929ca5}
+
+\begin{DoxyCompactList}\small\item\em Determines a map from edges to facet indices. \end{DoxyCompactList}\item 
+void {\bf calc\-\_\-volume\-\_\-ints} (double volume\-\_\-ints[10]) const \label{classMoby_1_1IndexedTriArray_a2548fec85bdafe3bf0bd0efd216c6c25}
+
+\begin{DoxyCompactList}\small\item\em Calculates the volume integrals of this primitive as a triangle mesh. \end{DoxyCompactList}\item 
+const std\-::list$<$ unsigned $>$ \& {\bf get\-\_\-incident\-\_\-facets} (unsigned i) const \label{classMoby_1_1IndexedTriArray_aa4e59c05403b17345c3e64d0f1f76663}
+
+\begin{DoxyCompactList}\small\item\em Gets the indices of facets incident to a vertex. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+std\-::vector$<$ {\bf Indexed\-Tri} $>$ $>$ {\bf get\-\_\-facets\-\_\-pointer} () const \label{classMoby_1_1IndexedTriArray_a28944f0e2e4608939ad0b0f539f57123}
+
+\begin{DoxyCompactList}\small\item\em Gets the pointer to the vector of facets. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+std\-::vector$<$ Ravelin\-::\-Origin3d $>$ $>$ {\bf get\-\_\-vertices\-\_\-pointer} () const \label{classMoby_1_1IndexedTriArray_abfeae4937eafc2411d2b904751a1941b}
+
+\begin{DoxyCompactList}\small\item\em Gets the pointer to the vector of vertices. \end{DoxyCompactList}\item 
+const std\-::vector$<$ {\bf Indexed\-Tri} $>$ \& {\bf get\-\_\-facets} () const \label{classMoby_1_1IndexedTriArray_a649f40490ab06039203a73d7777bfe9f}
+
+\begin{DoxyCompactList}\small\item\em Gets the vector of facets. \end{DoxyCompactList}\item 
+const std\-::vector\\*
+$<$ Ravelin\-::\-Origin3d $>$ \& {\bf get\-\_\-vertices} () const \label{classMoby_1_1IndexedTriArray_ad4ab695884f00df367e8e8f9fd17f9e2}
+
+\begin{DoxyCompactList}\small\item\em Gets the vector of verties. \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-coplanar} (unsigned vidx) const \label{classMoby_1_1IndexedTriArray_a4471d53875e96208021b0a194d492ca2}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a vertex is coplanar (all faces touching the vertex are coplanar) \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-coplanar} (unsigned v1, unsigned v2) const \label{classMoby_1_1IndexedTriArray_a59b5cfa70967fb368d56ea24fa4a96b2}
+
+\begin{DoxyCompactList}\small\item\em Determines whether an edge (v1,v2) is coplanar (all faces touching the edge are coplanar) \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator1 , class Forward\-Iterator2 $>$ }\\{\bf Indexed\-Tri\-Array} (Forward\-Iterator1 verts\-\_\-begin, Forward\-Iterator1 verts\-\_\-end, Forward\-Iterator2 facets\-\_\-begin, Forward\-Iterator2 facets\-\_\-end)
+\begin{DoxyCompactList}\small\item\em Creates an indexed triangle mesh from containers of vertices and facets. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-tris} (Output\-Iterator output\-\_\-begin, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P) const \label{classMoby_1_1IndexedTriArray_a6cc28fe1ba69b1890ce7d282748d510c}
+
+\begin{DoxyCompactList}\small\item\em Converts an indexed triangle mesh to a container of triangles. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf intersect} (const {\bf Indexed\-Tri\-Array} \&mesh\-\_\-a, const {\bf Indexed\-Tri\-Array} \&mesh\-\_\-b, Output\-Iterator output\-\_\-begin, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ Pa, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ Pb, bool exit\-\_\-early)
+\begin{DoxyCompactList}\small\item\em Intersects two meshes together and returns indices of intersecting triangles. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\static Output\-Iterator {\bf intersect} (const {\bf Indexed\-Tri\-Array} \&mesh\-\_\-a, const {\bf Indexed\-Tri\-Array} \&mesh\-\_\-b, Output\-Iterator output\-\_\-begin, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ Pa, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ Pb, bool exit\-\_\-early)
+\begin{DoxyCompactList}\small\item\em Intersects two meshes together and returns indices of intersecting triangles. \end{DoxyCompactList}\item 
+static {\bf Indexed\-Tri\-Array} {\bf read\-\_\-from\-\_\-obj} (const std\-::string \&filename)\label{classMoby_1_1IndexedTriArray_a0c0d473f0a2f0fc7f96088adcf2f6f68}
+
+\begin{DoxyCompactList}\small\item\em Reads triangle mesh from a Wavefront O\-B\-J file. \end{DoxyCompactList}\item 
+static void {\bfseries write\-\_\-to\-\_\-obj} (const {\bf Indexed\-Tri\-Array} \&mesh, const std\-::string \&filename)\label{classMoby_1_1IndexedTriArray_a152732a80d0847cbacd681a0bec263c2}
+
+\item 
+static {\bf Indexed\-Tri\-Array} {\bf merge} (const {\bf Indexed\-Tri\-Array} \&mesh1, const {\bf Indexed\-Tri\-Array} \&mesh2, double equal\-\_\-tol=0.\-0)
+\begin{DoxyCompactList}\small\item\em Merges two meshes together to create a new mesh. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+An array of triangles indexed into shared vertices. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}!Indexed\-Tri\-Array@{Indexed\-Tri\-Array}}
+\index{Indexed\-Tri\-Array@{Indexed\-Tri\-Array}!Moby::IndexedTriArray@{Moby\-::\-Indexed\-Tri\-Array}}
+\subsubsection[{Indexed\-Tri\-Array}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator1 , class Forward\-Iterator2 $>$ Moby\-::\-Indexed\-Tri\-Array\-::\-Indexed\-Tri\-Array (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator1}]{verts\-\_\-begin, }
+\item[{Forward\-Iterator1}]{verts\-\_\-end, }
+\item[{Forward\-Iterator2}]{facets\-\_\-begin, }
+\item[{Forward\-Iterator2}]{facets\-\_\-end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1IndexedTriArray_a3945b2075099e0b41cdcaec73deaf98f}
+
+
+Creates an indexed triangle mesh from containers of vertices and facets. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em vertices} & an iterator to the beginning of a container of Point3d objects \\
+\hline
+{\em verts\-\_\-end} & an iterator to the end of a container of Point3d objects \\
+\hline
+{\em facets\-\_\-begin} & an iterator to the beginning of a container of \doxyref{Indexed\-Tri}{p.}{structMoby_1_1IndexedTri} objects \\
+\hline
+{\em facets\-\_\-end} & an iterator to the end of a container of \doxyref{Indexed\-Tri}{p.}{structMoby_1_1IndexedTri} objects \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}!Indexed\-Tri\-Array@{Indexed\-Tri\-Array}}
+\index{Indexed\-Tri\-Array@{Indexed\-Tri\-Array}!Moby::IndexedTriArray@{Moby\-::\-Indexed\-Tri\-Array}}
+\subsubsection[{Indexed\-Tri\-Array}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator1 , class Forward\-Iterator2 $>$ Moby\-::\-Indexed\-Tri\-Array\-::\-Indexed\-Tri\-Array (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator1}]{verts\-\_\-begin, }
+\item[{Forward\-Iterator1}]{verts\-\_\-end, }
+\item[{Forward\-Iterator2}]{facets\-\_\-begin, }
+\item[{Forward\-Iterator2}]{facets\-\_\-end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1IndexedTriArray_a8c9bb0ca489c52ef328939dc4b9f8bb5}
+
+
+Creates an indexed triangle mesh from containers of vertices and facets. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em vertices} & an iterator to the beginning of a container of Point3d objects \\
+\hline
+{\em verts\-\_\-end} & an iterator to the end of a container of Point3d objects \\
+\hline
+{\em facets\-\_\-begin} & an iterator to the beginning of a container of \doxyref{Indexed\-Tri}{p.}{structMoby_1_1IndexedTri} objects \\
+\hline
+{\em facets\-\_\-end} & an iterator to the end of a container of \doxyref{Indexed\-Tri}{p.}{structMoby_1_1IndexedTri} objects \\
+\hline
+\end{DoxyParams}
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}!determine\-\_\-vertex\-\_\-edge\-\_\-map@{determine\-\_\-vertex\-\_\-edge\-\_\-map}}
+\index{determine\-\_\-vertex\-\_\-edge\-\_\-map@{determine\-\_\-vertex\-\_\-edge\-\_\-map}!Moby::IndexedTriArray@{Moby\-::\-Indexed\-Tri\-Array}}
+\subsubsection[{determine\-\_\-vertex\-\_\-edge\-\_\-map}]{\setlength{\rightskip}{0pt plus 5cm}vector$<$ list$<$ unsigned $>$ $>$ Indexed\-Tri\-Array\-::determine\-\_\-vertex\-\_\-edge\-\_\-map (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1IndexedTriArray_a1a57addac80e6a8d74ddc81caff82e1a}
+
+
+Determines a map from vertices to edges. 
+
+\begin{DoxyReturn}{Returns}
+a map from vertices to edges; each element in the map repesents the second vertex of the edge (the key is the first) 
+\end{DoxyReturn}
+
+
+Referenced by Moby\-::\-O\-B\-B\-::calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B().
+
+\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}!intersect@{intersect}}
+\index{intersect@{intersect}!Moby::IndexedTriArray@{Moby\-::\-Indexed\-Tri\-Array}}
+\subsubsection[{intersect}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-Indexed\-Tri\-Array\-::intersect (
+\begin{DoxyParamCaption}
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{mesh\-\_\-a, }
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{mesh\-\_\-b, }
+\item[{Output\-Iterator}]{output\-\_\-begin, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{Pa, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{Pb, }
+\item[{bool}]{exit\-\_\-early}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1IndexedTriArray_a1ea78f2d40caf44c843dc67ecd7472b5}
+
+
+Intersects two meshes together and returns indices of intersecting triangles. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em mesh\-\_\-a} & the first mesh \\
+\hline
+{\em mesh\-\_\-b} & the second mesh \\
+\hline
+{\em output\-\_\-begin} & an iterator pointing to the beginning of a container of std\-::pair$<$unsigned, unsigned$>$ objects (on return, container will hold indices of intersecting triangles of mesh\-\_\-a and mesh\-\_\-b) \\
+\hline
+{\em exit\-\_\-early} & if {\bfseries true}, exits after first intersection detected \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+an iterator pointing to the end of a container of std\-::pair$<$unsigned, unsigned$>$ objects (on return, container will hold indices of intersecting triangles of mesh\-\_\-a and mesh\-\_\-b) 
+\end{DoxyReturn}
+\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}!intersect@{intersect}}
+\index{intersect@{intersect}!Moby::IndexedTriArray@{Moby\-::\-Indexed\-Tri\-Array}}
+\subsubsection[{intersect}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-Indexed\-Tri\-Array\-::intersect (
+\begin{DoxyParamCaption}
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{mesh\-\_\-a, }
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{mesh\-\_\-b, }
+\item[{Output\-Iterator}]{output\-\_\-begin, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{Pa, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{Pb, }
+\item[{bool}]{exit\-\_\-early}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1IndexedTriArray_a1ea78f2d40caf44c843dc67ecd7472b5}
+
+
+Intersects two meshes together and returns indices of intersecting triangles. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em mesh\-\_\-a} & the first mesh \\
+\hline
+{\em mesh\-\_\-b} & the second mesh \\
+\hline
+{\em output\-\_\-begin} & an iterator pointing to the beginning of a container of std\-::pair$<$unsigned, unsigned$>$ objects (on return, container will hold indices of intersecting triangles of mesh\-\_\-a and mesh\-\_\-b) \\
+\hline
+{\em exit\-\_\-early} & if {\bfseries true}, exits after first intersection detected \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+an iterator pointing to the end of a container of std\-::pair$<$unsigned, unsigned$>$ objects (on return, container will hold indices of intersecting triangles of mesh\-\_\-a and mesh\-\_\-b) 
+\end{DoxyReturn}
+
+
+References get\-\_\-tris().
+
+\index{Moby\-::\-Indexed\-Tri\-Array@{Moby\-::\-Indexed\-Tri\-Array}!merge@{merge}}
+\index{merge@{merge}!Moby::IndexedTriArray@{Moby\-::\-Indexed\-Tri\-Array}}
+\subsubsection[{merge}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Indexed\-Tri\-Array} Indexed\-Tri\-Array\-::merge (
+\begin{DoxyParamCaption}
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{mesh1, }
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{mesh2, }
+\item[{double}]{equal\-\_\-tol = {\ttfamily 0.0}}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1IndexedTriArray_a3a9a4d32a18987a780a8494ff9af5fe0}
+
+
+Merges two meshes together to create a new mesh. 
+
+\begin{DoxyNote}{Note}
+this method runs in time O(nm) 
+\end{DoxyNote}
+
+
+References get\-\_\-facets(), and get\-\_\-vertices().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Indexed\-Tri\-Array.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Indexed\-Tri\-Array.\-inl\item 
+/home/drum/\-Moby/src/Indexed\-Tri\-Array.\-cpp\end{DoxyCompactItemize}

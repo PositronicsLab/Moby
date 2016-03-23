@@ -471,7 +471,7 @@ RECURSIVE              = NO
 # excluded from the INPUT source files. This way you can easily exclude a 
 # subdirectory from a directory tree whose root is specified with the INPUT tag.
 
-EXCLUDE                = 
+EXCLUDE                = "../include/Moby/CompGeom.h" "../include/Moby/CompGeom.inl" "../src/CompGeom.cpp" "../include/Moby/CP.h" "../src/CP.cpp" "../include/Moby/GaussianMixture.h" "../src/GaussianMixture.cpp" "../include/Moby/OsgTorus.h" "../include/Moby/SignedDistDot.h" "../src/SignedDistDot.cpp" "../include/Moby/SSL.h" "../src/SSL.cpp" "../include/Moby/SSR.h" "../src/SSR.cpp" "../include/Moby/HashClasses.h" "../include/Moby/Tetrahedron.h" "../src/Tetrahedron.cpp" "../include/Moby/IndexedTetra.h" "../include/Moby/IndexedTetraArray.h" "../include/Moby/IndexedTetraArray.inl" "../src/IndexedTetraArray.cpp" "../include/Moby/Triangle.h" "../src/Triangle.cpp" "../include/Moby/SustainedUnilateralConstraintHandler.h" "../src/ConstrainedUnilateralConstraintHandler.cpp" "../include/Moby/UnilateralConstraintProblemData.h" "../include/Moby/LCP.h" "../include/Moby/GJK.h" "../src/GJK.cpp" "../include/Moby/FastThreadable.h" 
 
 # The EXCLUDE_SYMLINKS tag can be used select whether or not files or 
 # directories that are symbolic links (a Unix filesystem feature) are excluded 

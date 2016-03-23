@@ -1,0 +1,149 @@
+\section{Moby\-:\-:Box\-Primitive Class Reference}
+\label{classMoby_1_1BoxPrimitive}\index{Moby\-::\-Box\-Primitive@{Moby\-::\-Box\-Primitive}}
+
+
+Represents a solid box centered at the origin (by default)  
+
+
+
+
+{\ttfamily \#include $<$Box\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Box\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.000000cm]{classMoby_1_1BoxPrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Box\-Primitive} ()\label{classMoby_1_1BoxPrimitive_a9714cb80a5753b347ffffc6ea443017e}
+
+\begin{DoxyCompactList}\small\item\em Constructs a unit cube centered at the origin. \end{DoxyCompactList}\item 
+{\bf Box\-Primitive} (double xlen, double ylen, double zlen)\label{classMoby_1_1BoxPrimitive_a9c2e101fcc2b4f032d31c046b49a215d}
+
+\begin{DoxyCompactList}\small\item\em Constructs a box of the specified size. \end{DoxyCompactList}\item 
+{\bfseries Box\-Primitive} (double xlen, double ylen, double zlen, const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1BoxPrimitive_a7346d95be6016eb7b29fcf09ac9697f7}
+
+\item 
+{\bfseries Box\-Primitive} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1BoxPrimitive_ac41458ab7e48e5b6ac4c427e50965bf0}
+
+\item 
+virtual void {\bf set\-\_\-polyhedron} (const {\bf Polyhedron} \&p)\label{classMoby_1_1BoxPrimitive_a6a4bb0ee868ece8fdf982e7058de6714}
+
+\begin{DoxyCompactList}\small\item\em Overrides the Polyhedron\-Primitive\-::set\-\_\-polyhedron(.) \end{DoxyCompactList}\item 
+void {\bf set\-\_\-size} (double xlen, double ylen, double zlen)
+\begin{DoxyCompactList}\small\item\em Sets the size of this box. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-facets} () const \label{classMoby_1_1BoxPrimitive_ab934592fc7a178c08bb4770e63bd9870}
+
+\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1BoxPrimitive_a3e34153ce5004f80174f77558dffeca1}
+
+\begin{DoxyCompactList}\small\item\em Determines whether the primitive is convex. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1BoxPrimitive_a3d40e1f701caccca8fbdf8cbc473b788}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1BoxPrimitive_a7567d7f558da7d8ee30993edb465e8ab}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)\label{classMoby_1_1BoxPrimitive_a41d65701bf4ba6cf69301eb2bf102f97}
+
+\begin{DoxyCompactList}\small\item\em Gets the bounding volume for this plane. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&point, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1BoxPrimitive_a4db9695a126612c821bc962db8d679a3}
+
+\begin{DoxyCompactList}\small\item\em Tests whether a point is inside or on the box. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-closest\-\_\-point} (const {\bf Point3d} \&point, {\bf Point3d} \&closest) const \label{classMoby_1_1BoxPrimitive_ad1b96f3b923526fb535809838eb0eee2}
+
+\begin{DoxyCompactList}\small\item\em Computes the closest point on the box to a point (and returns the distance) \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1BoxPrimitive_a765e606e00ee883c4f0cf86a2b17b503}
+
+\begin{DoxyCompactList}\small\item\em Transforms the primitive. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-edge\-\_\-sample\-\_\-length} (double len)\label{classMoby_1_1BoxPrimitive_ac9ff590377ec5716ae8a78db9758bf41}
+
+\begin{DoxyCompactList}\small\item\em Sets the edge sample length for this box. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)
+\begin{DoxyCompactList}\small\item\em Gets the set of vertices for the \doxyref{Box\-Primitive}{p.}{classMoby_1_1BoxPrimitive} (constructing, if necessary) \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1BoxPrimitive_a48e4775b9cba8ea3086eaff6a7cac809}
+
+\begin{DoxyCompactList}\small\item\em Creates the visualization for this primitive. \end{DoxyCompactList}\item 
+double {\bfseries calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Sphere\-Primitive} $>$ s, {\bf Point3d} \&pthis, {\bf Point3d} \&psph) const \label{classMoby_1_1BoxPrimitive_a71fd11eedd20ba5cf5f971623cd905ff}
+
+\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1BoxPrimitive_afa94e6d28303bab94a3ffdab87d7d3df}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&p) const \label{classMoby_1_1BoxPrimitive_a329b84ac213b791173b787fb54996e6c}
+
+\begin{DoxyCompactList}\small\item\em Gets the set of vertices for the \doxyref{Box\-Primitive}{p.}{classMoby_1_1BoxPrimitive}. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1BoxPrimitive_a3a8f66228befd2dad762bde3ff3b9b41}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance to a point. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-closest\-\_\-points} (boost\-::shared\-\_\-ptr$<$ const {\bf Sphere\-Primitive} $>$ s, {\bf Point3d} \&pbox, {\bf Point3d} \&psph) const \label{classMoby_1_1BoxPrimitive_a3f009bc061038fa7f1ce4405efc66326}
+
+\begin{DoxyCompactList}\small\item\em Finds closest point between a box and a sphere; returns the closest point on/in the box to the center of the sphere. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1BoxPrimitive_a3a0bd74748d6c67662907a05d1e77cdc}
+
+\item 
+double {\bf get\-\_\-x\-\_\-len} () const \label{classMoby_1_1BoxPrimitive_aa222b496aa25e46765eb5c76c80cd5d0}
+
+\begin{DoxyCompactList}\small\item\em Get the x-\/length of this box. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-y\-\_\-len} () const \label{classMoby_1_1BoxPrimitive_a4da4671d5917529f4b96a685b1ae0f07}
+
+\begin{DoxyCompactList}\small\item\em Get the y-\/length of this box. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-z\-\_\-len} () const \label{classMoby_1_1BoxPrimitive_a6d5aa13ecd4d574bc8b23fbb3b295db1}
+
+\begin{DoxyCompactList}\small\item\em Ge the z-\/length of this box. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Represents a solid box centered at the origin (by default) 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Box\-Primitive@{Moby\-::\-Box\-Primitive}!get\-\_\-mesh@{get\-\_\-mesh}}
+\index{get\-\_\-mesh@{get\-\_\-mesh}!Moby::BoxPrimitive@{Moby\-::\-Box\-Primitive}}
+\subsubsection[{get\-\_\-mesh}]{\setlength{\rightskip}{0pt plus 5cm}shared\-\_\-ptr$<$ const {\bf Indexed\-Tri\-Array} $>$ Box\-Primitive\-::get\-\_\-mesh (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{P}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1BoxPrimitive_a49f0cc86fda96f6b86cab280d82c843d}
+
+
+Gets the set of vertices for the \doxyref{Box\-Primitive}{p.}{classMoby_1_1BoxPrimitive} (constructing, if necessary) 
+
+Recomputes the triangle mesh for the \doxyref{Box\-Primitive}{p.}{classMoby_1_1BoxPrimitive} 
+
+Reimplemented from {\bf Moby\-::\-Polyhedral\-Primitive} \doxyref{}{p.}{classMoby_1_1PolyhedralPrimitive_a33762e3c23305eb7802287e2c8526b6c}.
+
+\index{Moby\-::\-Box\-Primitive@{Moby\-::\-Box\-Primitive}!set\-\_\-size@{set\-\_\-size}}
+\index{set\-\_\-size@{set\-\_\-size}!Moby::BoxPrimitive@{Moby\-::\-Box\-Primitive}}
+\subsubsection[{set\-\_\-size}]{\setlength{\rightskip}{0pt plus 5cm}void Box\-Primitive\-::set\-\_\-size (
+\begin{DoxyParamCaption}
+\item[{double}]{xlen, }
+\item[{double}]{ylen, }
+\item[{double}]{zlen}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1BoxPrimitive_aa3f704d576258ab365eb8b3e39bcb090}
+
+
+Sets the size of this box. 
+
+\begin{DoxyNote}{Note}
+forces recomputation of the mesh 
+\end{DoxyNote}
+
+
+References Moby\-::\-Primitive\-::update\-\_\-visualization().
+
+
+
+Referenced by load\-\_\-from\-\_\-xml().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Box\-Primitive.\-h\item 
+/home/drum/\-Moby/src/Box\-Primitive.\-cpp\end{DoxyCompactItemize}

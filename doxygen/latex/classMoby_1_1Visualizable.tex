@@ -1,0 +1,112 @@
+\section{Moby\-:\-:Visualizable Class Reference}
+\label{classMoby_1_1Visualizable}\index{Moby\-::\-Visualizable@{Moby\-::\-Visualizable}}
+
+
+Class that allows for visualizing simulation data.  
+
+
+
+
+{\ttfamily \#include $<$Visualizable.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Visualizable\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.526316cm]{classMoby_1_1Visualizable}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Visualizable} (const {\bf Visualizable} $\ast$v)\label{classMoby_1_1Visualizable_aef0be49acd1e091ede16e028eb57f2da}
+
+\item 
+virtual void {\bf update\-\_\-visualization} ()
+\begin{DoxyCompactList}\small\item\em Updates the visualization using the appropriate transform. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-visualization\-\_\-relative\-\_\-pose} (const Ravelin\-::\-Pose3d \&P)\label{classMoby_1_1Visualizable_a803e9b085e170d2b21a1cf76d53279ad}
+
+\begin{DoxyCompactList}\small\item\em Sets the visualization relative pose. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-visualization\-\_\-data} (osg\-::\-Node $\ast$vdata)\label{classMoby_1_1Visualizable_a33b51e7318ba94eca8ff8a298ec7b1ff}
+
+\begin{DoxyCompactList}\small\item\em Sets the visualization data from a node. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-visualization\-\_\-data} ({\bf O\-S\-G\-Group\-Wrapper\-Ptr} vdata)\label{classMoby_1_1Visualizable_a88fb7999bdbd60215ddcd2a1faf3724e}
+
+\begin{DoxyCompactList}\small\item\em Sets the visualization data from a \doxyref{O\-S\-G\-Group\-Wrapper}{p.}{classMoby_1_1OSGGroupWrapper}. \end{DoxyCompactList}\item 
+osg\-::\-Group $\ast$ {\bf get\-\_\-visualization\-\_\-data} () const \label{classMoby_1_1Visualizable_a70b1a8f9cbae99685b57614c90a61fb2}
+
+\begin{DoxyCompactList}\small\item\em Gets the visualization data for this object. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1Visualizable_a758e48d853b6bb2085c98f1d5438cf5c}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1Visualizable_a8d9fc36646c0df143c99c488740edfbb}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-visualization\-\_\-pose} ()\label{classMoby_1_1Visualizable_a046b7cee4d11b9c730918f935dbd1ad1}
+
+\begin{DoxyCompactList}\small\item\em Gets the pose for this visualizable object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static osg\-::\-Group $\ast$ {\bf construct\-\_\-from\-\_\-node} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, const std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)
+\begin{DoxyCompactList}\small\item\em Utility method for \doxyref{load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Visualizable_a8d9fc36646c0df143c99c488740edfbb} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Pose3d $>$ {\bf \-\_\-v\-F}\label{classMoby_1_1Visualizable_a374badabcacc91be465b08e1cd60ae36}
+
+\begin{DoxyCompactList}\small\item\em The relative pose. \end{DoxyCompactList}\item 
+{\bf O\-S\-G\-Group\-Wrapper\-Ptr} {\bf \-\_\-vizdata}\label{classMoby_1_1Visualizable_a0ec52176f9b308a7bb4e65ed7f975fbf}
+
+\begin{DoxyCompactList}\small\item\em The underlying visualization data. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Class that allows for visualizing simulation data. 
+
+This class uses the \doxyref{O\-S\-G\-Group\-Wrapper}{p.}{classMoby_1_1OSGGroupWrapper} class to permit sharing and serialization of visualization data. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Visualizable@{Moby\-::\-Visualizable}!construct\-\_\-from\-\_\-node@{construct\-\_\-from\-\_\-node}}
+\index{construct\-\_\-from\-\_\-node@{construct\-\_\-from\-\_\-node}!Moby::Visualizable@{Moby\-::\-Visualizable}}
+\subsubsection[{construct\-\_\-from\-\_\-node}]{\setlength{\rightskip}{0pt plus 5cm}osg\-::\-Group $\ast$ Visualizable\-::construct\-\_\-from\-\_\-node (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$}]{node, }
+\item[{const std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&}]{id\-\_\-map}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1Visualizable_a036abc1fde2a8202a53cf3eedea12a62}
+
+
+Utility method for \doxyref{load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Visualizable_a8d9fc36646c0df143c99c488740edfbb} 
+
+This method searches for visualization-\/filename, visualization-\/id attributes for a given node and creates a separator based on the attribute found. \index{Moby\-::\-Visualizable@{Moby\-::\-Visualizable}!update\-\_\-visualization@{update\-\_\-visualization}}
+\index{update\-\_\-visualization@{update\-\_\-visualization}!Moby::Visualizable@{Moby\-::\-Visualizable}}
+\subsubsection[{update\-\_\-visualization}]{\setlength{\rightskip}{0pt plus 5cm}void Visualizable\-::update\-\_\-visualization (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1Visualizable_afbafaa14804ab8fe80a97465f0b4304d}
+
+
+Updates the visualization using the appropriate transform. 
+
+\begin{DoxyNote}{Note}
+in contrast to set\-\_\-visualization\-\_\-transform(), this method actually sets the transform in the scenegraph, thereby updating the display. 
+
+derived classes may override this method to set the transform right before it is updated, if desired 
+\end{DoxyNote}
+\begin{DoxySeeAlso}{See Also}
+set\-\_\-visualization\-\_\-transform() 
+\end{DoxySeeAlso}
+
+
+Reimplemented in {\bf Moby\-::\-Articulated\-Body} \doxyref{}{p.}{classMoby_1_1ArticulatedBody_a25e7ceab132042083e42c97d202d7f72}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Visualizable.\-h\item 
+/home/drum/\-Moby/src/Visualizable.\-cpp\end{DoxyCompactItemize}

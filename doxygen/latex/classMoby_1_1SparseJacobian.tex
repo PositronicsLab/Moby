@@ -1,0 +1,56 @@
+\section{Moby\-:\-:Sparse\-Jacobian Class Reference}
+\label{classMoby_1_1SparseJacobian}\index{Moby\-::\-Sparse\-Jacobian@{Moby\-::\-Sparse\-Jacobian}}
+
+
+A Sparse Jacobian representation along with multiplication routines.  
+
+
+
+
+{\ttfamily \#include $<$Sparse\-Jacobian.\-h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+Ravelin\-::\-Vector\-Nd \& {\bfseries mult} (const Ravelin\-::\-Vector\-Nd \&x, Ravelin\-::\-Vector\-Nd \&result) const \label{classMoby_1_1SparseJacobian_a2b1aa47ef0bbeec1929893fabf123bae}
+
+\item 
+Ravelin\-::\-Matrix\-Nd \& {\bfseries mult} (const Ravelin\-::\-Matrix\-Nd \&x, Ravelin\-::\-Matrix\-Nd \&result) const \label{classMoby_1_1SparseJacobian_a7e635a806c0446adea1c239fa4242339}
+
+\item 
+Ravelin\-::\-Matrix\-Nd \& {\bf transpose\-\_\-mult} (const Ravelin\-::\-Matrix\-Nd \&x, Ravelin\-::\-Matrix\-Nd \&result) const \label{classMoby_1_1SparseJacobian_a9c3ae8255c2125855fe0af74a5e4703d}
+
+\begin{DoxyCompactList}\small\item\em Multiplies the transpose of this sparse Jacobian by a matrix. \end{DoxyCompactList}\item 
+Ravelin\-::\-Matrix\-Nd \& {\bfseries mult} (const std\-::vector$<$ {\bf Matrix\-Block} $>$ \&M, unsigned result\-\_\-cols, Ravelin\-::\-Matrix\-Nd \&result) const \label{classMoby_1_1SparseJacobian_ad8fcddbb89a88fef95521b08eff2d650}
+
+\item 
+Ravelin\-::\-Matrix\-Nd \& {\bfseries mult} (const std\-::vector$<$ Ravelin\-::\-Matrix\-Nd $>$ \&M, Ravelin\-::\-Matrix\-Nd \&result) const \label{classMoby_1_1SparseJacobian_aa4c84db851ed6e9f2156f680a35dc616}
+
+\item 
+Ravelin\-::\-Matrix\-Nd \& {\bf mult\-\_\-transpose} (const {\bf Sparse\-Jacobian} \&M, Ravelin\-::\-Matrix\-Nd \&result) const \label{classMoby_1_1SparseJacobian_af8e6586d8a2ae78ae8970c00e710e84b}
+
+\begin{DoxyCompactList}\small\item\em Multiples this sparse Jacobian by the transpose of another sparse Jacobian. \end{DoxyCompactList}\item 
+Ravelin\-::\-Matrix\-Nd \& {\bf to\-\_\-dense} (Ravelin\-::\-Matrix\-Nd \&M) const \label{classMoby_1_1SparseJacobian_a14a24234cbdffea0932d87429a8b3894}
+
+\begin{DoxyCompactList}\small\item\em Converts a sparse Jacobian to a dense matrix (for debugging purposes) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+std\-::vector$<$ {\bf Matrix\-Block} $>$ {\bfseries blocks}\label{classMoby_1_1SparseJacobian_aa936e2f4139757a34b44276c3b42f03c}
+
+\item 
+unsigned {\bfseries rows}\label{classMoby_1_1SparseJacobian_a920752c96655a2bbfd8869f62665c2b9}
+
+\item 
+unsigned {\bfseries cols}\label{classMoby_1_1SparseJacobian_aa1a371cfee664e89cdbf2226714ed3a9}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+A Sparse Jacobian representation along with multiplication routines. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Sparse\-Jacobian.\-h\item 
+/home/drum/\-Moby/src/Sparse\-Jacobian.\-cpp\end{DoxyCompactItemize}

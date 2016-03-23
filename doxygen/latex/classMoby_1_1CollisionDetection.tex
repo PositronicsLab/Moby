@@ -1,0 +1,69 @@
+\section{Moby\-:\-:Collision\-Detection Class Reference}
+\label{classMoby_1_1CollisionDetection}\index{Moby\-::\-Collision\-Detection@{Moby\-::\-Collision\-Detection}}
+
+
+Defines an abstract collision detection mechanism.  
+
+
+
+
+{\ttfamily \#include $<$Collision\-Detection.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Collision\-Detection\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1CollisionDetection}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual void {\bfseries set\-\_\-simulator} (boost\-::shared\-\_\-ptr$<$ {\bf Constraint\-Simulator} $>$ sim)\label{classMoby_1_1CollisionDetection_a350e6e1a15595c8bdeda20162e93f076}
+
+\item 
+virtual void {\bf broad\-\_\-phase} (double dt, const std\-::vector$<$ {\bf Controlled\-Body\-Ptr} $>$ \&bodies, std\-::vector$<$ std\-::pair$<$ {\bf Collision\-Geometry\-Ptr}, {\bf Collision\-Geometry\-Ptr} $>$ $>$ \&to\-\_\-check)\label{classMoby_1_1CollisionDetection_a2e765b0e2d5b70d6ecf64cb20b2b05d6}
+
+\begin{DoxyCompactList}\small\item\em Default broad phase function (checks everything) \end{DoxyCompactList}\item 
+virtual double {\bfseries calc\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step} (const {\bf Pairwise\-Dist\-Info} \&pdi)=0\label{classMoby_1_1CollisionDetection_adb6263442eb74a5351f52a7531b3335a}
+
+\item 
+virtual void {\bfseries find\-\_\-contacts} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&contacts, double T\-O\-L=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)=0\label{classMoby_1_1CollisionDetection_a52baefb4b903c5aae59d87830a783533}
+
+\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} ({\bf Collision\-Geometry\-Ptr} cg1, {\bf Collision\-Geometry\-Ptr} cg2, {\bf Point3d} \&p1, {\bf Point3d} \&p2)\label{classMoby_1_1CollisionDetection_add483854d989e80029d1986bc2976d47}
+
+\begin{DoxyCompactList}\small\item\em Calculates the signed distance between two geometries. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Collision\-Detection} $>$ {\bf get\-\_\-this} ()\label{classMoby_1_1CollisionDetection_aeaa818a81ebbe2065c8f31731e170bea}
+
+\begin{DoxyCompactList}\small\item\em Get the shared pointer for this. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual double {\bfseries calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step} (const {\bf Pairwise\-Dist\-Info} \&pdi)=0\label{classMoby_1_1CollisionDetection_a3823cc07abd54647134d108dc9365556}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static {\bf Unilateral\-Constraint} {\bf create\-\_\-contact} ({\bf Collision\-Geometry\-Ptr} a, {\bf Collision\-Geometry\-Ptr} b, const {\bf Point3d} \&point, const Ravelin\-::\-Vector3d \&normal, double violation=0.\-0)\label{classMoby_1_1CollisionDetection_ab3f1d864322a2f7f887f372570db672c}
+
+\begin{DoxyCompactList}\small\item\em Creates a contact constraint given the bare-\/minimum info. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Constraint\-Stabilization}\label{classMoby_1_1CollisionDetection_a320e2b5d0cb83071af150f47d50ca127}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an abstract collision detection mechanism. 
+
+Contact finding and collision detection are two separate, but related, procedures. Collision detection quickly determines whether two bodies are geometrically intersecting at their current configurations. Contact finding determines whether two bodies will come into contact (or are already in contact) in a given time interval; if the bodies do/will contact, contact finding computes contact points and normals. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Collision\-Detection.\-h\item 
+/home/drum/\-Moby/src/Collision\-Detection.\-cpp\end{DoxyCompactItemize}

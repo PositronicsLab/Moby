@@ -1,0 +1,74 @@
+\section{Moby\-:\-:Impact\-Constraint\-Handler Class Reference}
+\label{classMoby_1_1ImpactConstraintHandler}\index{Moby\-::\-Impact\-Constraint\-Handler@{Moby\-::\-Impact\-Constraint\-Handler}}
+
+
+Defines the mechanism for handling impact constraints.  
+
+
+
+
+{\ttfamily \#include $<$Impact\-Constraint\-Handler.\-h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Impact\-Constraint\-Handler} ()\label{classMoby_1_1ImpactConstraintHandler_ac40db75508e330d0e3506f834b7309d3}
+
+\begin{DoxyCompactList}\small\item\em Sets up the default parameters for the impact event handler. \end{DoxyCompactList}\item 
+void {\bf process\-\_\-constraints} (const std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&constraints)
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ {\bf get\-\_\-super\-\_\-body} (boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Single\-Bodyd $>$ sb)\label{classMoby_1_1ImpactConstraintHandler_a6a55cfa8839ea011b8586406c85ab0fc}
+
+\begin{DoxyCompactList}\small\item\em Gets the super body (articulated if any) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+bool {\bf use\-\_\-ip\-\_\-solver}\label{classMoby_1_1ImpactConstraintHandler_a6f4ce97931e1fdb5e44a3bf81f495b70}
+
+\begin{DoxyCompactList}\small\item\em If set to true, uses the interior-\/point solver (default is false) \end{DoxyCompactList}\item 
+unsigned {\bf ip\-\_\-max\-\_\-iterations}\label{classMoby_1_1ImpactConstraintHandler_af221288cc733bff24adf5ca4bd5b1b05}
+
+\begin{DoxyCompactList}\small\item\em The maximum number of iterations to use for the interior-\/point solver. \end{DoxyCompactList}\item 
+double {\bf ip\-\_\-eps}\label{classMoby_1_1ImpactConstraintHandler_a46702536fd126e572b11d1f4f941a4d6}
+
+\begin{DoxyCompactList}\small\item\em The tolerance for to the interior-\/point solver (default 1e-\/6) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Constraint\-Simulator}\label{classMoby_1_1ImpactConstraintHandler_ad5cb48502cbb12b1612870bcf90fca8e}
+
+\item 
+class {\bfseries Constraint\-Stabilization}\label{classMoby_1_1ImpactConstraintHandler_a320e2b5d0cb83071af150f47d50ca127}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Defines the mechanism for handling impact constraints. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Impact\-Constraint\-Handler@{Moby\-::\-Impact\-Constraint\-Handler}!process\-\_\-constraints@{process\-\_\-constraints}}
+\index{process\-\_\-constraints@{process\-\_\-constraints}!Moby::ImpactConstraintHandler@{Moby\-::\-Impact\-Constraint\-Handler}}
+\subsubsection[{process\-\_\-constraints}]{\setlength{\rightskip}{0pt plus 5cm}void Impact\-Constraint\-Handler\-::process\-\_\-constraints (
+\begin{DoxyParamCaption}
+\item[{const std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&}]{constraints}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1ImpactConstraintHandler_a8c8d3b675d0d01ef931dfdc527bcd925}
+
+\begin{DoxyParams}{Parameters}
+{\em constraints} & the vector of constraints \\
+\hline
+\end{DoxyParams}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Impact\-Constraint\-Handler.\-h\item 
+/home/drum/\-Moby/src/Impact\-Constraint\-Handler.\-cpp\item 
+/home/drum/\-Moby/src/Impact\-Constraint\-Handler\-L\-C\-P.\-cpp\item 
+/home/drum/\-Moby/src/Impact\-Constraint\-Handler\-N\-Q\-P.\-cpp\item 
+/home/drum/\-Moby/src/Impact\-Constraint\-Handler\-Q\-P.\-cpp\end{DoxyCompactItemize}

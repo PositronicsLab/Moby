@@ -1,0 +1,155 @@
+\section{Moby\-:\-:Polyhedral\-Primitive Class Reference}
+\label{classMoby_1_1PolyhedralPrimitive}\index{Moby\-::\-Polyhedral\-Primitive@{Moby\-::\-Polyhedral\-Primitive}}
+
+
+Defines a triangle-\/mesh-\/based primitive type used for inertial property calculation and geometry provisions.  
+
+
+
+
+{\ttfamily \#include $<$Polyhedral\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Polyhedral\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.000000cm]{classMoby_1_1PolyhedralPrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Polyhedral\-Primitive} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1PolyhedralPrimitive_a012665335ba4902b7799fd6debf18f4d}
+
+\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1PolyhedralPrimitive_a61245f02fe06f76859b66392adfd2299}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&p, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1PolyhedralPrimitive_a22722fd738a89219d3b908cb1a4ad01b}
+
+\begin{DoxyCompactList}\small\item\em Computes the distance between a point and this primitive. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1PolyhedralPrimitive_afa28b33a3714c5a0b1289fff75f6caf4}
+
+\begin{DoxyCompactList}\small\item\em creates the visualization for the primitive \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)\label{classMoby_1_1PolyhedralPrimitive_ae10c91e74bfff9bbef18669cffd801cc}
+
+\begin{DoxyCompactList}\small\item\em Gets the root bounding volume for this primitive. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-polyhedron} (const {\bf Polyhedron} \&p)
+\begin{DoxyCompactList}\small\item\em Sets the polyhedron corresponding to this primitive. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const 
+\begin{DoxyCompactList}\small\item\em Get vertices corresponding to this primitive. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1PolyhedralPrimitive_a33762e3c23305eb7802287e2c8526b6c}
+
+\begin{DoxyCompactList}\small\item\em Gets the underlying triangle mesh for this primitive. \end{DoxyCompactList}\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1PolyhedralPrimitive_a82c2d78f556315969eac46c42e6698ef}
+
+\begin{DoxyCompactList}\small\item\em Determines whether the primitive is convex. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1PolyhedralPrimitive_a54ede66e39b6ae57827a6cbeb9480335}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1PolyhedralPrimitive_a2c023ea6208e9817586997ac753d506e}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&P)\label{classMoby_1_1PolyhedralPrimitive_a30ccf2649b4f3b48c92db6b444e5790f}
+
+\begin{DoxyCompactList}\small\item\em Sets the pose of this primitive. \end{DoxyCompactList}\item 
+const {\bf Polyhedron} \& {\bf get\-\_\-polyhedron} () const \label{classMoby_1_1PolyhedralPrimitive_a1f8940bc0f00cd65855538cbe58ab6c2}
+
+\begin{DoxyCompactList}\small\item\em Gets the polyhedron corresponding to this primitive (in its transformed state) \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-facets} () const \label{classMoby_1_1PolyhedralPrimitive_a2b61a8d162299d0ecbaca9960f72a022}
+
+\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1PolyhedralPrimitive_ad5fd6180e5a653b11fcdd0939c6dc6b4}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-halfspaces} (const {\bf Polyhedron} \&poly, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ pose, const Ravelin\-::\-Transform3d \&w\-Tpose, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1PolyhedralPrimitive_a7352a6f8dbbf7ccdd143d6dea7bb30cd}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\static Output\-Iterator {\bfseries get\-\_\-halfspaces} (const {\bf Polyhedron} \&poly, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ pose, const Ravelin\-::\-Transform3d \&w\-Tpose, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1PolyhedralPrimitive_a7352a6f8dbbf7ccdd143d6dea7bb30cd}
+
+\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+void {\bf calc\-\_\-mass\-\_\-properties} ()\label{classMoby_1_1PolyhedralPrimitive_a0fba37da49ac3145ec9e32b0d274c579}
+
+\begin{DoxyCompactList}\small\item\em Calculates mass properties for the polyhedron. \end{DoxyCompactList}\item 
+double {\bfseries calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1PolyhedralPrimitive_aaf38b41346a68e7b80918c556b01fd32}
+
+\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Polyhedron} {\bfseries \-\_\-poly}\label{classMoby_1_1PolyhedralPrimitive_abe686fe1473a0d38257ad086f2f6fc58}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a triangle-\/mesh-\/based primitive type used for inertial property calculation and geometry provisions. 
+
+The center-\/of-\/mass of derived types may be at the origin of the world, or not. Additionally, \doxyref{Primitive}{p.}{classMoby_1_1Primitive} can take a transformation matrix in its constructor, with which the primitive data (com, inertia matrix, and geometry) can be transformed. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Polyhedral\-Primitive@{Moby\-::\-Polyhedral\-Primitive}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::PolyhedralPrimitive@{Moby\-::\-Polyhedral\-Primitive}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}void Polyhedral\-Primitive\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{P, }
+\item[{std\-::vector$<$ {\bf Point3d} $>$ \&}]{vertices}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1PolyhedralPrimitive_a7466ac4071e3710894bf8c002026cd3f}
+
+
+Get vertices corresponding to this primitive. 
+
+Gets the vertex indices from selected facets of an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray}.
+
+
+\begin{DoxyParams}{Parameters}
+{\em tris} & the triangle mesh \\
+\hline
+{\em fselect\-\_\-begin} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em fselect\-\_\-end} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em output} & beginning iterator to a container of type Point3d; unique vertices are copied here on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+ending iterator to a container of type Point3d; unique vertices are copied here on return 
+\end{DoxyReturn}
+
+
+Implements {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_ab50adaba8785794650193def668d4a05}.
+
+
+
+Reimplemented in {\bf Moby\-::\-Box\-Primitive} \doxyref{}{p.}{classMoby_1_1BoxPrimitive_a329b84ac213b791173b787fb54996e6c}.
+
+\index{Moby\-::\-Polyhedral\-Primitive@{Moby\-::\-Polyhedral\-Primitive}!set\-\_\-polyhedron@{set\-\_\-polyhedron}}
+\index{set\-\_\-polyhedron@{set\-\_\-polyhedron}!Moby::PolyhedralPrimitive@{Moby\-::\-Polyhedral\-Primitive}}
+\subsubsection[{set\-\_\-polyhedron}]{\setlength{\rightskip}{0pt plus 5cm}void Polyhedral\-Primitive\-::set\-\_\-polyhedron (
+\begin{DoxyParamCaption}
+\item[{const {\bf Polyhedron} \&}]{p}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1PolyhedralPrimitive_ae5f4a9141ad1b6d74b6997fe5d829c6f}
+
+
+Sets the polyhedron corresponding to this primitive. 
+
+Should only be done when the primitive hasn't been transformed. 
+
+Reimplemented in {\bf Moby\-::\-Box\-Primitive} \doxyref{}{p.}{classMoby_1_1BoxPrimitive_a6a4bb0ee868ece8fdf982e7058de6714}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Polyhedral\-Primitive.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Polyhedral\-Primitive.\-inl\item 
+/home/drum/\-Moby/src/Polyhedral\-Primitive.\-cpp\end{DoxyCompactItemize}

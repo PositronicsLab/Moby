@@ -1,0 +1,406 @@
+\section{Moby\-:\-:O\-B\-B Class Reference}
+\label{classMoby_1_1OBB}\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}}
+
+
+An oriented bounding box that optionally allows building an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} tree.  
+
+
+
+
+{\ttfamily \#include $<$O\-B\-B.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:O\-B\-B\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1OBB}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries O\-B\-B} (const {\bf O\-B\-B} \&obb)\label{classMoby_1_1OBB_abefec5f3646a09b2bca7df4135ffa21b}
+
+\item 
+{\bfseries O\-B\-B} (const {\bf Point3d} \&{\bf center}, const Ravelin\-::\-Matrix3d \&{\bf R}, const Ravelin\-::\-Vector3d \&{\bf l})\label{classMoby_1_1OBB_a709458c4b204c926205f0b77cee09e49}
+
+\item 
+{\bfseries O\-B\-B} (const {\bf O\-B\-B} \&o, const Ravelin\-::\-Vector3d \&v)\label{classMoby_1_1OBB_aa41360d0cdb313a5868d69b76ba01fe9}
+
+\item 
+{\bf O\-B\-B} \& {\bf operator=} (const {\bf O\-B\-B} \&obb)
+\begin{DoxyCompactList}\small\item\em Copies an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const \label{classMoby_1_1OBB_a29e0026603c5ab2a421580a40f10e811}
+
+\begin{DoxyCompactList}\small\item\em Transforms the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} using the given transform. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const \label{classMoby_1_1OBB_af319672a637c35433069cc1d84c1288c}
+
+\begin{DoxyCompactList}\small\item\em Calculates the velocity-\/expanded \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} for a body. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const \label{classMoby_1_1OBB_a066a51130966a57ce8b09def10431b86}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1OBB_a3450eb0e546b28447917873e4be28916}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+virtual std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const \label{classMoby_1_1OBB_af465225b2600da92a3890d773946f985}
+
+\begin{DoxyCompactList}\small\item\em Outputs the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} in V\-R\-M\-L format to the given stream. \end{DoxyCompactList}\item 
+unsigned {\bf calc\-\_\-size} () const 
+\begin{DoxyCompactList}\small\item\em Constructs an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a triangle mesh using the mesh inertia method [Ericson, 2003]. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Tree\-Ptr} {\bf save\-\_\-to\-\_\-xml\-\_\-tree} () const \label{classMoby_1_1OBB_a5a888d661cb639cbd3f59891addb3d68}
+
+\begin{DoxyCompactList}\small\item\em Saves a \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} hiearchy to a \doxyref{X\-M\-L\-Tree}{p.}{classMoby_1_1XMLTree}. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const \label{classMoby_1_1OBB_ade3147889bc58cff845dfa73e72650d5}
+
+\begin{DoxyCompactList}\small\item\em Gets the associated pose for this bounding volume. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const \label{classMoby_1_1OBB_ab515ed55a8de4d2d2b5ce79dc051a975}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bounds on the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const \label{classMoby_1_1OBB_a31919685083c0236598c0feb8de48a80}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bounds on the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bf expand\-\_\-to\-\_\-fit} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Expands this \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} (if necessary) to fit the given points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf O\-B\-B} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-vertices} (Output\-Iterator begin) const 
+\begin{DoxyCompactList}\small\item\em Gets the eight vertices of the bounding box. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const \label{classMoby_1_1OBB_a33ff505f3a3e775c2a43efbea484952b}
+
+\begin{DoxyCompactList}\small\item\em Calculates 1/8th of the volume of the bounding box. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf O\-B\-B} {\bf calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes the minimum \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of lower dimensional ($<$ 3d) points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf O\-B\-B} {\bf calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes the minimum \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf O\-B\-B} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bf expand\-\_\-to\-\_\-fit} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Expands this \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} (if necessary) to fit the given points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bf align} (Forward\-Iterator begin, Forward\-Iterator end, const Ravelin\-::\-Vector3d \&d1, Ravelin\-::\-Vector3d \&d2)\label{classMoby_1_1OBB_a4cc3a6e9c3d92cd3f2b7b71069b4ccc3}
+
+\begin{DoxyCompactList}\small\item\em Aligns this \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} with the minimum area bounding rectangle projected along the first dimension of the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-vertices} (Output\-Iterator begin) const 
+\begin{DoxyCompactList}\small\item\em Gets the eight vertices of the bounding box. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bfseries calc\-\_\-lengths} (const Ravelin\-::\-Vector3d \&d1, const Ravelin\-::\-Vector3d \&d2, const Ravelin\-::\-Vector3d \&d3, const {\bf Point3d} \&{\bf center}, Forward\-Iterator begin, Forward\-Iterator end, double lengths[3])\label{classMoby_1_1OBB_adca65c7aa27b377bfc2da428eaba9ff8}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static double {\bf calc\-\_\-sq\-\_\-dist} (const {\bf O\-B\-B} \&o, const {\bf Point3d} \&p)\label{classMoby_1_1OBB_a899812e2c1eac02d0ca19b4fee1d9945}
+
+\begin{DoxyCompactList}\small\item\em Computes the squared distance from a point to an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-dist} (const {\bf O\-B\-B} \&a, const {\bf O\-B\-B} \&b, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1OBB_ad47199249136e149b49e5e31cfe092f2}
+
+\begin{DoxyCompactList}\small\item\em Determines the distance between two O\-B\-Bs. \end{DoxyCompactList}\item 
+static double {\bfseries calc\-\_\-dist} (const {\bf O\-B\-B} \&a, const {\bf O\-B\-B} \&b, const Ravelin\-::\-Transform3d \&a\-Tb, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1OBB_abbed0a3a9766ab23beb8cce5cadf40be}
+
+\item 
+static bool {\bf intersects} (const {\bf O\-B\-B} \&a, const {\bf O\-B\-B} \&b)
+\begin{DoxyCompactList}\small\item\em Determines whether two O\-B\-Bs intersect another. \end{DoxyCompactList}\item 
+static bool {\bfseries intersects} (const {\bf O\-B\-B} \&a, const {\bf O\-B\-B} \&b, const Ravelin\-::\-Transform3d \&a\-Tb)\label{classMoby_1_1OBB_abf3fdc71269375625e633ac359c91fdf}
+
+\item 
+static bool {\bf intersects} (const {\bf O\-B\-B} \&a, const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q)
+\begin{DoxyCompactList}\small\item\em Determines whether an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} and a line/ray/line segment intersect. \end{DoxyCompactList}\item 
+static bool {\bf outside} (const {\bf O\-B\-B} \&a, const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1OBB_aac6bc5e8a9f05c6a426c6adfededffe7}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside a \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} to within the given tolerance. \end{DoxyCompactList}\item 
+static {\bf O\-B\-B\-Ptr} {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ root)\label{classMoby_1_1OBB_ab9b00912d0db0ee09e989b746e4f4924}
+
+\begin{DoxyCompactList}\small\item\em Loads an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} hierarchy from a X\-M\-L tree. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\static {\bf O\-B\-B} {\bf calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes the minimum \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Point3d} {\bf center}\label{classMoby_1_1OBB_a2ad27c78cba9efc6a756246373b39120}
+
+\begin{DoxyCompactList}\small\item\em Center of the bounding box. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector3d {\bf l}\label{classMoby_1_1OBB_aedaed5e28878b1af8061960cccbf8fa8}
+
+\begin{DoxyCompactList}\small\item\em Half-\/lengths of the O\-B\-Bs in the three axes directions (i.\-e., in the box frame) \end{DoxyCompactList}\item 
+Ravelin\-::\-Matrix3d {\bf R}\label{classMoby_1_1OBB_a13412537178bf91e676be2b96ccbaec7}
+
+\begin{DoxyCompactList}\small\item\em Orientation of this \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+An oriented bounding box that optionally allows building an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} tree. 
+
+\begin{DoxyNote}{Note}
+the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} is generally constructed such that its frame is aligned with that of the underlying rigid body (or collision geometry). Therefore, the center of the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} is computed relative to the center-\/of-\/mass of the body (or the center of the geometry). The orientation of the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} will always be identical to the orientation of the rigid body (or collision geometry). 
+\end{DoxyNote}
+
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!O\-B\-B@{O\-B\-B}}
+\index{O\-B\-B@{O\-B\-B}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{O\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ Moby\-::\-O\-B\-B\-::\-O\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_a753abf6baacb9ce0dac16751aaf8fbb1}
+
+
+Computes an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d Algorithm taken from [Ericson, 2005] \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!O\-B\-B@{O\-B\-B}}
+\index{O\-B\-B@{O\-B\-B}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{O\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ Moby\-::\-O\-B\-B\-::\-O\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_a753abf6baacb9ce0dac16751aaf8fbb1}
+
+
+Computes an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d Algorithm taken from [Ericson, 2005] \\
+\hline
+\end{DoxyParams}
+
+
+References Moby\-::\-Indexed\-Tri\-::a, Moby\-::\-Indexed\-Tri\-::b, and Moby\-::\-Indexed\-Tri\-::c.
+
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B@{calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B}}
+\index{calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B@{calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ {\bf O\-B\-B} Moby\-::\-O\-B\-B\-::calc\-\_\-low\-\_\-dim\-\_\-\-O\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_ad77112101fc980bc79739d00cfdd163a}
+
+
+Computes the minimum \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of lower dimensional ($<$ 3d) points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d \\
+\hline
+\end{DoxyParams}
+
+
+References center, l, and R.
+
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B@{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B}}
+\index{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B@{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ {\bf O\-B\-B} Moby\-::\-O\-B\-B\-::calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1OBB_aa0c199492e8198f4c3a321d3da8bc5d3}
+
+
+Computes the minimum \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d Algorithm taken from {\tt http\-://www.\-geometrictools.\-com} -\/ thanks Dave Eberly! \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B@{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B}}
+\index{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B@{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ {\bf O\-B\-B} Moby\-::\-O\-B\-B\-::calc\-\_\-min\-\_\-volume\-\_\-\-O\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_aa0c199492e8198f4c3a321d3da8bc5d3}
+
+
+Computes the minimum \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d Algorithm taken from {\tt http\-://www.\-geometrictools.\-com} -\/ thanks Dave Eberly! \\
+\hline
+\end{DoxyParams}
+
+
+References calc\-\_\-volume(), center, Moby\-::\-Indexed\-Tri\-Array\-::determine\-\_\-edge\-\_\-facet\-\_\-map(), Moby\-::\-Indexed\-Tri\-Array\-::determine\-\_\-vertex\-\_\-edge\-\_\-map(), Moby\-::\-Indexed\-Tri\-Array\-::get\-\_\-triangle(), Moby\-::\-Indexed\-Tri\-Array\-::get\-\_\-vertices(), Moby\-::\-Indexed\-Tri\-Array\-::is\-\_\-coplanar(), l, and R.
+
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!calc\-\_\-size@{calc\-\_\-size}}
+\index{calc\-\_\-size@{calc\-\_\-size}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{calc\-\_\-size}]{\setlength{\rightskip}{0pt plus 5cm}unsigned O\-B\-B\-::calc\-\_\-size (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1OBB_a77342d5b6ba7350ca765da4bc489827a}
+
+
+Constructs an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} from a triangle mesh using the mesh inertia method [Ericson, 2003]. 
+
+Requires a O(n) operation to compute the inertial properties of the triangle mesh\-Calculates the size (number of elements in) of an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} tree \index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!expand\-\_\-to\-\_\-fit@{expand\-\_\-to\-\_\-fit}}
+\index{expand\-\_\-to\-\_\-fit@{expand\-\_\-to\-\_\-fit}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{expand\-\_\-to\-\_\-fit}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ void Moby\-::\-O\-B\-B\-::expand\-\_\-to\-\_\-fit (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_a683af13d508d7f0a34d74d8e9ef3420f}
+
+
+Expands this \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} (if necessary) to fit the given points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to the beginning of a container of type Ravelin\-:\-Point3d\-: \\
+\hline
+{\em end} & an iterator to the end of a container of type Point3d \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!expand\-\_\-to\-\_\-fit@{expand\-\_\-to\-\_\-fit}}
+\index{expand\-\_\-to\-\_\-fit@{expand\-\_\-to\-\_\-fit}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{expand\-\_\-to\-\_\-fit}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ void Moby\-::\-O\-B\-B\-::expand\-\_\-to\-\_\-fit (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_a683af13d508d7f0a34d74d8e9ef3420f}
+
+
+Expands this \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} (if necessary) to fit the given points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to the beginning of a container of type Ravelin\-:\-Point3d\-: \\
+\hline
+{\em end} & an iterator to the end of a container of type Point3d \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-O\-B\-B\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{Output\-Iterator}]{begin}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1OBB_a8407723ec562bdedceb065a57ada6059}
+
+
+Gets the eight vertices of the bounding box. 
+
+\begin{DoxyNote}{Note}
+vertices are output in no particular order 
+\end{DoxyNote}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-O\-B\-B\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{Output\-Iterator}]{begin}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1OBB_a8407723ec562bdedceb065a57ada6059}
+
+
+Gets the eight vertices of the bounding box. 
+
+\begin{DoxyNote}{Note}
+vertices are output in no particular order 
+\end{DoxyNote}
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!intersects@{intersects}}
+\index{intersects@{intersects}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{intersects}]{\setlength{\rightskip}{0pt plus 5cm}bool O\-B\-B\-::intersects (
+\begin{DoxyParamCaption}
+\item[{const {\bf O\-B\-B} \&}]{a, }
+\item[{const {\bf O\-B\-B} \&}]{b}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1OBB_ab49f1da0e75866cc05a24ea20eca69ae}
+
+
+Determines whether two O\-B\-Bs intersect another. 
+
+Code adapted from [Ericson, 2005] 
+
+References get\-\_\-relative\-\_\-pose().
+
+
+
+Referenced by intersects().
+
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!intersects@{intersects}}
+\index{intersects@{intersects}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{intersects}]{\setlength{\rightskip}{0pt plus 5cm}bool O\-B\-B\-::intersects (
+\begin{DoxyParamCaption}
+\item[{const {\bf O\-B\-B} \&}]{a, }
+\item[{const {\bf Line\-Seg3} \&}]{seg, }
+\item[{double \&}]{tmin, }
+\item[{double}]{tmax, }
+\item[{{\bf Point3d} \&}]{q}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1OBB_aa2d13175c15026999a37fb61487e31a0}
+
+
+Determines whether an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} and a line/ray/line segment intersect. 
+
+When intersecting, return intersection distance tmin and point q of intersection. 
+\begin{DoxyParams}{Parameters}
+{\em a} & the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} to check for intersection \\
+\hline
+{\em seg} & the line segment to check for intersection \\
+\hline
+{\em tmin} & on entry, contains the minimum value of the line parameter-\/ for a line segment, this will generally be 0; when an intersection occurs, this will contain the distance of intersection from the tmin that was input on return \\
+\hline
+{\em tmax} & the maximum value of the line parameter-\/ for a line segment, this will generally be 1 \\
+\hline
+{\em q} & contains the point of intersection, if any, on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+{\bfseries true} if the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} and line intersect, {\bfseries false} otherwise 
+\end{DoxyReturn}
+\begin{DoxyNote}{Note}
+code adapted from [Ericson, 2005], pp. 180-\/181 
+\end{DoxyNote}
+
+
+References center, get\-\_\-relative\-\_\-pose(), and R.
+
+\index{Moby\-::\-O\-B\-B@{Moby\-::\-O\-B\-B}!operator=@{operator=}}
+\index{operator=@{operator=}!Moby::OBB@{Moby\-::\-O\-B\-B}}
+\subsubsection[{operator=}]{\setlength{\rightskip}{0pt plus 5cm}{\bf O\-B\-B} \& O\-B\-B\-::operator= (
+\begin{DoxyParamCaption}
+\item[{const {\bf O\-B\-B} \&}]{obb}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1OBB_a62679c416b02e7e255395a517f5ade7d}
+
+
+Copies an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. 
+
+\begin{DoxyNote}{Note}
+userdata and node info (children) are not copied 
+\end{DoxyNote}
+
+
+References center, Moby\-::\-B\-V\-::geom, l, and R.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/O\-B\-B.\-h\item 
+/home/drum/\-Moby/include/\-Moby/O\-B\-B.\-inl\item 
+/home/drum/\-Moby/src/O\-B\-B.\-cpp\end{DoxyCompactItemize}

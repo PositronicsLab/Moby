@@ -1,0 +1,103 @@
+\section{Moby\-:\-:Cylinder\-Primitive Class Reference}
+\label{classMoby_1_1CylinderPrimitive}\index{Moby\-::\-Cylinder\-Primitive@{Moby\-::\-Cylinder\-Primitive}}
+
+
+Defines a cylinder primitive.  
+
+
+
+
+{\ttfamily \#include $<$Cylinder\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Cylinder\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1CylinderPrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Cylinder\-Primitive} ()\label{classMoby_1_1CylinderPrimitive_a95a475b49ba2c6b8e07e0ee6a08f9cae}
+
+\begin{DoxyCompactList}\small\item\em Constructs a cylinder centered at the origin, with the longitudinal axis aligned with the y-\/axis, radius 1.\-0, height 1.\-0, 10 circle points, and 2 rings. \end{DoxyCompactList}\item 
+{\bf Cylinder\-Primitive} (double radius, double height)\label{classMoby_1_1CylinderPrimitive_ab8ff6b015c8113a91a25df613380ff6e}
+
+\begin{DoxyCompactList}\small\item\em Constructs a cylinder along the y-\/axis with specified radius and height, centered at the origin, with 10 circle points and 2 rings. \end{DoxyCompactList}\item 
+{\bfseries Cylinder\-Primitive} (double radius, double height, unsigned n, unsigned nrings, const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1CylinderPrimitive_a6eb89dcfcf4b6e163fed1adbf27e891b}
+
+\item 
+{\bfseries Cylinder\-Primitive} (double radius, double height, const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1CylinderPrimitive_a7329238ebe6668969c1dcc07cf61d654}
+
+\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1CylinderPrimitive_a028909699862822b0f53b0aa80da2677}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this primitive is convex. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-radius} (double radius)\label{classMoby_1_1CylinderPrimitive_aea3d06e1a67321d2ae614be637027613}
+
+\begin{DoxyCompactList}\small\item\em Sets the radius for this cylinder. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-height} (double height)\label{classMoby_1_1CylinderPrimitive_a7e52bf96ed47dfc6ac7a78238e4525c9}
+
+\begin{DoxyCompactList}\small\item\em Sets the height for this cylinder. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-num\-\_\-circle\-\_\-points} (unsigned n)\label{classMoby_1_1CylinderPrimitive_a3ea640b6a4acbd0af5bfebc0df309041}
+
+\begin{DoxyCompactList}\small\item\em Sets the number of points in the circles of the cylinder. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-num\-\_\-rings} (unsigned n)\label{classMoby_1_1CylinderPrimitive_a10a00ff8217f8f799a92a8fe0e686e32}
+
+\begin{DoxyCompactList}\small\item\em Sets the number of rings for determining \char`\"{}virtual points\char`\"{} (points on the tube of the cylinder) \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1CylinderPrimitive_a7a90cb184a9eec9d682da75d544f5c00}
+
+\begin{DoxyCompactList}\small\item\em Transforms the primitive. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1CylinderPrimitive_a8530fa4d6370204c5333e0fe73a570df}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1CylinderPrimitive_acd5e18cdf754052894557d7c84719dfd}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)\label{classMoby_1_1CylinderPrimitive_a840310d09831d900db41c761059a0eb6}
+
+\begin{DoxyCompactList}\small\item\em Gets the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const \label{classMoby_1_1CylinderPrimitive_a2791b58128eaa481b522aaed9fc7ef60}
+
+\begin{DoxyCompactList}\small\item\em Gets vertices from the primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&point, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1CylinderPrimitive_a0593f2316e3c4795c8af76bcee91669e}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between the cylinder and a point. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1CylinderPrimitive_a472e621631f61e3a0d3a4b91d4e5ef06}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1CylinderPrimitive_a2b31ce48bfc4a622b61b02691776f7ec}
+
+\begin{DoxyCompactList}\small\item\em Gets the triangle mesh for the cylinder, computing it if necessary. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1CylinderPrimitive_a635e3c11e4f7a02a34087fc9d25e3089}
+
+\begin{DoxyCompactList}\small\item\em Creates the visualization for this primitive. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-supporting\-\_\-point} (const Ravelin\-::\-Vector3d \&d) const \label{classMoby_1_1CylinderPrimitive_a0653d6a555b1ec964552f003bde13087}
+
+\begin{DoxyCompactList}\small\item\em Gets the supporting point in a particular direction. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1CylinderPrimitive_af83f6e33ffe1b5df6fd72c04d09035df}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance of a point from the cylinder. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1CylinderPrimitive_a81fe407bfe26fa42fffcf99717ed5ff9}
+
+\item 
+double {\bf get\-\_\-radius} () const \label{classMoby_1_1CylinderPrimitive_a022ac6d08b1b9ae0e9093a31aa5c1ab7}
+
+\begin{DoxyCompactList}\small\item\em Gets the radius of this cylinder. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-height} () const \label{classMoby_1_1CylinderPrimitive_af2e61aee2adad36dfd4968646931f5a6}
+
+\begin{DoxyCompactList}\small\item\em Gets the height of this cylinder. \end{DoxyCompactList}\item 
+unsigned {\bf get\-\_\-circle\-\_\-points} () const \label{classMoby_1_1CylinderPrimitive_a80308656cd253a237f3b94cc2acae172}
+
+\begin{DoxyCompactList}\small\item\em Gets the number of points in a circle on the cylinder. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a cylinder primitive. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Cylinder\-Primitive.\-h\item 
+/home/drum/\-Moby/src/Cylinder\-Primitive.\-cpp\end{DoxyCompactItemize}

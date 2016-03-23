@@ -1,0 +1,278 @@
+\section{Moby\-:\-:Simulator Class Reference}
+\label{classMoby_1_1Simulator}\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}}
+
+
+\doxyref{Simulator}{p.}{classMoby_1_1Simulator} for both unarticulated and articulated rigid bodies without contact.  
+
+
+
+
+{\ttfamily \#include $<$Simulator.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Simulator\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.000000cm]{classMoby_1_1Simulator}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Simulator} ()
+\begin{DoxyCompactList}\small\item\em Sets up the simulator. \end{DoxyCompactList}\item 
+virtual double {\bf step} (double step\-\_\-size)
+\begin{DoxyCompactList}\small\item\em Steps the \doxyref{Simulator}{p.}{classMoby_1_1Simulator} forward in time without contact. \end{DoxyCompactList}\item 
+{\bf Controlled\-Body\-Ptr} {\bf find\-\_\-dynamic\-\_\-body} (const std\-::string \&name) const 
+\begin{DoxyCompactList}\small\item\em Finds the dynamic body in the simulator, if any. \end{DoxyCompactList}\item 
+void {\bf add\-\_\-dynamic\-\_\-body} ({\bf Controlled\-Body\-Ptr} body)
+\begin{DoxyCompactList}\small\item\em Adds a dynamic body to the simulator. \end{DoxyCompactList}\item 
+void {\bf remove\-\_\-dynamic\-\_\-body} ({\bf Controlled\-Body\-Ptr} body)\label{classMoby_1_1Simulator_a60c79b3fdabb58929a54a0781cd6e5f6}
+
+\begin{DoxyCompactList}\small\item\em Removes a dynamic body from the simulator. \end{DoxyCompactList}\item 
+void {\bf update\-\_\-visualization} ()\label{classMoby_1_1Simulator_a1e96ca21836ff515d60a6d37645f3643}
+
+\begin{DoxyCompactList}\small\item\em Updates all visualization under the simulator. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1Simulator_a95b0ea5486c10f5c80d088e85f330b12}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1Simulator_a8fc61be0cf1e142e0ce9c188eb5b0871}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+const std\-::vector\\*
+$<$ {\bf Controlled\-Body\-Ptr} $>$ \& {\bf get\-\_\-dynamic\-\_\-bodies} () const 
+\begin{DoxyCompactList}\small\item\em Gets the list of dynamic bodies in the simulator. \end{DoxyCompactList}\item 
+void {\bf add\-\_\-transient\-\_\-vdata} (osg\-::\-Node $\ast$vdata)\label{classMoby_1_1Simulator_a648da58d5b65d0543701461203eef60d}
+
+\begin{DoxyCompactList}\small\item\em Adds transient visualization data to the simulator. \end{DoxyCompactList}\item 
+osg\-::\-Node $\ast$ {\bf get\-\_\-persistent\-\_\-vdata} () const \label{classMoby_1_1Simulator_ab8e07759b05afd0ec9e9ec3328341750}
+
+\begin{DoxyCompactList}\small\item\em Gets the persistent visualization data. \end{DoxyCompactList}\item 
+osg\-::\-Node $\ast$ {\bf get\-\_\-transient\-\_\-vdata} () const \label{classMoby_1_1Simulator_a3929530290f47dcf1983267df5eeae1d}
+
+\begin{DoxyCompactList}\small\item\em Gets the transient (one-\/step) visualization data. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\double {\bf integrate} (double dt, Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Integrates both position and velocity of rigid \-\_\-bodies. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+double {\bf current\-\_\-time}\label{classMoby_1_1Simulator_a7e49aeda306a8deb91620d1360da30d0}
+
+\begin{DoxyCompactList}\small\item\em The current simulation time. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ {\bf Dissipation} $>$ {\bf dissipator}\label{classMoby_1_1Simulator_a9769329c255b3054510d869bb1010e81}
+
+\begin{DoxyCompactList}\small\item\em The dissipation mechanism for larger time steps. \end{DoxyCompactList}\item 
+void($\ast$ {\bf post\-\_\-step\-\_\-callback\-\_\-fn} )({\bf Simulator} $\ast$s)\label{classMoby_1_1Simulator_a029ab42bc5008ebdda6a74a39466d99b}
+
+\begin{DoxyCompactList}\small\item\em Callback function after a step is completed. \end{DoxyCompactList}\item 
+double {\bf dynamics\-\_\-time}\label{classMoby_1_1Simulator_a6d8231190cbe5637d906cc9a8fdf8a54}
+
+\begin{DoxyCompactList}\small\item\em User time spent by dynamics on the last step. \end{DoxyCompactList}\item 
+std\-::vector$<$ {\bf Joint\-Ptr} $>$ {\bf implicit\-\_\-joints}\label{classMoby_1_1Simulator_a4327b0b1595b57aeee505d26e986e7af}
+
+\begin{DoxyCompactList}\small\item\em Set of implicit joints maintained in the simulation (does not include implicit joints belonging to \doxyref{R\-C\-Articulated\-Body}{p.}{classMoby_1_1RCArticulatedBody} objects) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+void {\bf apply\-\_\-impulse} (boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ db, const Ravelin\-::\-Shared\-Vector\-Nd \&gj)
+\begin{DoxyCompactList}\small\item\em Applies a generalized impulse to a dynamic body. \end{DoxyCompactList}\item 
+void {\bfseries solve} (const std\-::vector$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ $>$ \&island, const std\-::vector$<$ {\bf Joint\-Ptr} $>$ \&island\-\_\-joints, const Ravelin\-::\-Vector\-Nd \&v, const Ravelin\-::\-Vector\-Nd \&f, double dt, Ravelin\-::\-Vector\-Nd \&a, Ravelin\-::\-Vector\-Nd \&lambda) const \label{classMoby_1_1Simulator_a2de1e6596ca7dfc4347b71a7e00ea2fa}
+
+\item 
+virtual double {\bfseries check\-\_\-pairwise\-\_\-constraint\-\_\-violations} (double t)\label{classMoby_1_1Simulator_a06649f5f5c3c61fe5bcf9ab97f1b5eee}
+
+\item 
+void {\bf find\-\_\-islands} (std\-::vector$<$ std\-::vector$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ $>$ $>$ \&islands)\label{classMoby_1_1Simulator_a3f620c8470c2d9452fe6cdc2d0fad78c}
+
+\begin{DoxyCompactList}\small\item\em Finds islands. \end{DoxyCompactList}\item 
+unsigned {\bf num\-\_\-generalized\-\_\-coordinates} (const std\-::vector$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ $>$ \&island) const \label{classMoby_1_1Simulator_a9a621586cf272fd510a31233ccb3f6ad}
+
+\begin{DoxyCompactList}\small\item\em Gets the number of generalized coordinates in an island. \end{DoxyCompactList}\item 
+void {\bf calc\-\_\-fwd\-\_\-dyn} (double dt)\label{classMoby_1_1Simulator_af7c88560f08ca4e9ea567193be931753}
+
+\begin{DoxyCompactList}\small\item\em Calculates forward dynamics for bodies (does not consider unilateral constraints) \end{DoxyCompactList}\item 
+void {\bf precalc\-\_\-fwd\-\_\-dyn} ()\label{classMoby_1_1Simulator_a29e3aab680df24c9d153ff7410a1e55a}
+
+\begin{DoxyCompactList}\small\item\em Prepares to calculate forward dynamics for bodies. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\double {\bf integrate} (double step\-\_\-size, Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Integrates both position and velocity of rigid \-\_\-bodies. \end{DoxyCompactList}\item 
+double {\bf integrate} (double step\-\_\-size)\label{classMoby_1_1Simulator_afe697eeba0574c0767b810c0b417d597}
+
+\begin{DoxyCompactList}\small\item\em Integrates all dynamic bodies. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+osg\-::\-Group $\ast$ {\bfseries \-\_\-persistent\-\_\-vdata}\label{classMoby_1_1Simulator_a0864456d7d22c9bf4727943f004dfa27}
+
+\item 
+osg\-::\-Group $\ast$ {\bfseries \-\_\-transient\-\_\-vdata}\label{classMoby_1_1Simulator_aae6b8603ff01832381c7884fb36a8453}
+
+\item 
+std\-::vector$<$ {\bf Controlled\-Body\-Ptr} $>$ {\bf \-\_\-bodies}\label{classMoby_1_1Simulator_a93a02b23e0579e76bf8edaa46c0b7f4d}
+
+\begin{DoxyCompactList}\small\item\em The set of bodies in the simulation. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector\-Nd {\bf \-\_\-current\-\_\-dx}\label{classMoby_1_1Simulator_aef259604415abf4d42972ebb203ec109}
+
+\begin{DoxyCompactList}\small\item\em The derivative at the current time. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Constraint\-Stabilization}\label{classMoby_1_1Simulator_a320e2b5d0cb83071af150f47d50ca127}
+
+\item 
+class {\bfseries Impact\-Constraint\-Handler}\label{classMoby_1_1Simulator_a4406c4b5d545224c9183c13d57bca137}
+
+\item 
+class {\bfseries Rigid\-Body}\label{classMoby_1_1Simulator_abb8b03bec6b0a8e0834c8358c93039d2}
+
+\item 
+class {\bfseries R\-C\-Articulated\-Body}\label{classMoby_1_1Simulator_af04ff9fbc4b43045d831b0922dfad60c}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\doxyref{Simulator}{p.}{classMoby_1_1Simulator} for both unarticulated and articulated rigid bodies without contact. 
+
+Class used for performing dynamics simulation of rigid bodies without contact. Rigid body simulation of articulated bodies is supported using both maximal and reduced coordinate approaches. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!Simulator@{Simulator}}
+\index{Simulator@{Simulator}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{Simulator}]{\setlength{\rightskip}{0pt plus 5cm}Simulator\-::\-Simulator (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Simulator_a031573bfcfe2e0f5c9539bcc1c7fc5d9}
+
+
+Sets up the simulator. 
+
+The simulator properties are set as follows\-: 
+\begin{DoxyItemize}
+\item simulator time = 0 
+\item no integrator 
+\end{DoxyItemize}
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!add\-\_\-dynamic\-\_\-body@{add\-\_\-dynamic\-\_\-body}}
+\index{add\-\_\-dynamic\-\_\-body@{add\-\_\-dynamic\-\_\-body}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{add\-\_\-dynamic\-\_\-body}]{\setlength{\rightskip}{0pt plus 5cm}void Simulator\-::add\-\_\-dynamic\-\_\-body (
+\begin{DoxyParamCaption}
+\item[{{\bf Controlled\-Body\-Ptr}}]{body}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Simulator_ab707346c15456aa36c22d2ae617d583c}
+
+
+Adds a dynamic body to the simulator. 
+
+\begin{DoxyPrecond}{Precondition}
+list of bodies is sorted 
+\end{DoxyPrecond}
+
+
+References Moby\-::\-Visualizable\-::get\-\_\-visualization\-\_\-data().
+
+\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!apply\-\_\-impulse@{apply\-\_\-impulse}}
+\index{apply\-\_\-impulse@{apply\-\_\-impulse}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{apply\-\_\-impulse}]{\setlength{\rightskip}{0pt plus 5cm}void Simulator\-::apply\-\_\-impulse (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$}]{db, }
+\item[{const Ravelin\-::\-Shared\-Vector\-Nd \&}]{gj}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [protected]}}\label{classMoby_1_1Simulator_a156421c99a5d58eba4bebc6e01594e0c}
+
+
+Applies a generalized impulse to a dynamic body. 
+
+This function takes implicit constraints into account. \index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!find\-\_\-dynamic\-\_\-body@{find\-\_\-dynamic\-\_\-body}}
+\index{find\-\_\-dynamic\-\_\-body@{find\-\_\-dynamic\-\_\-body}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{find\-\_\-dynamic\-\_\-body}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Controlled\-Body\-Ptr} Simulator\-::find\-\_\-dynamic\-\_\-body (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{name}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1Simulator_abff4d195d3bbb0916ca665446722bdcd}
+
+
+Finds the dynamic body in the simulator, if any. 
+
+Searches unarticulated bodies, articulated bodies, and links of articulated bodies. \index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!get\-\_\-dynamic\-\_\-bodies@{get\-\_\-dynamic\-\_\-bodies}}
+\index{get\-\_\-dynamic\-\_\-bodies@{get\-\_\-dynamic\-\_\-bodies}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{get\-\_\-dynamic\-\_\-bodies}]{\setlength{\rightskip}{0pt plus 5cm}const std\-::vector$<${\bf Controlled\-Body\-Ptr}$>$\& Moby\-::\-Simulator\-::get\-\_\-dynamic\-\_\-bodies (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [inline]}}\label{classMoby_1_1Simulator_a64ecdb2a56b7f76ea91b632f746cdd65}
+
+
+Gets the list of dynamic bodies in the simulator. 
+
+\begin{DoxyNote}{Note}
+if a dynamic body is articulated, only the articulated body is returned, not the links 
+\end{DoxyNote}
+
+
+References \-\_\-bodies.
+
+\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!integrate@{integrate}}
+\index{integrate@{integrate}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{integrate}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ double Moby\-::\-Simulator\-::integrate (
+\begin{DoxyParamCaption}
+\item[{double}]{dt, }
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Simulator_aeecbb6e84e86c3a7537da15b99d676d7}
+
+
+Integrates both position and velocity of rigid \-\_\-bodies. 
+
+\begin{DoxyReturn}{Returns}
+the size of step taken 
+\end{DoxyReturn}
+\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!integrate@{integrate}}
+\index{integrate@{integrate}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{integrate}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ double Moby\-::\-Simulator\-::integrate (
+\begin{DoxyParamCaption}
+\item[{double}]{dt, }
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [protected]}}\label{classMoby_1_1Simulator_a3b3009399c48c49cc71a462cde8c9ca7}
+
+
+Integrates both position and velocity of rigid \-\_\-bodies. 
+
+\begin{DoxyReturn}{Returns}
+the size of step taken 
+\end{DoxyReturn}
+\index{Moby\-::\-Simulator@{Moby\-::\-Simulator}!step@{step}}
+\index{step@{step}!Moby::Simulator@{Moby\-::\-Simulator}}
+\subsubsection[{step}]{\setlength{\rightskip}{0pt plus 5cm}double Simulator\-::step (
+\begin{DoxyParamCaption}
+\item[{double}]{step\-\_\-size}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1Simulator_ae22438cc4ed4d1066feda2a2ef0ec0c7}
+
+
+Steps the \doxyref{Simulator}{p.}{classMoby_1_1Simulator} forward in time without contact. 
+
+This pseudocode was inspired from [Baraff 1997] and [Mirtich 1996]. 
+\begin{DoxyParams}{Parameters}
+{\em step\-\_\-size} & the step size \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+step\-\_\-size 
+\end{DoxyReturn}
+
+
+Reimplemented in {\bf Moby\-::\-Time\-Stepping\-Simulator} \doxyref{}{p.}{classMoby_1_1TimeSteppingSimulator_a6103f28ca2b879c2edb590ec21a19916}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Simulator.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Simulator.\-inl\item 
+/home/drum/\-Moby/src/Simulator.\-cpp\end{DoxyCompactItemize}

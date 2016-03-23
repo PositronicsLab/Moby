@@ -1,0 +1,85 @@
+\section{Moby\-:\-:Torus\-Primitive Class Reference}
+\label{classMoby_1_1TorusPrimitive}\index{Moby\-::\-Torus\-Primitive@{Moby\-::\-Torus\-Primitive}}
+
+
+Represents a solid box centered at the origin (by default)  
+
+
+
+
+{\ttfamily \#include $<$Torus\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Torus\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1TorusPrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Torus\-Primitive} (double major\-\_\-radius, double minor\-\_\-radius)\label{classMoby_1_1TorusPrimitive_aa2df6373595963ca5c8f8892de9d232e}
+
+\item 
+{\bfseries Torus\-Primitive} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1TorusPrimitive_ae1f1d14572da6fa7f23a78ab2677481f}
+
+\item 
+void {\bf set\-\_\-radii} (double major\-\_\-radius, double minor\-\_\-radius)\label{classMoby_1_1TorusPrimitive_adc5575a66ac8bd37d6b69a2eeeb4b702}
+
+\begin{DoxyCompactList}\small\item\em Sets the. \end{DoxyCompactList}\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1TorusPrimitive_ab445b4206afb88dbd4f1b168a6662695}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this primitive is convex. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1TorusPrimitive_af9259af65850343c7df49053a9e5a692}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1TorusPrimitive_a61fa62d907b90f00b78a66bb7b62af91}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)\label{classMoby_1_1TorusPrimitive_ad9b9335b574a026b9106454cd7ee05a6}
+
+\begin{DoxyCompactList}\small\item\em Gets the root B\-V\-H for this torus. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&point, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1TorusPrimitive_af15ee32b55cb878b0351a90e3294ac75}
+
+\begin{DoxyCompactList}\small\item\em Computes the distance from a point to this torus. \end{DoxyCompactList}\item 
+double {\bfseries calc\-\_\-closest\-\_\-point} (const {\bf Point3d} \&point, {\bf Point3d} \&closest) const \label{classMoby_1_1TorusPrimitive_a351fa2775f4174064d9803576a7a8ffb}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1TorusPrimitive_ad4930cec700e552bdc7156323f7afbb5}
+
+\begin{DoxyCompactList}\small\item\em Gets the mesh corresponding to this torus. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1TorusPrimitive_ae2e7b0a7d3c0030cee430c4903ad9e2f}
+
+\begin{DoxyCompactList}\small\item\em Creates the visualization for this primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1TorusPrimitive_a64923cd0c431c1eff3d73866176cab60}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual double {\bfseries calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Plane\-Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1TorusPrimitive_a81bced3195a23af60f34d609efdbe90b}
+
+\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&p) const \label{classMoby_1_1TorusPrimitive_a798df248235219ce892fe41bb3323afb}
+
+\begin{DoxyCompactList}\small\item\em Gets the vertices corresponding to this torus. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1TorusPrimitive_a2e3aba347bc293d2802e7cf2db26f081}
+
+\begin{DoxyCompactList}\small\item\em Calculates the signed distance from a point. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1TorusPrimitive_accd961c10919c01238df4eef8b8b70c8}
+
+\item 
+double {\bf get\-\_\-major\-\_\-radius} () const \label{classMoby_1_1TorusPrimitive_aa5be2cee84d36f56bc02590d6da6b7c4}
+
+\begin{DoxyCompactList}\small\item\em Gets the major radius. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-minor\-\_\-radius} () const \label{classMoby_1_1TorusPrimitive_a58891f01b16a0f6ca950e866eb0cc5b0}
+
+\begin{DoxyCompactList}\small\item\em Get the minor radius. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Represents a solid box centered at the origin (by default) 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Torus\-Primitive.\-h\item 
+/home/drum/\-Moby/src/Torus\-Primitive.\-cpp\end{DoxyCompactItemize}

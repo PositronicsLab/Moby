@@ -1,0 +1,98 @@
+\section{Moby\-:\-:Gears Class Reference}
+\label{classMoby_1_1Gears}\index{Moby\-::\-Gears@{Moby\-::\-Gears}}
+
+
+Defines a gear (\char`\"{}joint\char`\"{}) constraint.  
+
+
+
+
+{\ttfamily \#include $<$Gears.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Gears\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.605263cm]{classMoby_1_1Gears}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Gears} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1Gears_a9aa0d3984cc06b49b42bccfe6e86f4dd}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1Gears_a5e7fe5c59b73c07c727715640f067dfb}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-inboard\-\_\-pose} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ link, bool update\-\_\-joint\-\_\-pose)\label{classMoby_1_1Gears_ab673b810869c2c8296a86ea15041dbf9}
+
+\begin{DoxyCompactList}\small\item\em Sets the inboard pose. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-outboard\-\_\-pose} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ link, bool update\-\_\-joint\-\_\-pose)\label{classMoby_1_1Gears_a4a41bb274fb365d075c907ccbbe7ec50}
+
+\begin{DoxyCompactList}\small\item\em Sets the outboard pose. \end{DoxyCompactList}\item 
+virtual void {\bf evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1Gears_aa9c22bfad46e318c6b0e68eae324053b}
+
+\begin{DoxyCompactList}\small\item\em Evaluates the joint constraint. \end{DoxyCompactList}\item 
+virtual void {\bf evaluate\-\_\-constraints\-\_\-dot} (double C[$\,$])\label{classMoby_1_1Gears_a3c88626935ff7a6e7a256a4782d1fa6f}
+
+\begin{DoxyCompactList}\small\item\em Evaluates the time derivative of the constraint. \end{DoxyCompactList}\item 
+virtual void {\bf calc\-\_\-constraint\-\_\-jacobian} (bool inboard, Ravelin\-::\-Matrix\-Nd \&Cq)\label{classMoby_1_1Gears_a461175e8767bb8f37287a74ab644e246}
+
+\begin{DoxyCompactList}\small\item\em Computes the constraint Jacobian. \end{DoxyCompactList}\item 
+virtual void {\bf calc\-\_\-constraint\-\_\-jacobian\-\_\-dot} (bool inboard, Ravelin\-::\-Matrix\-Nd \&Cq)\label{classMoby_1_1Gears_af1bcda49a7f953ece9f2a33a44ab050a}
+
+\begin{DoxyCompactList}\small\item\em Computes the time derivative of the constraint Jacobian. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1Gears_ac01b65eb0c1c8235c94627716986fdd3}
+
+\item 
+virtual unsigned {\bfseries num\-\_\-constraint\-\_\-eqns} () const \label{classMoby_1_1Gears_a98c857db3631cb409b1d8530815b859a}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1Gears_a4618fff2d728ecb532633ae8ceeb41c2}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1Gears_a6a02d45cff9423c8060eda79bd4ef228}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1Gears_a40b04603fde0c395b93d6ccbe5bc1fae}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1Gears_ab31482493b1883df6940991877e34f25}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a gear (\char`\"{}joint\char`\"{}) constraint. 
+
+\begin{DoxyRefDesc}{Todo}
+\item[{\bf Todo}]implement a rest position for q? \end{DoxyRefDesc}
+
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Gears@{Moby\-::\-Gears}!Gears@{Gears}}
+\index{Gears@{Gears}!Moby::Gears@{Moby\-::\-Gears}}
+\subsubsection[{Gears}]{\setlength{\rightskip}{0pt plus 5cm}Gears\-::\-Gears (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Gears_a53cdddb207f56ccddc9219b42e938724}
+
+
+Initializes the joint. 
+
+The gear ratio is set to 1\-:1 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Gears.\-h\item 
+/home/drum/\-Moby/src/Gears.\-cpp\end{DoxyCompactItemize}

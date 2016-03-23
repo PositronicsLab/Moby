@@ -1,0 +1,384 @@
+\section{Moby Namespace Reference}
+\label{namespaceMoby}\index{Moby@{Moby}}
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class {\bf A\-A\-B\-B}
+\begin{DoxyCompactList}\small\item\em An axis-\/aligned bounding box. \end{DoxyCompactList}\item 
+class {\bf Articulated\-Body}
+\begin{DoxyCompactList}\small\item\em Abstract class for articulated bodies. \end{DoxyCompactList}\item 
+class {\bf Base}
+\begin{DoxyCompactList}\small\item\em Class from which all \doxyref{Moby}{p.}{namespaceMoby} classes are derived. \end{DoxyCompactList}\item 
+class {\bf Bounding\-Sphere}
+\begin{DoxyCompactList}\small\item\em A sphere used for bounding geometry. \end{DoxyCompactList}\item 
+class {\bf Box\-Primitive}
+\begin{DoxyCompactList}\small\item\em Represents a solid box centered at the origin (by default) \end{DoxyCompactList}\item 
+class {\bf B\-V}
+\begin{DoxyCompactList}\small\item\em An abstract bounding volume. \end{DoxyCompactList}\item 
+class {\bf C\-C\-D}
+\begin{DoxyCompactList}\small\item\em Implements the \doxyref{Collision\-Detection}{p.}{classMoby_1_1CollisionDetection} abstract class to perform exact contact finding using abstract shapes. \end{DoxyCompactList}\item 
+class {\bf Collision\-Detection}
+\begin{DoxyCompactList}\small\item\em Defines an abstract collision detection mechanism. \end{DoxyCompactList}\item 
+class {\bf Collision\-Geometry}
+\begin{DoxyCompactList}\small\item\em Defines collision geometry that may be used (in principle) many ways\-: for rigid bodies, non-\/rigid bodies, ... \end{DoxyCompactList}\item 
+class {\bf Cone\-Primitive}
+\begin{DoxyCompactList}\small\item\em Defines a cone primitive. \end{DoxyCompactList}\item 
+class {\bf Constraint\-Simulator}
+\begin{DoxyCompactList}\small\item\em An virtual class for simulation with constraints. \end{DoxyCompactList}\item 
+class {\bf Constraint\-Stabilization}
+\begin{DoxyCompactList}\small\item\em Projected constraint stabilization mechanism. \end{DoxyCompactList}\item 
+class {\bf Contact\-Parameters}
+\begin{DoxyCompactList}\small\item\em Class for storing contact modeling parameters between two bodies. \end{DoxyCompactList}\item 
+class {\bf Controlled\-Body}
+\begin{DoxyCompactList}\small\item\em Superclass for controlled bodies. \end{DoxyCompactList}\item 
+class {\bf Cylinder\-Primitive}
+\begin{DoxyCompactList}\small\item\em Defines a cylinder primitive. \end{DoxyCompactList}\item 
+class {\bf Degenerate\-Triangle\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when trying to perform an operation that requires a normal on a degenerate triangle. \end{DoxyCompactList}\item 
+class {\bf Dissipation}
+\item 
+class {\bf Dummy\-B\-V}
+\begin{DoxyCompactList}\small\item\em An abstract bounding volume. \end{DoxyCompactList}\item 
+class {\bf Fixed\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines a joint for fixing two bodies together or fixing one body to the ground. \end{DoxyCompactList}\item 
+class {\bf Gears}
+\begin{DoxyCompactList}\small\item\em Defines a gear (\char`\"{}joint\char`\"{}) constraint. \end{DoxyCompactList}\item 
+class {\bf Gravity\-Force}
+\begin{DoxyCompactList}\small\item\em Gravitational force applied to bodies. \end{DoxyCompactList}\item 
+class {\bf Heightmap\-Primitive}
+\begin{DoxyCompactList}\small\item\em Represents a heightmap with height zero on the xz plane (primitive can be transformed) \end{DoxyCompactList}\item 
+class {\bf Impact\-Constraint\-Handler}
+\begin{DoxyCompactList}\small\item\em Defines the mechanism for handling impact constraints. \end{DoxyCompactList}\item 
+class {\bf Impact\-Tolerance\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when constraint violation is greater than a desired tolerance. \end{DoxyCompactList}\item 
+struct {\bf Indexed\-Tri}
+\begin{DoxyCompactList}\small\item\em An indexed triangle. \end{DoxyCompactList}\item 
+class {\bf Indexed\-Tri\-Array}
+\begin{DoxyCompactList}\small\item\em An array of triangles indexed into shared vertices. \end{DoxyCompactList}\item 
+class {\bf Invalid\-Index\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when trying to access the index beyond the range of the data. \end{DoxyCompactList}\item 
+class {\bf Invalid\-State\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when an integrator tries to evaluate a derivative at an invalid state. \end{DoxyCompactList}\item 
+class {\bf Invalid\-Velocity\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when an integrator tries to evaluate a derivative at an invalid velocity. \end{DoxyCompactList}\item 
+class {\bf Joint}
+\begin{DoxyCompactList}\small\item\em Defines a joint used in articulated rigid body dynamics simulation. \end{DoxyCompactList}\item 
+class {\bf L\-C\-P\-Solver\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when L\-C\-P solver can't solve. \end{DoxyCompactList}\item 
+struct {\bf Output\-To\-File}
+\item 
+class {\bf Log}
+\begin{DoxyCompactList}\small\item\em \doxyref{Moby}{p.}{namespaceMoby}'s logging utility. \end{DoxyCompactList}\item 
+class {\bf O\-B\-B}
+\begin{DoxyCompactList}\small\item\em An oriented bounding box that optionally allows building an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} tree. \end{DoxyCompactList}\item 
+class {\bf O\-S\-G\-Group\-Wrapper}
+\begin{DoxyCompactList}\small\item\em A wrapper for Open\-Inventor O\-S\-G\-Group class, supporting serialization. \end{DoxyCompactList}\item 
+struct {\bf Pairwise\-Dist\-Info}
+\begin{DoxyCompactList}\small\item\em Structure for storing the pairwise distance between pointers to two \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} objects. \end{DoxyCompactList}\item 
+class {\bf Penalty\-Constraint\-Handler}
+\begin{DoxyCompactList}\small\item\em Defines the mechanism for handling Penalty constraints. \end{DoxyCompactList}\item 
+class {\bf Planar\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines an actuated spherical joint. \end{DoxyCompactList}\item 
+class {\bf Plane}
+\begin{DoxyCompactList}\small\item\em Defines a plane using the equation $<$n, x$>$ = d. \end{DoxyCompactList}\item 
+class {\bf Plane\-Primitive}
+\begin{DoxyCompactList}\small\item\em Represents a heightmap with height zero on the xz plane (primitive can be transformed) \end{DoxyCompactList}\item 
+class {\bf Polyhedral\-Primitive}
+\begin{DoxyCompactList}\small\item\em Defines a triangle-\/mesh-\/based primitive type used for inertial property calculation and geometry provisions. \end{DoxyCompactList}\item 
+class {\bf Polyhedron}
+\begin{DoxyCompactList}\small\item\em A potentially-\/non-\/convex polyhedron of genus 0. \end{DoxyCompactList}\item 
+class {\bf Primitive}
+\begin{DoxyCompactList}\small\item\em Defines a triangle-\/mesh-\/based primitive type used for inertial property calculation and geometry provisions. \end{DoxyCompactList}\item 
+class {\bf Prismatic\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines an actuated prismatic joint. \end{DoxyCompactList}\item 
+class {\bf R\-C\-Articulated\-Body}
+\begin{DoxyCompactList}\small\item\em Defines an articulated body for use with reduced-\/coordinate dynamics algorithms. \end{DoxyCompactList}\item 
+class {\bf R\-C\-Articulated\-Body\-Inv\-Dyn\-Data}
+\begin{DoxyCompactList}\small\item\em Wrapper class for passing data to and from inverse dynamics algorithms. \end{DoxyCompactList}\item 
+class {\bf R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo}
+\begin{DoxyCompactList}\small\item\em Abstract class for performing inverse dynamics computation on a reduced-\/coordinate articulatedc body. \end{DoxyCompactList}\item 
+class {\bf Recurrent\-Force}
+\begin{DoxyCompactList}\small\item\em Used for applying forces to the simulation on every time step. \end{DoxyCompactList}\item 
+class {\bf Revolute\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines an actuated revolute joint. \end{DoxyCompactList}\item 
+class {\bf Rigid\-Body}
+\begin{DoxyCompactList}\small\item\em Represents a single rigid body. \end{DoxyCompactList}\item 
+class {\bf Screw\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines an actuated screw (helical) joint. \end{DoxyCompactList}\item 
+class {\bf S\-D\-F\-Reader}
+\begin{DoxyCompactList}\small\item\em Used to read the simulator state from X\-M\-L. \end{DoxyCompactList}\item 
+class {\bf Simulator}
+\begin{DoxyCompactList}\small\item\em \doxyref{Simulator}{p.}{classMoby_1_1Simulator} for both unarticulated and articulated rigid bodies without contact. \end{DoxyCompactList}\item 
+class {\bf Singular\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when trying to invert/solve with a non-\/invertible matrix. \end{DoxyCompactList}\item 
+struct {\bf Matrix\-Block}
+\begin{DoxyCompactList}\small\item\em Matrix block. \end{DoxyCompactList}\item 
+class {\bf Sparse\-Jacobian}
+\begin{DoxyCompactList}\small\item\em A Sparse Jacobian representation along with multiplication routines. \end{DoxyCompactList}\item 
+class {\bf Sphere\-Primitive}
+\begin{DoxyCompactList}\small\item\em Represents a sphere primitive for inertia properties, collision detection, and visualization. \end{DoxyCompactList}\item 
+class {\bf Spherical\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines an actuated spherical joint. \end{DoxyCompactList}\item 
+class {\bf S\-S\-L}
+\begin{DoxyCompactList}\small\item\em A sphere-\/swept line (\doxyref{S\-S\-L}{p.}{classMoby_1_1SSL}) that optionally allows building an \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} tree. \end{DoxyCompactList}\item 
+class {\bf S\-S\-R}
+\begin{DoxyCompactList}\small\item\em A sphere-\/swept rectangle (\doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}) that optionally allows building an \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} tree. \end{DoxyCompactList}\item 
+class {\bf Stokes\-Drag\-Force}
+\item 
+class {\bf Tessellated\-Polyhedron}
+\begin{DoxyCompactList}\small\item\em Represents a three-\/dimensional polyhedron. \end{DoxyCompactList}\item 
+class {\bf Time\-Stepping\-Simulator}
+\begin{DoxyCompactList}\small\item\em An event-\/driven simulator. \end{DoxyCompactList}\item 
+class {\bf Torus\-Primitive}
+\begin{DoxyCompactList}\small\item\em Represents a solid box centered at the origin (by default) \end{DoxyCompactList}\item 
+class {\bf Triangle\-Mesh\-Primitive}
+\begin{DoxyCompactList}\small\item\em Represents a triangle mesh \char`\"{}primitive\char`\"{} for inertia properties, collision detection, and visualization. \end{DoxyCompactList}\item 
+class {\bf Undefined\-Axis\-Exception}
+\begin{DoxyCompactList}\small\item\em Exception thrown when axis has not been defined but user calls operation that requires its definition. \end{DoxyCompactList}\item 
+class {\bf Unilateral\-Constraint}
+\begin{DoxyCompactList}\small\item\em Container class for describing a unilateral constraint in the simulation. \end{DoxyCompactList}\item 
+class {\bf Universal\-Joint}
+\begin{DoxyCompactList}\small\item\em Defines an actuated universal joint. \end{DoxyCompactList}\item 
+class {\bf U\-R\-D\-F\-Reader}
+\begin{DoxyCompactList}\small\item\em Used to read the simulator state from U\-R\-D\-F. \end{DoxyCompactList}\item 
+class {\bf Visualizable}
+\begin{DoxyCompactList}\small\item\em Class that allows for visualizing simulation data. \end{DoxyCompactList}\item 
+class {\bf X\-M\-L\-Reader}
+\begin{DoxyCompactList}\small\item\em Used to read the simulator state from X\-M\-L. \end{DoxyCompactList}\item 
+class {\bf X\-M\-L\-Attrib}
+\begin{DoxyCompactList}\small\item\em Attributes used for X\-M\-L nodes. \end{DoxyCompactList}\item 
+class {\bf X\-M\-L\-Tree}
+\begin{DoxyCompactList}\small\item\em An X\-M\-L tree used for serialization. \end{DoxyCompactList}\item 
+class {\bf X\-M\-L\-Writer}
+\begin{DoxyCompactList}\small\item\em Class for writing \doxyref{Base}{p.}{classMoby_1_1Base} objects (and their derivatives) to X\-M\-L. \end{DoxyCompactList}\item 
+class {\bf Base\-Data}
+\item 
+class {\bf Ccolor\-Visitor}
+\begin{DoxyCompactList}\small\item\em This O\-S\-G Node\-Visitor colors all Geometry \& Shape\-Drawable of a single node. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef Ravelin\-::\-Vector2d {\bf Point2d}\label{namespaceMoby_ad8a5998be346e36d61d73fb858461b58}
+
+\begin{DoxyCompactList}\small\item\em Typedef to distinguish between a 2\-D vector and a point. \end{DoxyCompactList}\item 
+typedef Ravelin\-::\-Vector3d {\bf Point3d}\label{namespaceMoby_a846eb82dfba26e708e01316dc47a3e39}
+
+\begin{DoxyCompactList}\small\item\em Typedef to distinguish between a 3\-D vector and a point. \end{DoxyCompactList}\item 
+typedef std\-::pair$<$ {\bf Point3d}, \\*
+{\bf Point3d} $>$ {\bf Line\-Seg3}\label{namespaceMoby_ad691671b09efaee22f1758f1a1c3b2de}
+
+\begin{DoxyCompactList}\small\item\em Typedef to make specifying line segments easier. \end{DoxyCompactList}\item 
+typedef std\-::pair$<$ {\bf Point2d}, \\*
+{\bf Point2d} $>$ {\bf Line\-Seg2}\label{namespaceMoby_ac1e78acf3c1ee806a04bb6d35eadcf46}
+
+\begin{DoxyCompactList}\small\item\em Typedef to make specifying line segments easier. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Tessellated\-Polyhedron} $>$ {\bf Tessellated\-Polyhedron\-Ptr}\label{namespaceMoby_addf6a9597fd5786651d804e5aef9a4c6}
+
+\begin{DoxyCompactList}\small\item\em \doxyref{Tessellated\-Polyhedron}{p.}{classMoby_1_1TessellatedPolyhedron} smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Simulator} $>$ {\bf Simulator\-Ptr}\label{namespaceMoby_aed54840b7ebbd3b8e0528c83a88d6bfc}
+
+\begin{DoxyCompactList}\small\item\em \doxyref{Simulator}{p.}{classMoby_1_1Simulator} smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Rigid\-Body} $>$ {\bf Rigid\-Body\-Ptr}\label{namespaceMoby_a295eb93e26b249e1ab6cf15d1a2e55b9}
+
+\begin{DoxyCompactList}\small\item\em Rigid body smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Articulated\-Body} $>$ {\bf Articulated\-Body\-Ptr}\label{namespaceMoby_af3bd9fdc1315d9f074f03618c1dbedc1}
+
+\begin{DoxyCompactList}\small\item\em Articulated body smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf R\-C\-Articulated\-Body} $>$ {\bf R\-C\-Articulated\-Body\-Ptr}\label{namespaceMoby_ae1d0df4c7e4522daf4a2cb67c8ee76ed}
+
+\begin{DoxyCompactList}\small\item\em Reduced-\/coordinate articulated body smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ M\-C\-Articulated\-Body $>$ {\bf M\-C\-Articulated\-Body\-Ptr}\label{namespaceMoby_a6ac03dac5f1d1f72149a52a832190228}
+
+\begin{DoxyCompactList}\small\item\em Maximal-\/coordinate articulated body smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr$<$ {\bf Joint} $>$ {\bf Joint\-Ptr}\label{namespaceMoby_a44310faaa62a79a60d5d85b49adcde3b}
+
+\begin{DoxyCompactList}\small\item\em Reduced-\/coordinate articulated body joint smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Collision\-Geometry} $>$ {\bf Collision\-Geometry\-Ptr}\label{namespaceMoby_ab5a089549c9c92487b1210467b816b37}
+
+\begin{DoxyCompactList}\small\item\em Collision geometry smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Primitive} $>$ {\bf Primitive\-Ptr}\label{namespaceMoby_a72d2ba5323dd653527b907cdae5815be}
+
+\begin{DoxyCompactList}\small\item\em \doxyref{Primitive}{p.}{classMoby_1_1Primitive} smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr$<$ {\bf Base} $>$ {\bf Base\-Ptr}\label{namespaceMoby_a58206f0a2c553d914b4c68a730cdb20f}
+
+\begin{DoxyCompactList}\small\item\em \doxyref{Base}{p.}{classMoby_1_1Base} smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Recurrent\-Force} $>$ {\bf Recurrent\-Force\-Ptr}\label{namespaceMoby_adcd45fb65cfec95accc4c45f87e28692}
+
+\begin{DoxyCompactList}\small\item\em Recurrent force smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Controlled\-Body} $>$ {\bf Controlled\-Body\-Ptr}\label{namespaceMoby_ad4ea767732ead10acac8872ff4727a02}
+
+\begin{DoxyCompactList}\small\item\em Dynamic body smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr$<$ {\bf B\-V} $>$ {\bf B\-V\-Ptr}\label{namespaceMoby_a6f35713542d63c0cef724480784f81a3}
+
+\begin{DoxyCompactList}\small\item\em Bounding volume (\doxyref{B\-V}{p.}{classMoby_1_1BV}) smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr$<$ {\bf A\-A\-B\-B} $>$ {\bf A\-A\-B\-B\-Ptr}\label{namespaceMoby_af3971a713afec54c47a5de49e66c7573}
+
+\begin{DoxyCompactList}\small\item\em Axis-\/aligned bounding box (\doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB}) smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr$<$ {\bf O\-B\-B} $>$ {\bf O\-B\-B\-Ptr}\label{namespaceMoby_a1a38998f3d608fad3700d74064e5db40}
+
+\begin{DoxyCompactList}\small\item\em Oriented bounding box (\doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}) smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf O\-S\-G\-Group\-Wrapper} $>$ {\bf O\-S\-G\-Group\-Wrapper\-Ptr}\label{namespaceMoby_acf931c33edcbd5ad770c6cb906826262}
+
+\begin{DoxyCompactList}\small\item\em \doxyref{O\-S\-G\-Group\-Wrapper}{p.}{classMoby_1_1OSGGroupWrapper} smart pointer. \end{DoxyCompactList}\item 
+typedef boost\-::shared\-\_\-ptr\\*
+$<$ {\bf X\-M\-L\-Tree} $>$ {\bf X\-M\-L\-Tree\-Ptr}\label{namespaceMoby_a439157dcde169cb0739ca5bd607ec01e}
+
+\begin{DoxyCompactList}\small\item\em X\-M\-L tree smart pointer. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf A\-A\-B\-B} \&a)\label{namespaceMoby_a277af382226964e631c3732bb0cb59c0}
+
+\item 
+const Ravelin\-::\-Vector\-Nd {\bfseries E\-M\-P\-T\-Y\-\_\-\-V\-E\-C} (0)\label{namespaceMoby_a91daf0e39fe2fd41191de5bb85012bf6}
+
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf Indexed\-Tri\-Array} \&mesh)\label{namespaceMoby_af3e5fba6cdec7e1113aed51ab8327665}
+
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf O\-B\-B} \&o)\label{namespaceMoby_a54b24c37dd0d17b85ead763d22880ef2}
+
+\item 
+{\footnotesize template$<$class Forward\-Iterator , class Random\-Access\-Iterator1 , class Random\-Access\-Iterator2 $>$ }\\void {\bf permute} (Forward\-Iterator mapping\-\_\-begin, Forward\-Iterator mapping\-\_\-end, Random\-Access\-Iterator1 input\-\_\-begin, Random\-Access\-Iterator2 output\-\_\-begin)
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf Plane} \&p)\label{namespaceMoby_a170bada2c4ce1c0244a428ea9338fa9e}
+
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf Polyhedron} \&m)\label{namespaceMoby_a15f39379dd4672465a2b7d52938c16cf}
+
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf Polyhedron\-::\-Vertex} \&m)\label{namespaceMoby_a68b94012928aa2cfdcc3f38c1aca83a9}
+
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf Polyhedron\-::\-Edge} \&m)\label{namespaceMoby_a27bab42fc21a62e340025c8538c051fd}
+
+\item 
+std\-::ostream \& {\bfseries operator$<$$<$} (std\-::ostream \&out, const {\bf Polyhedron\-::\-Face} \&m)\label{namespaceMoby_adf788f0f1a71c0276f2254d67b37e499}
+
+\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&, {\bf Rigid\-Body} \&)
+\begin{DoxyCompactList}\small\item\em Outputs the object state to the specified stream. \end{DoxyCompactList}\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&o, const {\bf S\-S\-L} \&s)\label{namespaceMoby_adfff9ef3172239184e04997aa8c4d17f}
+
+\begin{DoxyCompactList}\small\item\em Outputs the \doxyref{S\-S\-L}{p.}{classMoby_1_1SSL} to the specified stream. \end{DoxyCompactList}\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&o, const {\bf S\-S\-R} \&s)\label{namespaceMoby_af52f002a7ac6746794a7f9dcc839d051}
+
+\begin{DoxyCompactList}\small\item\em Outputs the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} to the specified stream. \end{DoxyCompactList}\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&out, const {\bf Tessellated\-Polyhedron} \&p)\label{namespaceMoby_aa403031825b473a789e912838434dc25}
+
+\begin{DoxyCompactList}\small\item\em Sends the specified polyhedron to the desired output stream. \end{DoxyCompactList}\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&out, const {\bf Unilateral\-Constraint} \&e)\label{namespaceMoby_a936535882b9a218f6d835507c4a7c390}
+
+\begin{DoxyCompactList}\small\item\em Sends the constraint to the specified stream. \end{DoxyCompactList}\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&out, const {\bf X\-M\-L\-Tree} \&tree)\label{namespaceMoby_a821d6c579d11f40b1646934a7dcdd561}
+
+\begin{DoxyCompactList}\small\item\em Sends the specified \doxyref{X\-M\-L\-Tree}{p.}{classMoby_1_1XMLTree} node to the given stream. \end{DoxyCompactList}\item 
+std\-::ostream \& {\bf operator$<$$<$} (std\-::ostream \&out, const {\bf X\-M\-L\-Attrib} \&attr)\label{namespaceMoby_a9bc1d0d0a5d548fca264e00e6717f25f}
+
+\begin{DoxyCompactList}\small\item\em Sends the specified \doxyref{X\-M\-L\-Attrib}{p.}{classMoby_1_1XMLAttrib} to the given stream. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+const boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bfseries G\-L\-O\-B\-A\-L}\label{namespaceMoby_a046468f9ba8108f052fe136287e72e2a}
+
+\item 
+const double {\bfseries N\-E\-A\-R\-\_\-\-Z\-E\-R\-O} = std\-::sqrt(std\-::numeric\-\_\-limits$<$double$>$\-::epsilon())\label{namespaceMoby_aec1d33c9ab411276549322861c78ba5d}
+
+\item 
+const Ravelin\-::\-Matrix3d {\bfseries Z\-E\-R\-O\-S\-\_\-3x3} = Ravelin\-::\-Matrix3d\-::zero()\label{namespaceMoby_a9223388bb9c1e1f468b1195d78b8ea0a}
+
+\item 
+const Ravelin\-::\-Matrix3d {\bfseries I\-D\-E\-N\-T\-I\-T\-Y\-\_\-3x3} = Ravelin\-::\-Matrix3d\-::identity()\label{namespaceMoby_a03f8b523db2c6d49a0accea89582c11f}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-S\-I\-M\-U\-L\-A\-T\-O\-R} = 1\label{namespaceMoby_ae89ce95d04b95e2eb5b9cd24c666d7c7}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-C\-O\-N\-S\-T\-R\-A\-I\-N\-T} = 2\label{namespaceMoby_a327309fcdcc43ff91e9136c03895c652}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-D\-Y\-N\-A\-M\-I\-C\-S} = 4\label{namespaceMoby_a4500c3da71834b462581c13efb37b091}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-B\-V} = 8\label{namespaceMoby_ad6bd485f09c47dad0ef6729963fd7ae2}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-A\-D\-F} = 16\label{namespaceMoby_a757cbc9b6eac7160f2f920f05ebff718}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-C\-O\-L\-D\-E\-T} = 32\label{namespaceMoby_aaf9c7b2a1e94d45264f397a55b515470}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-C\-O\-M\-P\-G\-E\-O\-M} = 64\label{namespaceMoby_aef65a55c357b100c75bb813675813c72}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-L\-I\-N\-A\-L\-G} = 128\label{namespaceMoby_a135329233e9b3738830da897c95c1011}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-O\-P\-T} = 256\label{namespaceMoby_a30b195fb13cddc45a67345c601d82d19}
+
+\item 
+const unsigned {\bfseries L\-O\-G\-\_\-\-D\-E\-F\-O\-R\-M} = 512\label{namespaceMoby_a66bff8c50497fe653d466217b83ced8e}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+This function, which acts like an S\-T\-L algorithm, selects elements with given integer indices from a container.
+
+Example\-: double x[10] = \{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 \}; int i[4] = \{3, 1, 5, 7\}; double results[4];
+
+select(x, i, i+4, results); // results now contains \{ 4, 2, 6, 8 \}
+
+A bunch of typedefs to make things more readable. 
+
+\subsection{Function Documentation}
+\index{Moby@{Moby}!operator$<$$<$@{operator$<$$<$}}
+\index{operator$<$$<$@{operator$<$$<$}!Moby@{Moby}}
+\subsubsection[{operator$<$$<$}]{\setlength{\rightskip}{0pt plus 5cm}std\-::ostream \& Moby\-::operator$<$$<$ (
+\begin{DoxyParamCaption}
+\item[{std\-::ostream \&}]{out, }
+\item[{{\bf Moby\-::\-Rigid\-Body} \&}]{rb}
+\end{DoxyParamCaption}
+)}\label{namespaceMoby_aea3b5f14c38aeb1a022e10d774624775}
+
+
+Outputs the object state to the specified stream. 
+
+This method outputs all of the low-\/level details to the stream 
+
+References Moby\-::\-Rigid\-Body\-::compliance, Moby\-::\-Rigid\-Body\-::geometries, Moby\-::\-Base\-::id, and operator$<$$<$().
+
+\index{Moby@{Moby}!permute@{permute}}
+\index{permute@{permute}!Moby@{Moby}}
+\subsubsection[{permute}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator , class Random\-Access\-Iterator1 , class Random\-Access\-Iterator2 $>$ void Moby\-::permute (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{mapping\-\_\-begin, }
+\item[{Forward\-Iterator}]{mapping\-\_\-end, }
+\item[{Random\-Access\-Iterator1}]{input\-\_\-begin, }
+\item[{Random\-Access\-Iterator2}]{output\-\_\-begin}
+\end{DoxyParamCaption}
+)}\label{namespaceMoby_a0ca6e5cd05d496e75336ee15a58b2716}
+
+\begin{DoxyParams}{Parameters}
+{\em mapping\-\_\-begin} & beginning iterator to mapping giving source indices \\
+\hline
+{\em mapping\-\_\-end} & ending iterator to mapping giving source indices \\
+\hline
+{\em input\-\_\-begin} & beginning iterator to source \\
+\hline
+{\em output\-\_\-begin} & beginning iterator to target \\
+\hline
+\end{DoxyParams}

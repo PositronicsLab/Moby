@@ -1,0 +1,135 @@
+\section{Moby\-:\-:Screw\-Joint Class Reference}
+\label{classMoby_1_1ScrewJoint}\index{Moby\-::\-Screw\-Joint@{Moby\-::\-Screw\-Joint}}
+
+
+Defines an actuated screw (helical) joint.  
+
+
+
+
+{\ttfamily \#include $<$Screw\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Screw\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.605263cm]{classMoby_1_1ScrewJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Screw\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Screw\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+const Ravelin\-::\-Vector3d \& {\bfseries get\-\_\-axis} () const \label{classMoby_1_1ScrewJoint_ad1aecf6b9694eef1ef200dcc5f4dd600}
+
+\item 
+void {\bf set\-\_\-axis} (const Ravelin\-::\-Vector3d \&axis)
+\begin{DoxyCompactList}\small\item\em Sets the global axis for this joint. \end{DoxyCompactList}\item 
+virtual void {\bf update\-\_\-spatial\-\_\-axes} ()\label{classMoby_1_1ScrewJoint_a698fdfee9b94db32a7e5b75a8bcc49bb}
+
+\begin{DoxyCompactList}\small\item\em Updates the spatial axis for this joint. \end{DoxyCompactList}\item 
+virtual void {\bf determine\-\_\-q} (Vector\-N \&q)\label{classMoby_1_1ScrewJoint_a9570aa8c5471c8c36cc65905925b5db5}
+
+\begin{DoxyCompactList}\small\item\em Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ \& {\bf get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1ScrewJoint_a6902884b5cf370f78508d7e59ad16740}
+
+\begin{DoxyCompactList}\small\item\em Gets the (local) transform for this joint. \end{DoxyCompactList}\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bf get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1ScrewJoint_ad47c2af36fe8372836aed65aecd309da}
+
+\begin{DoxyCompactList}\small\item\em Gets the derivative for the spatial axes for this joint. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1ScrewJoint_a6fd5ddb252a077e791697bc90718ab5d}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1ScrewJoint_a3310bc567f4fa3a82bae87d5d35dcffb}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1ScrewJoint_a370cdad1db58c8c537161c034884d51f}
+
+\item 
+virtual void {\bf evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1ScrewJoint_ad9057164b54e8860957e3bdeda08e788}
+
+\begin{DoxyCompactList}\small\item\em Evaluates the constraint equations. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-pitch} () const \label{classMoby_1_1ScrewJoint_af912552d21c87c02c62adc4edfdf95d6}
+
+\begin{DoxyCompactList}\small\item\em Gets the pitch of the joint. \end{DoxyCompactList}\item 
+virtual bool {\bf is\-\_\-sngular\-\_\-config} () const \label{classMoby_1_1ScrewJoint_ac1aededa24916908492efe43a402dbbc}
+
+\begin{DoxyCompactList}\small\item\em Screw joint can never be in a singular configuration. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-pitch} (double pitch)\label{classMoby_1_1ScrewJoint_ab507aa73cf13d2e08c2d4e84f006d145}
+
+\begin{DoxyCompactList}\small\item\em Sets the pitch of the joint. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an actuated screw (helical) joint. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Screw\-Joint@{Moby\-::\-Screw\-Joint}!Screw\-Joint@{Screw\-Joint}}
+\index{Screw\-Joint@{Screw\-Joint}!Moby::ScrewJoint@{Moby\-::\-Screw\-Joint}}
+\subsubsection[{Screw\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Screw\-Joint\-::\-Screw\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1ScrewJoint_aafc0af75c0f0952883e61584704c6cb6}
+
+
+Initializes the joint. 
+
+The axis is set to [0 0 0]. The pitch is set to 1.\-0. The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+\index{Moby\-::\-Screw\-Joint@{Moby\-::\-Screw\-Joint}!Screw\-Joint@{Screw\-Joint}}
+\index{Screw\-Joint@{Screw\-Joint}!Moby::ScrewJoint@{Moby\-::\-Screw\-Joint}}
+\subsubsection[{Screw\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Screw\-Joint\-::\-Screw\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1ScrewJoint_a2a7ebea679b4aa94af8ed066e1f05719}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+The axis is set to [0 0 0] and the pitch is set to 1.\-0. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Screw\-Joint@{Moby\-::\-Screw\-Joint}!set\-\_\-axis@{set\-\_\-axis}}
+\index{set\-\_\-axis@{set\-\_\-axis}!Moby::ScrewJoint@{Moby\-::\-Screw\-Joint}}
+\subsubsection[{set\-\_\-axis}]{\setlength{\rightskip}{0pt plus 5cm}void Screw\-Joint\-::set\-\_\-axis (
+\begin{DoxyParamCaption}
+\item[{const Ravelin\-::\-Vector3d \&}]{axis}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1ScrewJoint_a94fd759a71c671d666f8e700191485c4}
+
+
+Sets the global axis for this joint. 
+
+The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation of the inboard link changes, then the global axis changes. \begin{DoxySeeAlso}{See Also}
+get\-Axis\-Local() 
+
+set\-Axis\-Local() 
+\end{DoxySeeAlso}
+
+
+References Moby\-::\-Joint\-::get\-\_\-inboard\-\_\-link(), Moby\-::\-Joint\-::get\-\_\-outboard\-\_\-link(), and update\-\_\-spatial\-\_\-axes().
+
+
+
+Referenced by load\-\_\-from\-\_\-xml().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Screw\-Joint.\-h\item 
+/home/drum/\-Moby/src/Screw\-Joint.\-cpp\end{DoxyCompactItemize}

@@ -1,0 +1,238 @@
+\section{Moby\-:\-:Polyhedron Class Reference}
+\label{classMoby_1_1Polyhedron}\index{Moby\-::\-Polyhedron@{Moby\-::\-Polyhedron}}
+
+
+A potentially-\/non-\/convex polyhedron of genus 0.  
+
+
+
+
+{\ttfamily \#include $<$Polyhedron.\-h$>$}
+
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct {\bf Edge}
+\begin{DoxyCompactList}\small\item\em The edge structure. \end{DoxyCompactList}\item 
+struct {\bf Face}
+\begin{DoxyCompactList}\small\item\em The face structure. \end{DoxyCompactList}\item 
+struct {\bf Feature}
+\begin{DoxyCompactList}\small\item\em A vertex, face, or edge in a polyhedron. \end{DoxyCompactList}\item 
+struct {\bf Vertex}
+\begin{DoxyCompactList}\small\item\em The vertex structure. \end{DoxyCompactList}\item 
+class {\bf Vertex\-Face\-Iterator}
+\begin{DoxyCompactList}\small\item\em iterates over the vertices in a face \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+enum {\bfseries Location\-Type} \{ \\*
+{\bfseries e\-Inside}, 
+{\bfseries e\-Outside}, 
+{\bfseries e\-On\-Vertex}, 
+{\bfseries e\-On\-Edge}, 
+\\*
+{\bfseries e\-On\-Face}
+ \}
+\item 
+enum {\bf Feature\-Type} \{ {\bfseries e\-Vertex}, 
+{\bfseries e\-Edge}, 
+{\bfseries e\-Face}
+ \}
+\begin{DoxyCompactList}\small\item\em Gets the Voronoi plane from two input features. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Polyhedron} ()\label{classMoby_1_1Polyhedron_aebdf7ee85eb636069bf93afb4e6a483f}
+
+\begin{DoxyCompactList}\small\item\em Creates a minimum polyhedron. \end{DoxyCompactList}\item 
+{\bfseries Polyhedron} (const {\bf Polyhedron} \&p)\label{classMoby_1_1Polyhedron_a78d58f579539183b64839e85a7886c7f}
+
+\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Polyhedron\-::\-Feature} $>$ {\bf find\-\_\-closest\-\_\-feature} (const Ravelin\-::\-Origin3d \&p, unsigned closest\-\_\-facet) const 
+\begin{DoxyCompactList}\small\item\em Finds the closest feature of the polyhedron to the point, given the closest facet. \end{DoxyCompactList}\item 
+{\bf Polyhedron} \& {\bf operator=} (const {\bf Polyhedron} \&p)\label{classMoby_1_1Polyhedron_a4cee7a5bf6546f2d6c4a0904f005a40a}
+
+\begin{DoxyCompactList}\small\item\em Assignment operator. \end{DoxyCompactList}\item 
+{\bf Polyhedron} {\bf shallow\-\_\-copy} () const \label{classMoby_1_1Polyhedron_a649f6aa1c7f3707e955be1544751c4ea}
+
+\begin{DoxyCompactList}\small\item\em Does a shallow copy of this polyhedron. \end{DoxyCompactList}\item 
+std\-::vector$<$ boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Vertex} $>$ $>$ \& {\bfseries get\-\_\-vertices} ()\label{classMoby_1_1Polyhedron_ade11893c4a4825958f0a21fc3cfa587f}
+
+\item 
+const std\-::vector\\*
+$<$ boost\-::shared\-\_\-ptr$<$ {\bf Vertex} $>$ $>$ \& {\bfseries get\-\_\-vertices} () const \label{classMoby_1_1Polyhedron_a43576df898c75c40c036fdffba2d97fe}
+
+\item 
+const std\-::vector\\*
+$<$ boost\-::shared\-\_\-ptr$<$ {\bf Edge} $>$ $>$ \& {\bfseries get\-\_\-edges} () const \label{classMoby_1_1Polyhedron_ad3c45794cf83d79fb425d667e571f4a9}
+
+\item 
+const std\-::vector\\*
+$<$ boost\-::shared\-\_\-ptr$<$ {\bf Face} $>$ $>$ \& {\bfseries get\-\_\-faces} () const \label{classMoby_1_1Polyhedron_a2a2974b6fa0f1c42fdaa3267f6ab2c1b}
+
+\item 
+bool {\bfseries inside} (const Ravelin\-::\-Origin3d \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1Polyhedron_a9da6cd5a5dbf85e81a1c3c218d7d9112}
+
+\item 
+bool {\bfseries inside\-\_\-or\-\_\-on} (const Ravelin\-::\-Origin3d \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1Polyhedron_a1c0701c018cb23aca27a6eef2752f3cc}
+
+\item 
+Location\-Type {\bfseries location} (const Ravelin\-::\-Origin3d \&point, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Feature} $>$ \&closest\-\_\-feature, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1Polyhedron_a1079176623c9cce5d821f528c6397c28}
+
+\item 
+double {\bfseries calc\-\_\-volume} () const \label{classMoby_1_1Polyhedron_a9b96a5f4b186cbaed6d38d8470ee52db}
+
+\item 
+bool {\bfseries degenerate} () const \label{classMoby_1_1Polyhedron_a8341c94887c6f4489ecbb0954394e2a5}
+
+\item 
+void {\bf write\-\_\-to\-\_\-obj} (const std\-::string \&filename) const \label{classMoby_1_1Polyhedron_aad211929a05398f8df28f932c7a73888}
+
+\begin{DoxyCompactList}\small\item\em Writes the polyhedron to Wavefront O\-B\-J format. \end{DoxyCompactList}\item 
+{\bf Polyhedron} {\bf transform} (const Ravelin\-::\-Transform3d \&T) const \label{classMoby_1_1Polyhedron_a2d054dfef9a6039cc661e5ebe9a1f100}
+
+\begin{DoxyCompactList}\small\item\em Transforms a polyhedron. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-signed\-\_\-distance} (const Ravelin\-::\-Origin3d \&point, unsigned \&closest\-\_\-facet) const \label{classMoby_1_1Polyhedron_a75fe654af8a515961ee498115b7f9bfc}
+
+\begin{DoxyCompactList}\small\item\em Gets the signed distance and closest facet to a point. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-signed\-\_\-distance} (const Ravelin\-::\-Origin3d \&point) const \label{classMoby_1_1Polyhedron_a5ecb8756efc37a78f3c2a7a6833ae367}
+
+\begin{DoxyCompactList}\small\item\em Gets the signed distance from a point to the polyhedron. \end{DoxyCompactList}\item 
+std\-::pair$<$ Ravelin\-::\-Origin3d, \\*
+Ravelin\-::\-Origin3d $>$ {\bf get\-\_\-bounding\-\_\-box\-\_\-corners} () const \label{classMoby_1_1Polyhedron_aa812e2865477420a867ec58e0192eba8}
+
+\begin{DoxyCompactList}\small\item\em Gets the corners of the axis-\/aligned bounding box of this polyhedron. \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-convex} ()\label{classMoby_1_1Polyhedron_a0517cc02de0d0df45b1c30333303ed29}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this polyhedron convex (to w/in floating point tolerance) \end{DoxyCompactList}\item 
+double {\bf convexity} ()
+\begin{DoxyCompactList}\small\item\em Gets the convexity of this polyhedron. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf Polyhedron} {\bf calc\-\_\-convex\-\_\-hull} (Forward\-Iterator begin, Forward\-Iterator end)\label{classMoby_1_1Polyhedron_ab5c6b4a9e78a7f780cd94148340c705b}
+
+\begin{DoxyCompactList}\small\item\em Computes the convex hull for a polyhedron. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static double {\bf vclip} (boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$ p\-A, boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$ p\-B, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ pose\-A, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ pose\-B, boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedron\-::\-Feature} $>$ \&closest\-A, boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedron\-::\-Feature} $>$ \&closest\-B)\label{classMoby_1_1Polyhedron_a5d653baf20939d27fe37787c79432b31}
+
+\begin{DoxyCompactList}\small\item\em Executes the V-\/\-Clip algorithm on two polyhedra, determining closest features and signed distance. \end{DoxyCompactList}\item 
+static {\bf Polyhedron} {\bf calc\-\_\-minkowski\-\_\-diff} (boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$ p\-A, boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$ p\-B, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ pose\-A, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ pose\-B)
+\begin{DoxyCompactList}\small\item\em Computes the Minkowski difference of two polyhedral primitives. \end{DoxyCompactList}\item 
+static void {\bf to\-\_\-vrml} (std\-::ostream \&out, const {\bf Polyhedron} \&p, Ravelin\-::\-Origin3d diffuse\-\_\-color=Ravelin\-::\-Origin3d(1, 1, 1), bool wireframe=false)
+\begin{DoxyCompactList}\small\item\em Finds the feature(s) of this polyhedron closest to the point. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\static {\bf Polyhedron} {\bf calc\-\_\-convex\-\_\-hull} (Forward\-Iterator begin, Forward\-Iterator end)\label{classMoby_1_1Polyhedron_ab5c6b4a9e78a7f780cd94148340c705b}
+
+\begin{DoxyCompactList}\small\item\em Computes the convex hull for a polyhedron. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-dist} ({\bf Feature\-Type} f\-A, {\bf Feature\-Type} f\-B, boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedron\-::\-Feature} $>$ closest\-A, boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedron\-::\-Feature} $>$ closest\-B, Ravelin\-::\-Transform3d \&a\-Tb)\label{classMoby_1_1Polyhedron_a7f6f47191dcb708b10f04c9cf1786ff7}
+
+\begin{DoxyCompactList}\small\item\em Computes the distance between two features. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Tessellated\-Polyhedron}\label{classMoby_1_1Polyhedron_aa256fdce053f102562b540cceee239f1}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+A potentially-\/non-\/convex polyhedron of genus 0. 
+
+\subsection{Member Enumeration Documentation}
+\index{Moby\-::\-Polyhedron@{Moby\-::\-Polyhedron}!Feature\-Type@{Feature\-Type}}
+\index{Feature\-Type@{Feature\-Type}!Moby::Polyhedron@{Moby\-::\-Polyhedron}}
+\subsubsection[{Feature\-Type}]{\setlength{\rightskip}{0pt plus 5cm}enum {\bf Moby\-::\-Polyhedron\-::\-Feature\-Type}}\label{classMoby_1_1Polyhedron_a9eeae159b2e4a6fbbfb0948dd0bbbfeb}
+
+
+Gets the Voronoi plane from two input features. 
+
+The function takes the tyoes and the pointers of the two features and returns a plane If a point is a positive distance away from the plane, then the point is closer to the first feature If a point is a negative distance away from the plane, then the point is closer to the second feature 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Polyhedron@{Moby\-::\-Polyhedron}!calc\-\_\-minkowski\-\_\-diff@{calc\-\_\-minkowski\-\_\-diff}}
+\index{calc\-\_\-minkowski\-\_\-diff@{calc\-\_\-minkowski\-\_\-diff}!Moby::Polyhedron@{Moby\-::\-Polyhedron}}
+\subsubsection[{calc\-\_\-minkowski\-\_\-diff}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Polyhedron} Polyhedron\-::calc\-\_\-minkowski\-\_\-diff (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$}]{p\-A, }
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$}]{p\-B, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{pose\-A, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{pose\-B}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1Polyhedron_abf2470d62080fd4749866623fdb5a012}
+
+
+Computes the Minkowski difference of two polyhedral primitives. 
+
+\begin{DoxyReturn}{Returns}
+a polyhedron-\/ the 'data' field of each vertex is of type boost\-::shared\-\_\-ptr$<$std\-::pair$<$int, int$>$ $>$, where the first integer is the index of a vertex from the first polyhedron and the second integer is the index of a vertex from the second polyhedron. 
+\end{DoxyReturn}
+\index{Moby\-::\-Polyhedron@{Moby\-::\-Polyhedron}!convexity@{convexity}}
+\index{convexity@{convexity}!Moby::Polyhedron@{Moby\-::\-Polyhedron}}
+\subsubsection[{convexity}]{\setlength{\rightskip}{0pt plus 5cm}double Moby\-::\-Polyhedron\-::convexity (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}\label{classMoby_1_1Polyhedron_a3b4fe0b22821116e8360c5e70f1ead58}
+
+
+Gets the convexity of this polyhedron. 
+
+Convexity values less than epsilon (where epsilon is some number near zero) indicate that the polyhedron is convex; greater values indicate that the polyhedron is non-\/convex. 
+
+Referenced by is\-\_\-convex().
+
+\index{Moby\-::\-Polyhedron@{Moby\-::\-Polyhedron}!find\-\_\-closest\-\_\-feature@{find\-\_\-closest\-\_\-feature}}
+\index{find\-\_\-closest\-\_\-feature@{find\-\_\-closest\-\_\-feature}!Moby::Polyhedron@{Moby\-::\-Polyhedron}}
+\subsubsection[{find\-\_\-closest\-\_\-feature}]{\setlength{\rightskip}{0pt plus 5cm}boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Feature} $>$ Polyhedron\-::find\-\_\-closest\-\_\-feature (
+\begin{DoxyParamCaption}
+\item[{const Ravelin\-::\-Origin3d \&}]{p, }
+\item[{unsigned}]{closest\-\_\-facet}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1Polyhedron_aba14204a10759717c3ac6c29ea192bf6}
+
+
+Finds the closest feature of the polyhedron to the point, given the closest facet. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em closest\-\_\-facet} & the closest facet to the point on return \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-Polyhedron@{Moby\-::\-Polyhedron}!to\-\_\-vrml@{to\-\_\-vrml}}
+\index{to\-\_\-vrml@{to\-\_\-vrml}!Moby::Polyhedron@{Moby\-::\-Polyhedron}}
+\subsubsection[{to\-\_\-vrml}]{\setlength{\rightskip}{0pt plus 5cm}void Polyhedron\-::to\-\_\-vrml (
+\begin{DoxyParamCaption}
+\item[{std\-::ostream \&}]{out, }
+\item[{const {\bf Polyhedron} \&}]{p, }
+\item[{Ravelin\-::\-Origin3d}]{diffuse\-\_\-color = {\ttfamily Ravelin\-:\-:Origin3d(1,1,1)}, }
+\item[{bool}]{wireframe = {\ttfamily false}}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1Polyhedron_a25e33c1c9b67e8bb297c8fb70f037a72}
+
+
+Finds the feature(s) of this polyhedron closest to the point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em p} & the query point \\
+\hline
+{\em closest\-\_\-features} & the closest features on return \\
+\hline
+{\em inside} & whether the point is inside or outside the polyhedron on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+the distance\-Sends this polyhedron to the specified stream using V\-R\-M\-L 
+\end{DoxyReturn}
+
+
+References Moby\-::\-Polyhedron\-::\-Vertex\-Face\-Iterator\-::advance(), and Moby\-::\-Polyhedron\-::\-Vertex\-Face\-Iterator\-::has\-\_\-next().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Polyhedron.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Polyhedron.\-inl\item 
+/home/drum/\-Moby/src/Polyhedron.\-cpp\end{DoxyCompactItemize}

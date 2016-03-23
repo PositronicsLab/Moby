@@ -1,0 +1,195 @@
+\section{Moby\-:\-:A\-A\-B\-B Class Reference}
+\label{classMoby_1_1AABB}\index{Moby\-::\-A\-A\-B\-B@{Moby\-::\-A\-A\-B\-B}}
+
+
+An axis-\/aligned bounding box.  
+
+
+
+
+{\ttfamily \#include $<$A\-A\-B\-B.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:A\-A\-B\-B\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1AABB}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$class Input\-Iterator $>$ }\\{\bf A\-A\-B\-B} (Input\-Iterator begin, Input\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Constructs an axis-\/aligned bounding box using a set of points. \end{DoxyCompactList}\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const \label{classMoby_1_1AABB_a03f98053bf67a4aac5e804d828591e54}
+
+\begin{DoxyCompactList}\small\item\em Transforms the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} using the given transform. \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1AABB_a3f99eff66e3660da0cafcc85f8e94425}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const \label{classMoby_1_1AABB_ae48eec04f3ee8a8d91affda4810526e5}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+virtual std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const \label{classMoby_1_1AABB_a7b4bf65c2608af7826dea5e2b2497f7f}
+
+\begin{DoxyCompactList}\small\item\em Sends this \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} to V\-R\-M\-L. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const \label{classMoby_1_1AABB_a975b51863c80296821a52884f8d40e85}
+
+\begin{DoxyCompactList}\small\item\em Constructs a velocity expanded \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} using the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB}. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const \label{classMoby_1_1AABB_a9aa6ace140d2505be5c88f4b669cf4b5}
+
+\begin{DoxyCompactList}\small\item\em Calculates the volume of this \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB}. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const \label{classMoby_1_1AABB_a683fba20f211ced63a09b155a41b598d}
+
+\begin{DoxyCompactList}\small\item\em Gets the associated pose for this bounding volume. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const \label{classMoby_1_1AABB_a1d3f9462651e89dc4732e8cb828f3798}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bounds for this \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} using an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const \label{classMoby_1_1AABB_af2e31d643dbc066d30861b2e41117935}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bounds for this \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} using an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+{\bf O\-B\-B} {\bf get\-\_\-\-O\-B\-B} () const \label{classMoby_1_1AABB_a43eedc052d1e5fd737f8ea80f43a0137}
+
+\begin{DoxyCompactList}\small\item\em Gets the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} as an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}. \end{DoxyCompactList}\item 
+{\bf A\-A\-B\-B} \& {\bf operator=} (const {\bf A\-A\-B\-B} \&a)\label{classMoby_1_1AABB_ac72c2e4931b76b17ec89ceaadff6b2a6}
+
+\begin{DoxyCompactList}\small\item\em Copies an \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB}. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Input\-Iterator $>$ }\\{\bf A\-A\-B\-B} (Input\-Iterator begin, Input\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Constructs an axis-\/aligned bounding box using a set of points. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static bool {\bf intersects} (const {\bf A\-A\-B\-B} \&a, const {\bf A\-A\-B\-B} \&b)\label{classMoby_1_1AABB_a5a4d81b4856b610c2a0d6e8ea074c8fd}
+
+\begin{DoxyCompactList}\small\item\em Determines whether two A\-A\-B\-Bs overlap. \end{DoxyCompactList}\item 
+static bool {\bfseries intersects} (const {\bf A\-A\-B\-B} \&a, const {\bf A\-A\-B\-B} \&b, const Ravelin\-::\-Transform3d \&a\-Tb)\label{classMoby_1_1AABB_a52cfeac2c75b96750347974c5c401e48}
+
+\item 
+static bool {\bf outside} (const {\bf A\-A\-B\-B} \&a, const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1AABB_a2e26e0b3dd1cb4f8a433fcc380204fd1}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside of a \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB}. \end{DoxyCompactList}\item 
+static bool {\bf intersects} (const {\bf A\-A\-B\-B} \&a, const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q)
+\begin{DoxyCompactList}\small\item\em Determines whether an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} and a line/ray/line segment intersect. \end{DoxyCompactList}\item 
+static void {\bf get\-\_\-closest\-\_\-point} (const {\bf A\-A\-B\-B} \&a, const {\bf Point3d} \&p, {\bf Point3d} \&closest)\label{classMoby_1_1AABB_ae3162ae0fe017ae9551c65a2522b352f}
+
+\begin{DoxyCompactList}\small\item\em Gets the closest point on the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} to a point. \end{DoxyCompactList}\item 
+static double {\bf get\-\_\-farthest\-\_\-point} (const {\bf A\-A\-B\-B} \&a, const {\bf Point3d} \&p, {\bf Point3d} \&farthest)
+\begin{DoxyCompactList}\small\item\em Gets the farthest point on the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} to a point. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Point3d} {\bf minp}\label{classMoby_1_1AABB_a23122d7eb40203c799bda7927614f169}
+
+\begin{DoxyCompactList}\small\item\em The lower corner of the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB}. \end{DoxyCompactList}\item 
+{\bf Point3d} {\bf maxp}\label{classMoby_1_1AABB_a40136d928f575e010ca33c433bdbc937}
+
+\begin{DoxyCompactList}\small\item\em The upper corner of the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB};. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+An axis-\/aligned bounding box. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-A\-A\-B\-B@{Moby\-::\-A\-A\-B\-B}!A\-A\-B\-B@{A\-A\-B\-B}}
+\index{A\-A\-B\-B@{A\-A\-B\-B}!Moby::AABB@{Moby\-::\-A\-A\-B\-B}}
+\subsubsection[{A\-A\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Input\-Iterator $>$ Moby\-::\-A\-A\-B\-B\-::\-A\-A\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Input\-Iterator}]{begin, }
+\item[{Input\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1AABB_a57b09622e67c481ff53fc3c8f3cd4a04}
+
+
+Constructs an axis-\/aligned bounding box using a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to the beginning of a container of type Ravelin\-::\-Vector3 \\
+\hline
+{\em end} & an iterator to the end of a container of type Ravelin\-::\-Vector3 \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-A\-A\-B\-B@{Moby\-::\-A\-A\-B\-B}!A\-A\-B\-B@{A\-A\-B\-B}}
+\index{A\-A\-B\-B@{A\-A\-B\-B}!Moby::AABB@{Moby\-::\-A\-A\-B\-B}}
+\subsubsection[{A\-A\-B\-B}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Input\-Iterator $>$ Moby\-::\-A\-A\-B\-B\-::\-A\-A\-B\-B (
+\begin{DoxyParamCaption}
+\item[{Input\-Iterator}]{begin, }
+\item[{Input\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1AABB_a57b09622e67c481ff53fc3c8f3cd4a04}
+
+
+Constructs an axis-\/aligned bounding box using a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to the beginning of a container of type Ravelin\-::\-Vector3 \\
+\hline
+{\em end} & an iterator to the end of a container of type Ravelin\-::\-Vector3 \\
+\hline
+\end{DoxyParams}
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-A\-A\-B\-B@{Moby\-::\-A\-A\-B\-B}!get\-\_\-farthest\-\_\-point@{get\-\_\-farthest\-\_\-point}}
+\index{get\-\_\-farthest\-\_\-point@{get\-\_\-farthest\-\_\-point}!Moby::AABB@{Moby\-::\-A\-A\-B\-B}}
+\subsubsection[{get\-\_\-farthest\-\_\-point}]{\setlength{\rightskip}{0pt plus 5cm}double A\-A\-B\-B\-::get\-\_\-farthest\-\_\-point (
+\begin{DoxyParamCaption}
+\item[{const {\bf A\-A\-B\-B} \&}]{a, }
+\item[{const {\bf Point3d} \&}]{p, }
+\item[{{\bf Point3d} \&}]{farthest}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1AABB_a6d7abe8db78eb3f367871a664be2321a}
+
+
+Gets the farthest point on the \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} to a point. 
+
+Returns the squared distance to the farthest point 
+
+References get\-\_\-relative\-\_\-pose(), maxp, and minp.
+
+\index{Moby\-::\-A\-A\-B\-B@{Moby\-::\-A\-A\-B\-B}!intersects@{intersects}}
+\index{intersects@{intersects}!Moby::AABB@{Moby\-::\-A\-A\-B\-B}}
+\subsubsection[{intersects}]{\setlength{\rightskip}{0pt plus 5cm}bool A\-A\-B\-B\-::intersects (
+\begin{DoxyParamCaption}
+\item[{const {\bf A\-A\-B\-B} \&}]{a, }
+\item[{const {\bf Line\-Seg3} \&}]{seg, }
+\item[{double \&}]{tmin, }
+\item[{double}]{tmax, }
+\item[{{\bf Point3d} \&}]{q}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1AABB_a0ea4ddc787863ffc46540149cc6f9472}
+
+
+Determines whether an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} and a line/ray/line segment intersect. 
+
+When intersecting, return intersection distance tmin and point q of intersection. 
+\begin{DoxyParams}{Parameters}
+{\em a} & the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} to check for intersection \\
+\hline
+{\em seg} & the line segment to check for intersection \\
+\hline
+{\em tmin} & on entry, contains the minimum value of the line parameter-\/ for a line segment, this will generally be 0; when an intersection occurs, this will contain the distance of intersection from the tmin that was input on return \\
+\hline
+{\em tmax} & the maximum value of the line parameter-\/ for a line segment, this will generally be 1 \\
+\hline
+{\em q} & contains the point of intersection, if any, on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+{\bfseries true} if the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} and line intersect, {\bfseries false} otherwise 
+\end{DoxyReturn}
+\begin{DoxyNote}{Note}
+code adapted from [Ericson, 2005], pp. 180-\/181 
+\end{DoxyNote}
+
+
+References maxp, and minp.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/A\-A\-B\-B.\-h\item 
+/home/drum/\-Moby/include/\-Moby/A\-A\-B\-B.\-inl\item 
+/home/drum/\-Moby/src/A\-A\-B\-B.\-cpp\end{DoxyCompactItemize}

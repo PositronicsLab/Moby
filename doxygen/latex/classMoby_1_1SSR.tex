@@ -1,0 +1,190 @@
+\section{Moby\-:\-:S\-S\-R Class Reference}
+\label{classMoby_1_1SSR}\index{Moby\-::\-S\-S\-R@{Moby\-::\-S\-S\-R}}
+
+
+A sphere-\/swept rectangle (\doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}) that optionally allows building an \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} tree.  
+
+
+
+
+{\ttfamily \#include $<$S\-S\-R.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:S\-S\-R\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1SSR}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf S\-S\-R} ()\label{classMoby_1_1SSR_a8b7a80a3ec1bc78e64b0b069eb19c737}
+
+\begin{DoxyCompactList}\small\item\em Initializes an empty \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+{\bfseries S\-S\-R} (const {\bf S\-S\-R} \&obb)\label{classMoby_1_1SSR_ad8a85ac82ef78ab0fb03befae3a2cd89}
+
+\item 
+{\bfseries S\-S\-R} (const {\bf Point3d} \&{\bf center}, const Ravelin\-::\-Matrix3d \&{\bf R}, const Ravelin\-::\-Vector2d \&{\bf l}, double {\bf radius})\label{classMoby_1_1SSR_a368ab6f63ce991291872779ae14e9bba}
+
+\item 
+{\bfseries S\-S\-R} (const {\bf S\-S\-R} \&s, const Ravelin\-::\-Vector3d \&v)\label{classMoby_1_1SSR_a69797b20abd3b0abae48b929a0abaeb7}
+
+\item 
+{\bf S\-S\-R} \& {\bf operator=} (const {\bf S\-S\-R} \&s)\label{classMoby_1_1SSR_acd4e477698da7453c32e97f60fc89fe0}
+
+\begin{DoxyCompactList}\small\item\em Copies one \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} to another. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const \label{classMoby_1_1SSR_a455c8f91015dc88fd82e401d29cc3b04}
+
+\begin{DoxyCompactList}\small\item\em Calculates the velocity-\/expanded bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const \label{classMoby_1_1SSR_a5a17e7fa50ffdb425049b75be85734fa}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1SSR_acd2ea5e0313f6a2c3ca6f8f087f7b904}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ {\bf S\-S\-R} $>$ {\bfseries get\-\_\-this} ()\label{classMoby_1_1SSR_ad22e44ac5bfe323b74826c134690b5ac}
+
+\item 
+boost\-::shared\-\_\-ptr$<$ const {\bf S\-S\-R} $>$ {\bfseries get\-\_\-this} () const \label{classMoby_1_1SSR_a70a14b94eec7efb7300d09746e41d1f2}
+
+\item 
+virtual std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const \label{classMoby_1_1SSR_a1534431dfb9e4da2ba73a15f693a8107}
+
+\begin{DoxyCompactList}\small\item\em Outputs the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} to V\-R\-M\-L (not yet implemented) \end{DoxyCompactList}\item 
+unsigned {\bf calc\-\_\-size} () const \label{classMoby_1_1SSR_a6fbf22c3b8bb9a03ecf369e060c1f246}
+
+\begin{DoxyCompactList}\small\item\em Calculates the size (number of elements in) a \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} tree. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const \label{classMoby_1_1SSR_a314f75152b9681be4670284326310f45}
+
+\begin{DoxyCompactList}\small\item\em Gets the associated pose for this bounding volume. \end{DoxyCompactList}\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const \label{classMoby_1_1SSR_ab46f39d7948d926c2ebe3dad6da6a340}
+
+\begin{DoxyCompactList}\small\item\em Transforms the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} using the given transform. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const \label{classMoby_1_1SSR_a6e74e7d2c6d3141692cfa586d669fbcf}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bounds of the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const \label{classMoby_1_1SSR_a20bbc7a25648c73d0140efe135b0418d}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bounds of the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+void {\bf get\-\_\-rect\-\_\-verts} ({\bf Point3d} rect\-\_\-verts[4]) const \label{classMoby_1_1SSR_a78262822eee90c81506f986bb56d2f48}
+
+\begin{DoxyCompactList}\small\item\em Gets the vertices of the rectangle. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bfseries expand\-\_\-to\-\_\-fit} (Forward\-Iterator begin, Forward\-Iterator end)\label{classMoby_1_1SSR_a855fa235a4504adf5a523408af608c39}
+
+\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf S\-S\-R} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes a \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} from a set of points. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const \label{classMoby_1_1SSR_a37a04d5c42adfcc84454d1d8e8f85fbb}
+
+\begin{DoxyCompactList}\small\item\em Calculates (approximate?) volume of the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bf S\-S\-R} (Forward\-Iterator begin, Forward\-Iterator end)
+\begin{DoxyCompactList}\small\item\em Computes a \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} from a set of points. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bf calc\-\_\-lengths\-\_\-and\-\_\-radius} (Forward\-Iterator begin, Forward\-Iterator end)\label{classMoby_1_1SSR_a3dcd98770b11bd2504d8e76f2c8303e9}
+
+\begin{DoxyCompactList}\small\item\em Calculates the lengths and radius for a \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\void {\bf align} (Forward\-Iterator begin, Forward\-Iterator end, const Ravelin\-::\-Vector3d \&d1, Ravelin\-::\-Vector3d \&d2)\label{classMoby_1_1SSR_abbae6ed4b2ce9fa3d34d5484d34502db}
+
+\begin{DoxyCompactList}\small\item\em Aligns this \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} with the minimum area bounding rectangle projected along the first dimension of the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static double {\bf calc\-\_\-dist} (const {\bf S\-S\-R} \&a, const {\bf Point3d} \&p)\label{classMoby_1_1SSR_a8d3cb92a9f46fe056a15ee98275d26ab}
+
+\begin{DoxyCompactList}\small\item\em Calculates the distance of the sphere-\/swept rectangle from a point. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-dist} (const {\bf S\-S\-R} \&a, const {\bf Line\-Seg3} \&s)\label{classMoby_1_1SSR_aed16e801077911e2f625c6608976b827}
+
+\begin{DoxyCompactList}\small\item\em Calculates the distance of the sphere-\/swept rectangle from a line segment. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-dist} (const {\bf S\-S\-R} \&a, const {\bf S\-S\-R} \&b, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1SSR_a122c7a2340345bb402db2a76e85ef904}
+
+\begin{DoxyCompactList}\small\item\em Calculates the distance between two sphere-\/swept rectangles and also calculates closest points. \end{DoxyCompactList}\item 
+static double {\bfseries calc\-\_\-dist} (const {\bf S\-S\-R} \&a, const {\bf S\-S\-R} \&b, const Ravelin\-::\-Transform3d \&a\-Tb, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1SSR_aab5efd4465c3a61141196ba97e49fab2}
+
+\item 
+static bool {\bf intersects} (const {\bf S\-S\-R} \&a, const {\bf S\-S\-R} \&b)\label{classMoby_1_1SSR_a6cb93fa494830b7620115bdf50d8ec1c}
+
+\begin{DoxyCompactList}\small\item\em Determines whether two S\-S\-Rs intersect. \end{DoxyCompactList}\item 
+static bool {\bfseries intersects} (const {\bf S\-S\-R} \&a, const {\bf S\-S\-R} \&b, const Ravelin\-::\-Transform3d \&T)\label{classMoby_1_1SSR_a85dc6ab72902166f9555685e887ca327}
+
+\item 
+static bool {\bf intersects} (const {\bf S\-S\-R} \&a, const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q)\label{classMoby_1_1SSR_a986cdd5d771558d5ab67d551699fc9b6}
+
+\begin{DoxyCompactList}\small\item\em Determines whether (and when) a line segment intersects with the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+static bool {\bf outside} (const {\bf S\-S\-R} \&a, const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1SSR_a9f6b32da9911b69a2dea09fb5f917a28}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Point3d} {\bf center}\label{classMoby_1_1SSR_a6a800bdb4056f75e334597fd0d46371e}
+
+\begin{DoxyCompactList}\small\item\em Center of the volume. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector2d {\bf l}\label{classMoby_1_1SSR_ac88d95c6c5bccb8abfc2ee7f553db346}
+
+\begin{DoxyCompactList}\small\item\em Lengths of the rectangle sides. \end{DoxyCompactList}\item 
+Ravelin\-::\-Matrix3d {\bf R}\label{classMoby_1_1SSR_a78b018270d95f253135b543927111b29}
+
+\begin{DoxyCompactList}\small\item\em Orientation of this \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}. \end{DoxyCompactList}\item 
+double {\bf radius}\label{classMoby_1_1SSR_aa88f142592fb8d0ec8ee4b1126374d00}
+
+\begin{DoxyCompactList}\small\item\em Radius of the spherical addition. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+A sphere-\/swept rectangle (\doxyref{S\-S\-R}{p.}{classMoby_1_1SSR}) that optionally allows building an \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} tree. 
+
+\begin{DoxyNote}{Note}
+the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} is generally constructed such that its frame is aligned with that of the underlying rigid body (or collision geometry). Therefore, the center of the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} is computed relative to the center-\/of-\/mass of the body (or the center of the geometry). The orientation of the \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} will always be identical to the orientation of the rigid body (or collision geometry). 
+\end{DoxyNote}
+
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-S\-S\-R@{Moby\-::\-S\-S\-R}!S\-S\-R@{S\-S\-R}}
+\index{S\-S\-R@{S\-S\-R}!Moby::SSR@{Moby\-::\-S\-S\-R}}
+\subsubsection[{S\-S\-R}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ Moby\-::\-S\-S\-R\-::\-S\-S\-R (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1SSR_ae7789823238913fb00c9c54230dfbca9}
+
+
+Computes a \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} from a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d Algorithm taken from [Ericson, 2005] \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-S\-S\-R@{Moby\-::\-S\-S\-R}!S\-S\-R@{S\-S\-R}}
+\index{S\-S\-R@{S\-S\-R}!Moby::SSR@{Moby\-::\-S\-S\-R}}
+\subsubsection[{S\-S\-R}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Forward\-Iterator $>$ Moby\-::\-S\-S\-R\-::\-S\-S\-R (
+\begin{DoxyParamCaption}
+\item[{Forward\-Iterator}]{begin, }
+\item[{Forward\-Iterator}]{end}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1SSR_ae7789823238913fb00c9c54230dfbca9}
+
+
+Computes a \doxyref{S\-S\-R}{p.}{classMoby_1_1SSR} from a set of points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em begin} & an iterator to type Point3d \\
+\hline
+{\em end} & an iterator to type Point3d Algorithm taken from [Ericson, 2005] \\
+\hline
+\end{DoxyParams}
+
+
+References Moby\-::\-Indexed\-Tri\-::a, Moby\-::\-Indexed\-Tri\-::b, and Moby\-::\-Indexed\-Tri\-::c.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/S\-S\-R.\-h\item 
+/home/drum/\-Moby/include/\-Moby/S\-S\-R.\-inl\item 
+/home/drum/\-Moby/src/S\-S\-R.\-cpp\end{DoxyCompactItemize}

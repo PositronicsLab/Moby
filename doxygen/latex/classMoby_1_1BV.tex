@@ -1,0 +1,260 @@
+\section{Moby\-:\-:B\-V Class Reference}
+\label{classMoby_1_1BV}\index{Moby\-::\-B\-V@{Moby\-::\-B\-V}}
+
+
+An abstract bounding volume.  
+
+
+
+
+{\ttfamily \#include $<$B\-V.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:B\-V\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=1.171548cm]{classMoby_1_1BV}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const =0\label{classMoby_1_1BV_a600fc641a28dba109450ab7b4857cf69}
+
+\begin{DoxyCompactList}\small\item\em Virtual function for outputting the bounding volume to V\-R\-M\-L. \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const =0\label{classMoby_1_1BV_a30fafce97a805a68cc0ff3b3e74a298d}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const =0\label{classMoby_1_1BV_a955d2960f336300fcf8512d74975a747}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const =0\label{classMoby_1_1BV_a89f5b628152241d2c1d2b125e7801a3a}
+
+\begin{DoxyCompactList}\small\item\em Gets the associated pose for this bounding volume. \end{DoxyCompactList}\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const =0\label{classMoby_1_1BV_ad26e960f270cad01ab1e28c0129fa32c}
+
+\begin{DoxyCompactList}\small\item\em Virtual function for transforming the \doxyref{B\-V}{p.}{classMoby_1_1BV}. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const =0
+\begin{DoxyCompactList}\small\item\em Virtual function that calculates a velocity-\/expanded \doxyref{B\-V}{p.}{classMoby_1_1BV}. \end{DoxyCompactList}\item 
+{\bf B\-V\-Ptr} {\bfseries get\-\_\-this} ()\label{classMoby_1_1BV_a54a5142d6c3b7e7400b52ea93f8a0eb2}
+
+\item 
+boost\-::shared\-\_\-ptr$<$ const {\bf B\-V} $>$ {\bfseries get\-\_\-this} () const \label{classMoby_1_1BV_aebe21d442b8d3fb0426b94005ab7a7c2}
+
+\item 
+bool {\bfseries is\-\_\-leaf} () const \label{classMoby_1_1BV_a8ffc25a32a69fe64980d51fd182599ea}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-all\-\_\-\-B\-Vs} (Output\-Iterator begin) const 
+\begin{DoxyCompactList}\small\item\em Gets all \doxyref{B\-V}{p.}{classMoby_1_1BV} nodes. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-all\-\_\-leafs} (Output\-Iterator begin) const \label{classMoby_1_1BV_ac75068beeeab413e60364a08d5d0c4f9}
+
+\begin{DoxyCompactList}\small\item\em Gets all leaf nodes. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const =0\label{classMoby_1_1BV_aa6f6a534c466e5304462e3007f9c003a}
+
+\begin{DoxyCompactList}\small\item\em Gets the volume for this bounding volume. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const =0\label{classMoby_1_1BV_a1c09ed69ea23c53ee3e392702dbe624f}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bound on a \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} around the bounding volume when a transform of T is applied. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const =0\label{classMoby_1_1BV_a49b6075d167dfc05293cb87e28a570ea}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bound on a \doxyref{A\-A\-B\-B}{p.}{classMoby_1_1AABB} around the bounding volume when a transform of T is applied. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-all\-\_\-\-B\-Vs} (Output\-Iterator begin) const 
+\begin{DoxyCompactList}\small\item\em Gets all \doxyref{B\-V}{p.}{classMoby_1_1BV} nodes. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-all\-\_\-leafs} (Output\-Iterator begin) const \label{classMoby_1_1BV_ac75068beeeab413e60364a08d5d0c4f9}
+
+\begin{DoxyCompactList}\small\item\em Gets all leaf nodes. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf intersect\-\_\-\-B\-V\-\_\-trees} ({\bf B\-V\-Ptr} a, {\bf B\-V\-Ptr} b, const Ravelin\-::\-Transform3d \&a\-Tb, const Ravelin\-::\-Transform3d \&b\-Ta, Output\-Iterator output\-\_\-begin)
+\begin{DoxyCompactList}\small\item\em Intersects two \doxyref{B\-V}{p.}{classMoby_1_1BV} trees; returns list of all leaf-\/level intersecting B\-Vs. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static bool {\bf intersects} ({\bf B\-V\-Ptr} a, {\bf B\-V\-Ptr} b)\label{classMoby_1_1BV_a466876c83c54f406dad65117081405aa}
+
+\begin{DoxyCompactList}\small\item\em Convenience method. \end{DoxyCompactList}\item 
+static bool {\bf intersects} ({\bf B\-V\-Ptr} a, {\bf B\-V\-Ptr} b, const Ravelin\-::\-Transform3d \&T)\label{classMoby_1_1BV_ab40bccc22188be183e82b3d73b4c51d4}
+
+\begin{DoxyCompactList}\small\item\em Convenience method. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-distance} ({\bf B\-V\-Ptr} a, {\bf B\-V\-Ptr} b, {\bf Point3d} \&cp1, {\bf Point3d} \&cp2)\label{classMoby_1_1BV_ab0d895ad9899f2ee2534645013334f33}
+
+\begin{DoxyCompactList}\small\item\em Convenience method. \end{DoxyCompactList}\item 
+static double {\bf calc\-\_\-distance} ({\bf B\-V\-Ptr} a, {\bf B\-V\-Ptr} b, const Ravelin\-::\-Transform3d \&a\-Tb, {\bf Point3d} \&cp1, {\bf Point3d} \&cp2)\label{classMoby_1_1BV_adf18114469b3967e7eb474d8f69b9c6f}
+
+\begin{DoxyCompactList}\small\item\em Convenience method. \end{DoxyCompactList}\item 
+static bool {\bf intersects} (const {\bf B\-V} $\ast$a, const {\bf B\-V} $\ast$b)\label{classMoby_1_1BV_a17e02ce9372e48914f6cdf588c61374f}
+
+\begin{DoxyCompactList}\small\item\em Computes whether two abstract bounding volumes intersect. \end{DoxyCompactList}\item 
+static bool {\bfseries intersects} (const {\bf B\-V} $\ast$a, const {\bf B\-V} $\ast$b, const Ravelin\-::\-Transform3d \&T)\label{classMoby_1_1BV_aed30869b2d65c36a96d0f1d579518dc1}
+
+\item 
+static double {\bf calc\-\_\-distance} (const {\bf B\-V} $\ast$a, const {\bf B\-V} $\ast$b, {\bf Point3d} \&cp1, {\bf Point3d} \&cp2)
+\begin{DoxyCompactList}\small\item\em Computes the distance between two abstract bounding volumes and stores the closest points. \end{DoxyCompactList}\item 
+static double {\bfseries calc\-\_\-distance} (const {\bf B\-V} $\ast$a, const {\bf B\-V} $\ast$b, const Ravelin\-::\-Transform3d \&a\-Tb, {\bf Point3d} \&cp1, {\bf Point3d} \&cp2)\label{classMoby_1_1BV_ac138dd07768d3ea36724a0b409346081}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\static Output\-Iterator {\bf intersect\-\_\-\-B\-V\-\_\-trees} ({\bf B\-V\-Ptr} a, {\bf B\-V\-Ptr} b, const Ravelin\-::\-Transform3d \&a\-Tb, const Ravelin\-::\-Transform3d \&b\-Ta, Output\-Iterator output\-\_\-begin)
+\begin{DoxyCompactList}\small\item\em Intersects two \doxyref{B\-V}{p.}{classMoby_1_1BV} trees; returns list of all leaf-\/level intersecting B\-Vs. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+boost\-::shared\-\_\-ptr$<$ void $>$ {\bf userdata}\label{classMoby_1_1BV_a5fbb63e2c0fb94f2a7f9e25e237d91e9}
+
+\begin{DoxyCompactList}\small\item\em Userdata for the \doxyref{B\-V}{p.}{classMoby_1_1BV}. \end{DoxyCompactList}\item 
+{\bf Collision\-Geometry\-Ptr} {\bf geom}\label{classMoby_1_1BV_ad9f99181ae98414e43a0696ae82f33a5}
+
+\begin{DoxyCompactList}\small\item\em The collision geometry associated with this bounding volume. \end{DoxyCompactList}\item 
+std\-::list$<$ {\bf B\-V\-Ptr} $>$ {\bf children}\label{classMoby_1_1BV_ad0fe49bf0780f27bdd14019721d757c4}
+
+\begin{DoxyCompactList}\small\item\em The children of this \doxyref{B\-V}{p.}{classMoby_1_1BV}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+An abstract bounding volume. 
+
+\begin{DoxyNote}{Note}
+the \doxyref{B\-V}{p.}{classMoby_1_1BV} is generally constructed such that its frame is aligned with that of the underlying rigid body (or collision geometry). Therefore, the center of the \doxyref{B\-V}{p.}{classMoby_1_1BV} is computed relative to the center-\/of-\/mass of the body (or the center of the geometry). The orientation of the \doxyref{B\-V}{p.}{classMoby_1_1BV} will always be identical to the orientation of the rigid body (or collision geometry). 
+\end{DoxyNote}
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-B\-V@{Moby\-::\-B\-V}!calc\-\_\-distance@{calc\-\_\-distance}}
+\index{calc\-\_\-distance@{calc\-\_\-distance}!Moby::BV@{Moby\-::\-B\-V}}
+\subsubsection[{calc\-\_\-distance}]{\setlength{\rightskip}{0pt plus 5cm}double B\-V\-::calc\-\_\-distance (
+\begin{DoxyParamCaption}
+\item[{const {\bf B\-V} $\ast$}]{a, }
+\item[{const {\bf B\-V} $\ast$}]{b, }
+\item[{{\bf Point3d} \&}]{cp1, }
+\item[{{\bf Point3d} \&}]{cp2}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1BV_a989e55f8255842a4bfbd18deb048f886}
+
+
+Computes the distance between two abstract bounding volumes and stores the closest points. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em cp1} & the closest point on a to b \\
+\hline
+{\em cp2} & the closest point on b to a \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+the distance between the bounding volumes 
+\end{DoxyReturn}
+\index{Moby\-::\-B\-V@{Moby\-::\-B\-V}!calc\-\_\-swept\-\_\-\-B\-V@{calc\-\_\-swept\-\_\-\-B\-V}}
+\index{calc\-\_\-swept\-\_\-\-B\-V@{calc\-\_\-swept\-\_\-\-B\-V}!Moby::BV@{Moby\-::\-B\-V}}
+\subsubsection[{calc\-\_\-swept\-\_\-\-B\-V}]{\setlength{\rightskip}{0pt plus 5cm}virtual {\bf B\-V\-Ptr} Moby\-::\-B\-V\-::calc\-\_\-swept\-\_\-\-B\-V (
+\begin{DoxyParamCaption}
+\item[{{\bf Collision\-Geometry\-Ptr}}]{g, }
+\item[{const Ravelin\-::\-S\-Velocityd \&}]{v}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [pure virtual]}}\label{classMoby_1_1BV_a6aeddf29519a8d71d7318ca406d84582}
+
+
+Virtual function that calculates a velocity-\/expanded \doxyref{B\-V}{p.}{classMoby_1_1BV}. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em g} & the geometry that this bounding volume represents \\
+\hline
+{\em v} & the \char`\"{}velocity\char`\"{} to sweep by \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+the velocity-\/expanded bounding volume 
+\end{DoxyReturn}
+
+
+Implemented in {\bf Moby\-::\-Dummy\-B\-V} \doxyref{}{p.}{classMoby_1_1DummyBV_a025ef57dac043eb93f23f250e3817b7a}, {\bf Moby\-::\-O\-B\-B} \doxyref{}{p.}{classMoby_1_1OBB_af319672a637c35433069cc1d84c1288c}, {\bf Moby\-::\-S\-S\-R} \doxyref{}{p.}{classMoby_1_1SSR_a455c8f91015dc88fd82e401d29cc3b04}, {\bf Moby\-::\-S\-S\-L} \doxyref{}{p.}{classMoby_1_1SSL_a6984388248b9437ce29433de1a264234}, {\bf Moby\-::\-A\-A\-B\-B} \doxyref{}{p.}{classMoby_1_1AABB_a975b51863c80296821a52884f8d40e85}, and {\bf Moby\-::\-Bounding\-Sphere} \doxyref{}{p.}{classMoby_1_1BoundingSphere_a6d265cdebfde00b3590984c378a238ea}.
+
+\index{Moby\-::\-B\-V@{Moby\-::\-B\-V}!get\-\_\-all\-\_\-\-B\-Vs@{get\-\_\-all\-\_\-\-B\-Vs}}
+\index{get\-\_\-all\-\_\-\-B\-Vs@{get\-\_\-all\-\_\-\-B\-Vs}!Moby::BV@{Moby\-::\-B\-V}}
+\subsubsection[{get\-\_\-all\-\_\-\-B\-Vs}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-B\-V\-::get\-\_\-all\-\_\-\-B\-Vs (
+\begin{DoxyParamCaption}
+\item[{Output\-Iterator}]{begin}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1BV_a2c413068b22f160e3b4fe08f40bc1359}
+
+
+Gets all \doxyref{B\-V}{p.}{classMoby_1_1BV} nodes. 
+
+The output is ordered by levels in the hierarchy. \index{Moby\-::\-B\-V@{Moby\-::\-B\-V}!get\-\_\-all\-\_\-\-B\-Vs@{get\-\_\-all\-\_\-\-B\-Vs}}
+\index{get\-\_\-all\-\_\-\-B\-Vs@{get\-\_\-all\-\_\-\-B\-Vs}!Moby::BV@{Moby\-::\-B\-V}}
+\subsubsection[{get\-\_\-all\-\_\-\-B\-Vs}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-B\-V\-::get\-\_\-all\-\_\-\-B\-Vs (
+\begin{DoxyParamCaption}
+\item[{Output\-Iterator}]{begin}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1BV_a2c413068b22f160e3b4fe08f40bc1359}
+
+
+Gets all \doxyref{B\-V}{p.}{classMoby_1_1BV} nodes. 
+
+The output is ordered by levels in the hierarchy. \index{Moby\-::\-B\-V@{Moby\-::\-B\-V}!intersect\-\_\-\-B\-V\-\_\-trees@{intersect\-\_\-\-B\-V\-\_\-trees}}
+\index{intersect\-\_\-\-B\-V\-\_\-trees@{intersect\-\_\-\-B\-V\-\_\-trees}!Moby::BV@{Moby\-::\-B\-V}}
+\subsubsection[{intersect\-\_\-\-B\-V\-\_\-trees}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-B\-V\-::intersect\-\_\-\-B\-V\-\_\-trees (
+\begin{DoxyParamCaption}
+\item[{{\bf B\-V\-Ptr}}]{a, }
+\item[{{\bf B\-V\-Ptr}}]{b, }
+\item[{const Ravelin\-::\-Transform3d \&}]{a\-Tb, }
+\item[{const Ravelin\-::\-Transform3d \&}]{b\-Ta, }
+\item[{Output\-Iterator}]{output\-\_\-begin}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1BV_a2c3fe709178d1559b46cc91f25cb8e8a}
+
+
+Intersects two \doxyref{B\-V}{p.}{classMoby_1_1BV} trees; returns list of all leaf-\/level intersecting B\-Vs. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em a} & the root of the first \doxyref{B\-V}{p.}{classMoby_1_1BV} tree \\
+\hline
+{\em b} & the root of the second \doxyref{B\-V}{p.}{classMoby_1_1BV} tree \\
+\hline
+{\em a\-Tb} & the transform from b's frame to a's frame (i.\-e., inverse(transform(a)) $\ast$ transform(b)) \\
+\hline
+{\em b\-Ta} & the transform from a's frame to b's frame (i.\-e., inverse(transform(b)) $\ast$ transform(a)) \\
+\hline
+{\em output\-\_\-begin} & iterator to the beginning of a list of pairs of type pair$<$shared\-\_\-ptr$<$\-B\-V$>$, shared\-\_\-ptr$<$\-B\-V$>$ $>$; first element in each pair comes from the first \doxyref{B\-V}{p.}{classMoby_1_1BV} tree, second element comes from the second tree \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+iterator to the end of a list of pairs of type pair$<$shared\-\_\-ptr$<$\-B\-V$>$, shared\-\_\-ptr$<$\-B\-V$>$ $>$; first element in each pair comes from the first \doxyref{B\-V}{p.}{classMoby_1_1BV} tree, second element comes from the second tree 
+\end{DoxyReturn}
+\index{Moby\-::\-B\-V@{Moby\-::\-B\-V}!intersect\-\_\-\-B\-V\-\_\-trees@{intersect\-\_\-\-B\-V\-\_\-trees}}
+\index{intersect\-\_\-\-B\-V\-\_\-trees@{intersect\-\_\-\-B\-V\-\_\-trees}!Moby::BV@{Moby\-::\-B\-V}}
+\subsubsection[{intersect\-\_\-\-B\-V\-\_\-trees}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Output\-Iterator $>$ Output\-Iterator Moby\-::\-B\-V\-::intersect\-\_\-\-B\-V\-\_\-trees (
+\begin{DoxyParamCaption}
+\item[{{\bf B\-V\-Ptr}}]{a, }
+\item[{{\bf B\-V\-Ptr}}]{b, }
+\item[{const Ravelin\-::\-Transform3d \&}]{a\-Tb, }
+\item[{const Ravelin\-::\-Transform3d \&}]{b\-Ta, }
+\item[{Output\-Iterator}]{output\-\_\-begin}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1BV_a2c3fe709178d1559b46cc91f25cb8e8a}
+
+
+Intersects two \doxyref{B\-V}{p.}{classMoby_1_1BV} trees; returns list of all leaf-\/level intersecting B\-Vs. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em a} & the root of the first \doxyref{B\-V}{p.}{classMoby_1_1BV} tree \\
+\hline
+{\em b} & the root of the second \doxyref{B\-V}{p.}{classMoby_1_1BV} tree \\
+\hline
+{\em a\-Tb} & the transform from b's frame to a's frame (i.\-e., inverse(transform(a)) $\ast$ transform(b)) \\
+\hline
+{\em b\-Ta} & the transform from a's frame to b's frame (i.\-e., inverse(transform(b)) $\ast$ transform(a)) \\
+\hline
+{\em output\-\_\-begin} & iterator to the beginning of a list of pairs of type pair$<$shared\-\_\-ptr$<$\-B\-V$>$, shared\-\_\-ptr$<$\-B\-V$>$ $>$; first element in each pair comes from the first \doxyref{B\-V}{p.}{classMoby_1_1BV} tree, second element comes from the second tree \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+iterator to the end of a list of pairs of type pair$<$shared\-\_\-ptr$<$\-B\-V$>$, shared\-\_\-ptr$<$\-B\-V$>$ $>$; first element in each pair comes from the first \doxyref{B\-V}{p.}{classMoby_1_1BV} tree, second element comes from the second tree 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/B\-V.\-h\item 
+/home/drum/\-Moby/include/\-Moby/B\-V.\-inl\item 
+/home/drum/\-Moby/src/B\-V.\-cpp\end{DoxyCompactItemize}

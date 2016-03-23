@@ -1,0 +1,129 @@
+\section{Moby\-:\-:Contact\-Parameters Class Reference}
+\label{classMoby_1_1ContactParameters}\index{Moby\-::\-Contact\-Parameters@{Moby\-::\-Contact\-Parameters}}
+
+
+Class for storing contact modeling parameters between two bodies.  
+
+
+
+
+{\ttfamily \#include $<$Contact\-Parameters.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Contact\-Parameters\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1ContactParameters}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Contact\-Parameters} ()
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{Contact\-Parameters}{p.}{classMoby_1_1ContactParameters} object with no object pointers. \end{DoxyCompactList}\item 
+{\bf Contact\-Parameters} ({\bf Base\-Ptr} o1, {\bf Base\-Ptr} o2)
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{Contact\-Parameters}{p.}{classMoby_1_1ContactParameters} object with the given object I\-Ds. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const 
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+Ravelin\-::sorted\-\_\-pair$<$ {\bf Base\-Ptr} $>$ {\bf objects}\label{classMoby_1_1ContactParameters_ac41104e5f3bb749fd4c0c3ab52d8bd90}
+
+\begin{DoxyCompactList}\small\item\em The objects in contact. \end{DoxyCompactList}\item 
+double {\bf epsilon}\label{classMoby_1_1ContactParameters_aac5600571c18d712f29597cd1bf79667}
+
+\begin{DoxyCompactList}\small\item\em Coefficient of restitution for contact (default is 0.\-0) \end{DoxyCompactList}\item 
+double {\bf mu\-\_\-coulomb}\label{classMoby_1_1ContactParameters_a2811ce2dc1af06d8e64e0fce66f371d4}
+
+\begin{DoxyCompactList}\small\item\em Coefficient of Coulomb friction for contact (default is 0.\-0) \end{DoxyCompactList}\item 
+double {\bf mu\-\_\-viscous}\label{classMoby_1_1ContactParameters_a5220ad24cf8380c8575e352ba210ecd0}
+
+\begin{DoxyCompactList}\small\item\em Coefficient of viscous friction for contact (default is 0.\-0) \end{DoxyCompactList}\item 
+double {\bf stiffness}\label{classMoby_1_1ContactParameters_a229814989a7310f8f6a8bad6d579237f}
+
+\begin{DoxyCompactList}\small\item\em contact stiffness (set to zero stiffness for true rigidity) \end{DoxyCompactList}\item 
+double {\bf damping}\label{classMoby_1_1ContactParameters_a869398662abf9768886cc72f4ab8ab56}
+
+\begin{DoxyCompactList}\small\item\em contact damping \end{DoxyCompactList}\item 
+double {\bf penalty\-\_\-\-Kp}\label{classMoby_1_1ContactParameters_a3972b61941226000594d5513bfc4b7f5}
+
+\begin{DoxyCompactList}\small\item\em Penalty Method Depth Penalty. \end{DoxyCompactList}\item 
+double {\bf penalty\-\_\-\-Kv}\label{classMoby_1_1ContactParameters_a890d14656d01524b7dc1b366cc2f091c}
+
+\begin{DoxyCompactList}\small\item\em Penalty Method Interpenetration Speed. \end{DoxyCompactList}\item 
+unsigned {\bf N\-K}\label{classMoby_1_1ContactParameters_aee34bedcbf0b6af0359b9a970f54532f}
+
+\begin{DoxyCompactList}\small\item\em Number of edges in the polygon friction cone, minimum of 4 (default 4) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Class for storing contact modeling parameters between two bodies. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Contact\-Parameters@{Moby\-::\-Contact\-Parameters}!Contact\-Parameters@{Contact\-Parameters}}
+\index{Contact\-Parameters@{Contact\-Parameters}!Moby::ContactParameters@{Moby\-::\-Contact\-Parameters}}
+\subsubsection[{Contact\-Parameters}]{\setlength{\rightskip}{0pt plus 5cm}Contact\-Parameters\-::\-Contact\-Parameters (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1ContactParameters_a6c65cec9b290adf9a00ea509767b7419}
+
+
+Constructs a \doxyref{Contact\-Parameters}{p.}{classMoby_1_1ContactParameters} object with no object pointers. 
+
+All gains and coefficients are set to zero. \index{Moby\-::\-Contact\-Parameters@{Moby\-::\-Contact\-Parameters}!Contact\-Parameters@{Contact\-Parameters}}
+\index{Contact\-Parameters@{Contact\-Parameters}!Moby::ContactParameters@{Moby\-::\-Contact\-Parameters}}
+\subsubsection[{Contact\-Parameters}]{\setlength{\rightskip}{0pt plus 5cm}Contact\-Parameters\-::\-Contact\-Parameters (
+\begin{DoxyParamCaption}
+\item[{{\bf Base\-Ptr}}]{o1, }
+\item[{{\bf Base\-Ptr}}]{o2}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1ContactParameters_a14778aeeb916223d1828fd845a0eacc2}
+
+
+Constructs a \doxyref{Contact\-Parameters}{p.}{classMoby_1_1ContactParameters} object with the given object I\-Ds. 
+
+All gains and coefficients are set to zero. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Contact\-Parameters@{Moby\-::\-Contact\-Parameters}!load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}}
+\index{load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}!Moby::ContactParameters@{Moby\-::\-Contact\-Parameters}}
+\subsubsection[{load\-\_\-from\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void Contact\-Parameters\-::load\-\_\-from\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$}]{node, }
+\item[{std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&}]{id\-\_\-map}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1ContactParameters_a00c9c5d4c9c1f9a5f8235689de2c590d}
+
+
+Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} 
+
+This method does not read the \doxyref{Base}{p.}{classMoby_1_1Base} information (i.\-e., name()), because a name for this object is unnecessary. 
+
+Reimplemented from {\bf Moby\-::\-Base} \doxyref{}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f}.
+
+
+
+References Moby\-::\-X\-M\-L\-Attrib\-::get\-\_\-real\-\_\-value().
+
+\index{Moby\-::\-Contact\-Parameters@{Moby\-::\-Contact\-Parameters}!save\-\_\-to\-\_\-xml@{save\-\_\-to\-\_\-xml}}
+\index{save\-\_\-to\-\_\-xml@{save\-\_\-to\-\_\-xml}!Moby::ContactParameters@{Moby\-::\-Contact\-Parameters}}
+\subsubsection[{save\-\_\-to\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void Contact\-Parameters\-::save\-\_\-to\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{{\bf X\-M\-L\-Tree\-Ptr}}]{node, }
+\item[{std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&}]{shared\-\_\-objects}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1ContactParameters_aaa6f5a2f71dab3cb2a2bfd750d8ba0f2}
+This method does not write the \doxyref{Base}{p.}{classMoby_1_1Base} information, because neither a name nor a unique I\-D are useful. 
+
+Reimplemented from {\bf Moby\-::\-Base} \doxyref{}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Contact\-Parameters.\-h\item 
+/home/drum/\-Moby/src/Contact\-Parameters.\-cpp\end{DoxyCompactItemize}

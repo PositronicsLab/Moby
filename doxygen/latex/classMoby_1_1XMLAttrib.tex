@@ -1,0 +1,175 @@
+\section{Moby\-:\-:X\-M\-L\-Attrib Class Reference}
+\label{classMoby_1_1XMLAttrib}\index{Moby\-::\-X\-M\-L\-Attrib@{Moby\-::\-X\-M\-L\-Attrib}}
+
+
+Attributes used for X\-M\-L nodes.  
+
+
+
+
+{\ttfamily \#include $<$X\-M\-L\-Tree.\-h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const std\-::string \&string\-\_\-value)\label{classMoby_1_1XMLAttrib_af048226812112bf1a2b787a62e733c71}
+
+\begin{DoxyCompactList}\small\item\em Constructs an \doxyref{X\-M\-L\-Attrib}{p.}{classMoby_1_1XMLAttrib} object from a name and a string value. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, double real\-\_\-value)\label{classMoby_1_1XMLAttrib_ab0786e9d7857d15bb376a5140f7d4f30}
+
+\begin{DoxyCompactList}\small\item\em Constructs a real-\/valued attribute with the given name. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, int int\-\_\-value)\label{classMoby_1_1XMLAttrib_ad663c3504318175c0ae4f3eec8e186a6}
+
+\begin{DoxyCompactList}\small\item\em Constructs an integer-\/valued attribute with the given name. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, unsigned unsigned\-\_\-value)\label{classMoby_1_1XMLAttrib_a073d7079f81b27e9b6351eb67b896bf1}
+
+\begin{DoxyCompactList}\small\item\em Constructs an unsigned integer-\/valued attribute with the given name. \end{DoxyCompactList}\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const std\-::vector$<$ Ravelin\-::\-S\-Velocityd $>$ \&velocity\-\_\-values)\label{classMoby_1_1XMLAttrib_ab8666d36fd9145c6c39b007261ef4bb9}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const std\-::vector$<$ Ravelin\-::\-S\-Acceld $>$ \&accel\-\_\-values)\label{classMoby_1_1XMLAttrib_ae123980d0d77242b16b3f24ad542c510}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, double roll, double pitch, double yaw)\label{classMoby_1_1XMLAttrib_af2c0e261c285759ff3fc48f32bdcf026}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Vector2d \&vector\-\_\-value)\label{classMoby_1_1XMLAttrib_a6bff811162c360f77292cd18c7857244}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Vector3d \&vector\-\_\-value)\label{classMoby_1_1XMLAttrib_a0e27c9a5909bf203659182119c9a8c5a}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Vector\-Nd \&vector\-\_\-value)\label{classMoby_1_1XMLAttrib_a0ebf880e23e2949cef125366c51141f1}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-S\-Vector6d \&vector\-\_\-value)\label{classMoby_1_1XMLAttrib_ae10bcf840cd966c27f8e74f18f139741}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Matrix\-Nd \&matrix\-\_\-value)\label{classMoby_1_1XMLAttrib_a9d4c348e658d298d56648a4003340f3b}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Matrix3d \&matrix\-\_\-value)\label{classMoby_1_1XMLAttrib_adf06756d100d848d84ffcec882594662}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Quatd \&quat\-\_\-value)\label{classMoby_1_1XMLAttrib_a0d9c8664a6b960ee401ea17f52a1ed51}
+
+\item 
+{\bfseries X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, const Ravelin\-::\-Origin3d \&origin\-\_\-value)\label{classMoby_1_1XMLAttrib_ae41e2407f9129a1c00c13b6ed1f87c66}
+
+\item 
+{\bf X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, bool bool\-\_\-value)\label{classMoby_1_1XMLAttrib_ac362ca5bd6c65cc79eeba93453c471bb}
+
+\begin{DoxyCompactList}\small\item\em Constructs a Boolean-\/valued attribute from the given value. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Attrib} (const std\-::string \&{\bf name}, long long\-\_\-value)\label{classMoby_1_1XMLAttrib_ad4ec7da200095f7d9b3c37ec6a515dc9}
+
+\begin{DoxyCompactList}\small\item\em Constructs a long-\/valued attribute from the given value. \end{DoxyCompactList}\item 
+const std\-::string \& {\bfseries get\-\_\-string\-\_\-value} ()\label{classMoby_1_1XMLAttrib_a95c14f8b9abc0f868fc16ea226713433}
+
+\item 
+double {\bf get\-\_\-real\-\_\-value} ()\label{classMoby_1_1XMLAttrib_ac6a668214742b261d234b0bd4e68630b}
+
+\begin{DoxyCompactList}\small\item\em Gets a floating point value from the underlying string representation. \end{DoxyCompactList}\item 
+Ravelin\-::\-Origin3d {\bf get\-\_\-origin\-\_\-value} ()\label{classMoby_1_1XMLAttrib_a93be5e19cd8e8445c9e8f02d0db1e470}
+
+\begin{DoxyCompactList}\small\item\em Returns an Origin3d value from the attribute. \end{DoxyCompactList}\item 
+std\-::vector$<$ Ravelin\-::\-S\-Velocityd $>$ {\bfseries get\-\_\-velocity\-\_\-values} ()\label{classMoby_1_1XMLAttrib_addecf8547672e9797016f23aa1179326}
+
+\item 
+std\-::vector$<$ Ravelin\-::\-S\-Acceld $>$ {\bfseries get\-\_\-accel\-\_\-values} ()\label{classMoby_1_1XMLAttrib_ae36e3f373c04799cf23b646371241c10}
+
+\item 
+int {\bfseries get\-\_\-int\-\_\-value} ()\label{classMoby_1_1XMLAttrib_a245fd0c68798752581dfb1ea212eac18}
+
+\item 
+unsigned {\bfseries get\-\_\-unsigned\-\_\-value} ()\label{classMoby_1_1XMLAttrib_a5a9e69e3d26a1c046088b17e06d808fd}
+
+\item 
+bool {\bf get\-\_\-bool\-\_\-value} ()
+\begin{DoxyCompactList}\small\item\em Gets a Boolean value from the underlying string representation. \end{DoxyCompactList}\item 
+long {\bfseries get\-\_\-long\-\_\-value} ()\label{classMoby_1_1XMLAttrib_ac3853a89e367f1697e95a0c5e182e52f}
+
+\item 
+std\-::list$<$ std\-::string $>$ {\bf get\-\_\-strings\-\_\-value} ()\label{classMoby_1_1XMLAttrib_af6cc37d10c0412beaf9e228d34fb89ee}
+
+\begin{DoxyCompactList}\small\item\em Gets a list of space-\/delimited and/or comma-\/delimited strings from the underlying string value. \end{DoxyCompactList}\item 
+Ravelin\-::\-Quatd {\bf get\-\_\-quat\-\_\-value} ()\label{classMoby_1_1XMLAttrib_a5ec0036d71b00fb7056bb40e8f819ac8}
+
+\begin{DoxyCompactList}\small\item\em Returns a quaternion value from the attribute. \end{DoxyCompactList}\item 
+Ravelin\-::\-Quatd {\bfseries get\-\_\-axis\-\_\-angle\-\_\-value} ()\label{classMoby_1_1XMLAttrib_a935eda79cc4247588e8256346938c629}
+
+\item 
+Ravelin\-::\-Quatd {\bf get\-\_\-rpy\-\_\-value} ()\label{classMoby_1_1XMLAttrib_af11ae709888a993233fe9d0d1c2de402}
+
+\begin{DoxyCompactList}\small\item\em Returns a quaternion value from a roll-\/pitch-\/yaw attribute. \end{DoxyCompactList}\item 
+void {\bfseries get\-\_\-vector\-\_\-value} (Ravelin\-::\-Vector\-Nd \&v)\label{classMoby_1_1XMLAttrib_a21eb9f45bea597363302cd81106c6dc1}
+
+\item 
+void {\bfseries get\-\_\-vector\-\_\-value} (Ravelin\-::\-Vector2d \&v)\label{classMoby_1_1XMLAttrib_aa1f19276a455cc78300b6f549737b302}
+
+\item 
+void {\bfseries get\-\_\-vector\-\_\-value} (Ravelin\-::\-Vector3d \&v)\label{classMoby_1_1XMLAttrib_a4c25e43104336f58b56cc765a826a3e2}
+
+\item 
+void {\bfseries get\-\_\-vector\-\_\-value} (Ravelin\-::\-S\-Vector6d \&v)\label{classMoby_1_1XMLAttrib_a630c484fee7930aa33261a894d84acee}
+
+\item 
+void {\bfseries get\-\_\-matrix\-\_\-value} (Ravelin\-::\-Matrix3d \&m)\label{classMoby_1_1XMLAttrib_af6aaaedc8f5c846beea1fedb276224d0}
+
+\item 
+void {\bfseries get\-\_\-matrix\-\_\-value} (Ravelin\-::\-Matrix\-Nd \&m)\label{classMoby_1_1XMLAttrib_ac6d51a02bf6a1bdf80a896136671a503}
+
+\item 
+bool {\bfseries operator==} (const {\bf X\-M\-L\-Attrib} \&a) const \label{classMoby_1_1XMLAttrib_a6c92e056b06b69361f5bea316b4a7b07}
+
+\item 
+bool {\bfseries operator$<$} (const {\bf X\-M\-L\-Attrib} \&a) const \label{classMoby_1_1XMLAttrib_a9068a17a466c8426fb8674d39cc8f1f9}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static std\-::string {\bf str} (double {\bf value})\label{classMoby_1_1XMLAttrib_a01af6b368c41eec8e3eec18f9f746efe}
+
+\begin{DoxyCompactList}\small\item\em Gets a real value as a string. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+std\-::string {\bf name}\label{classMoby_1_1XMLAttrib_a314a5bfe7a192b27f6bba798a1cc50ce}
+
+\begin{DoxyCompactList}\small\item\em The name of the attribute. \end{DoxyCompactList}\item 
+std\-::string {\bf value}\label{classMoby_1_1XMLAttrib_a526b0ed749ffbb5104567f9ac5cb7441}
+
+\begin{DoxyCompactList}\small\item\em The value in string form. \end{DoxyCompactList}\item 
+bool {\bf processed}\label{classMoby_1_1XMLAttrib_abf859939e945cd19d4ad7ccc5f3d2005}
+
+\begin{DoxyCompactList}\small\item\em Indicates whether this attribute has been processed. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Attributes used for X\-M\-L nodes. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-X\-M\-L\-Attrib@{Moby\-::\-X\-M\-L\-Attrib}!get\-\_\-bool\-\_\-value@{get\-\_\-bool\-\_\-value}}
+\index{get\-\_\-bool\-\_\-value@{get\-\_\-bool\-\_\-value}!Moby::XMLAttrib@{Moby\-::\-X\-M\-L\-Attrib}}
+\subsubsection[{get\-\_\-bool\-\_\-value}]{\setlength{\rightskip}{0pt plus 5cm}bool X\-M\-L\-Attrib\-::get\-\_\-bool\-\_\-value (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1XMLAttrib_abdc6da395e7b2efab9efdc05a72d5c01}
+
+
+Gets a Boolean value from the underlying string representation. 
+
+\begin{DoxyNote}{Note}
+an error message will be output to stderr if the string is not either \char`\"{}true\char`\"{} or \char`\"{}false\char`\"{} (case insensitive) 
+\end{DoxyNote}
+
+
+Referenced by Moby\-::\-Triangle\-Mesh\-Primitive\-::load\-\_\-from\-\_\-xml(), Moby\-::\-R\-C\-Articulated\-Body\-::load\-\_\-from\-\_\-xml(), and Moby\-::\-Rigid\-Body\-::load\-\_\-from\-\_\-xml().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/X\-M\-L\-Tree.\-h\item 
+/home/drum/\-Moby/src/X\-M\-L\-Tree.\-cpp\end{DoxyCompactItemize}

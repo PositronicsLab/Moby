@@ -1,0 +1,121 @@
+\section{Moby\-:\-:Time\-Stepping\-Simulator Class Reference}
+\label{classMoby_1_1TimeSteppingSimulator}\index{Moby\-::\-Time\-Stepping\-Simulator@{Moby\-::\-Time\-Stepping\-Simulator}}
+
+
+An event-\/driven simulator.  
+
+
+
+
+{\ttfamily \#include $<$Time\-Stepping\-Simulator.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Time\-Stepping\-Simulator\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.000000cm]{classMoby_1_1TimeSteppingSimulator}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Time\-Stepping\-Simulator} ()\label{classMoby_1_1TimeSteppingSimulator_a3869d581d50a88702b5834a177ceb08a}
+
+\begin{DoxyCompactList}\small\item\em Default constructor. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1TimeSteppingSimulator_a1b29397680cc9ca652eaf790b77d0191}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1TimeSteppingSimulator_a9fbe88f409947ebdec530bf0d221182c}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual double {\bf step} (double dt)\label{classMoby_1_1TimeSteppingSimulator_a6103f28ca2b879c2edb590ec21a19916}
+
+\begin{DoxyCompactList}\small\item\em Steps the simulator forward by the given step size. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Contact\-Parameters} $>$ {\bfseries get\-\_\-contact\-\_\-parameters} ({\bf Collision\-Geometry\-Ptr} geom1, {\bf Collision\-Geometry\-Ptr} geom2) const \label{classMoby_1_1TimeSteppingSimulator_a45aeafaf5b009c82e9a8be6b48be8d49}
+
+\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Time\-Stepping\-Simulator} $>$ {\bf get\-\_\-this} ()\label{classMoby_1_1TimeSteppingSimulator_a3381f9eb3ba491db30f5ec879ac64461}
+
+\begin{DoxyCompactList}\small\item\em Gets the shared pointer for this. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+double {\bfseries min\-\_\-step\-\_\-size}\label{classMoby_1_1TimeSteppingSimulator_a7aa770057f4173c95b911b1ff62c9f44}
+
+\item 
+std\-::set$<$ Ravelin\-::sorted\-\_\-pair\\*
+$<$ {\bf Collision\-Geometry\-Ptr} $>$ $>$ {\bf unchecked\-\_\-pairs}\label{classMoby_1_1TimeSteppingSimulator_afe14d868006c6e17f5225fca5446b698}
+
+\begin{DoxyCompactList}\small\item\em Determines whether two geometries are not checked. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::pair\\*
+$<$ {\bf Controlled\-Body\-Ptr}, \\*
+Ravelin\-::\-Vector\-Nd $>$ $>$ {\bf \-\_\-x0}\label{classMoby_1_1TimeSteppingSimulator_a3143eb8cdc343a4c03fcaafa838c33ee}
+
+\begin{DoxyCompactList}\small\item\em Vectors set and passed to collision detection. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::pair\\*
+$<$ {\bf Controlled\-Body\-Ptr}, \\*
+Ravelin\-::\-Vector\-Nd $>$ $>$ {\bfseries \-\_\-x1}\label{classMoby_1_1TimeSteppingSimulator_aefd27d4e5adc40c725ff7b9c37993318}
+
+\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+bool {\bf constraints\-\_\-met} (const std\-::vector$<$ {\bf Pairwise\-Dist\-Info} $>$ \&current\-\_\-pairwise\-\_\-distances)\label{classMoby_1_1TimeSteppingSimulator_a28526e4aa5e5dda8768d42968752fcce}
+
+\begin{DoxyCompactList}\small\item\em Checks to see whether all constraints are met. \end{DoxyCompactList}\item 
+std\-::set$<$ Ravelin\-::sorted\-\_\-pair\\*
+$<$ {\bf Collision\-Geometry\-Ptr} $>$ $>$ {\bf get\-\_\-current\-\_\-contact\-\_\-geoms} () const \label{classMoby_1_1TimeSteppingSimulator_a6841e6a4a5865ed8d740c02ef5aebcdc}
+
+\begin{DoxyCompactList}\small\item\em Gets the current set of contact geometries. \end{DoxyCompactList}\item 
+double {\bf do\-\_\-mini\-\_\-step} (double dt)\label{classMoby_1_1TimeSteppingSimulator_a6c2059048eaf1f77c60cc611e3f2c5e7}
+
+\begin{DoxyCompactList}\small\item\em Does a full integration cycle (but not necessarily a full step) \end{DoxyCompactList}\item 
+void {\bf step\-\_\-si\-\_\-\-Euler} (double dt)
+\begin{DoxyCompactList}\small\item\em Does a semi-\/implicit step. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step} () const 
+\begin{DoxyCompactList}\small\item\em Finds the next event time assuming constant velocity. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Collision\-Detection}\label{classMoby_1_1TimeSteppingSimulator_aa87aa6084db35876513fcb4fdd4427ac}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+An event-\/driven simulator. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Time\-Stepping\-Simulator@{Moby\-::\-Time\-Stepping\-Simulator}!calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step@{calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step}}
+\index{calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step@{calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step}!Moby::TimeSteppingSimulator@{Moby\-::\-Time\-Stepping\-Simulator}}
+\subsubsection[{calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step}]{\setlength{\rightskip}{0pt plus 5cm}double Time\-Stepping\-Simulator\-::calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [protected]}}\label{classMoby_1_1TimeSteppingSimulator_a27dc143f497fd40ee89bf451cc1679cf}
+
+
+Finds the next event time assuming constant velocity. 
+
+This method returns the next possible time of contact, discarding current contacts from consideration. \begin{DoxyNote}{Note}
+proper operation of this function is critical. If the function improperly designates an event as not occuring at the current time, calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step(.) will return a small value and prevent large integration steps from being taken. If the function improperly designates an event as occuring at the current time, constraint violation could occur. 
+\end{DoxyNote}
+\index{Moby\-::\-Time\-Stepping\-Simulator@{Moby\-::\-Time\-Stepping\-Simulator}!step\-\_\-si\-\_\-\-Euler@{step\-\_\-si\-\_\-\-Euler}}
+\index{step\-\_\-si\-\_\-\-Euler@{step\-\_\-si\-\_\-\-Euler}!Moby::TimeSteppingSimulator@{Moby\-::\-Time\-Stepping\-Simulator}}
+\subsubsection[{step\-\_\-si\-\_\-\-Euler}]{\setlength{\rightskip}{0pt plus 5cm}void Time\-Stepping\-Simulator\-::step\-\_\-si\-\_\-\-Euler (
+\begin{DoxyParamCaption}
+\item[{double}]{dt}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [protected]}}\label{classMoby_1_1TimeSteppingSimulator_a47dd19b1ab2500b1fdd6de2b50d79b87}
+
+
+Does a semi-\/implicit step. 
+
+Does a semi-\/implicit step (version with conservative advancement) 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Time\-Stepping\-Simulator.\-h\item 
+/home/drum/\-Moby/src/Time\-Stepping\-Simulator.\-cpp\end{DoxyCompactItemize}

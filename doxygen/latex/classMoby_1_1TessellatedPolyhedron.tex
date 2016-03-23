@@ -1,0 +1,187 @@
+\section{Moby\-:\-:Tessellated\-Polyhedron Class Reference}
+\label{classMoby_1_1TessellatedPolyhedron}\index{Moby\-::\-Tessellated\-Polyhedron@{Moby\-::\-Tessellated\-Polyhedron}}
+
+
+Represents a three-\/dimensional polyhedron.  
+
+
+
+
+{\ttfamily \#include $<$Tessellated\-Polyhedron.\-h$>$}
+
+\subsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+enum {\bfseries Location\-Type} \{ \\*
+{\bfseries e\-Inside}, 
+{\bfseries e\-Outside}, 
+{\bfseries e\-On\-Vertex}, 
+{\bfseries e\-On\-Edge}, 
+\\*
+{\bfseries e\-On\-Face}
+ \}
+\end{DoxyCompactItemize}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Tessellated\-Polyhedron} (const {\bf Indexed\-Tri\-Array} \&mesh)\label{classMoby_1_1TessellatedPolyhedron_a7ead23f84f059e92089595986b5e28e6}
+
+\begin{DoxyCompactList}\small\item\em Constructs a polyhedron from an indexed triangle array. \end{DoxyCompactList}\item 
+{\bfseries Tessellated\-Polyhedron} (const {\bf Tessellated\-Polyhedron} \&p)\label{classMoby_1_1TessellatedPolyhedron_aa0c0d73d6fbc4c5ecad717ddbb0bb1a7}
+
+\item 
+void {\bf operator=} (const {\bf Tessellated\-Polyhedron} \&p)\label{classMoby_1_1TessellatedPolyhedron_a0048b8bc7fb6dc592cb51eb816c460a8}
+
+\begin{DoxyCompactList}\small\item\em Copies a polyhedron. \end{DoxyCompactList}\item 
+const {\bf Indexed\-Tri\-Array} \& {\bfseries get\-\_\-mesh} () const \label{classMoby_1_1TessellatedPolyhedron_af5c2d899c1dcc7023bff5da90e387d16}
+
+\item 
+void {\bf transform} (const Ravelin\-::\-Transform3d \&T)
+\begin{DoxyCompactList}\small\item\em Transforms this polyhedron by the given transformation matrix. \end{DoxyCompactList}\item 
+const std\-::vector\\*
+$<$ Ravelin\-::\-Origin3d $>$ \& {\bfseries get\-\_\-vertices} () const \label{classMoby_1_1TessellatedPolyhedron_afb6e0574db44c6325d3642e255b5eefd}
+
+\item 
+const std\-::vector$<$ {\bf Indexed\-Tri} $>$ \& {\bfseries get\-\_\-facets} () const \label{classMoby_1_1TessellatedPolyhedron_acdab14afb1e3ed1a4c84186ce5bd58b6}
+
+\item 
+bool {\bf inside} (const Ravelin\-::\-Origin3d \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1TessellatedPolyhedron_ab30dad674b5734565e47e19277cae8a9}
+
+\begin{DoxyCompactList}\small\item\em Determines whether the specified point is strictly inside this polyhedron. \end{DoxyCompactList}\item 
+bool {\bf inside\-\_\-or\-\_\-on} (const Ravelin\-::\-Origin3d \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1TessellatedPolyhedron_a3e3bd639bbaa7ba4fd2cade2951a95df}
+
+\begin{DoxyCompactList}\small\item\em Determines whether the specified point is in or on this polyhedron. \end{DoxyCompactList}\item 
+Location\-Type {\bf location} (const Ravelin\-::\-Origin3d \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const 
+\begin{DoxyCompactList}\small\item\em Determines the location of the specified point with respect to this polyhedron. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-volume} () const \label{classMoby_1_1TessellatedPolyhedron_aea105a30886607fef7b795e1818605aa}
+
+\begin{DoxyCompactList}\small\item\em Calculates the volume of this polyhedron. \end{DoxyCompactList}\item 
+bool {\bf consistent} () const \label{classMoby_1_1TessellatedPolyhedron_a2b6919cac83be190d5d83cdc9e5d8b97}
+
+\begin{DoxyCompactList}\small\item\em Checks whether this polyhedron is consistent. \end{DoxyCompactList}\item 
+bool {\bf degenerate} () const \label{classMoby_1_1TessellatedPolyhedron_a08b57b1e27308ccba41c42870a8b26b4}
+
+\begin{DoxyCompactList}\small\item\em Checks whether this polyhedron is degenerate. \end{DoxyCompactList}\item 
+const Ravelin\-::\-Origin3d \& {\bf find\-\_\-extreme\-\_\-vertex} (const Ravelin\-::\-Origin3d \&direction)\label{classMoby_1_1TessellatedPolyhedron_ab58f2c681e870aca8b29f2c64197ef99}
+
+\begin{DoxyCompactList}\small\item\em Does an extremal point query for the \doxyref{Polyhedron}{p.}{classMoby_1_1Polyhedron}; returns a vertex furthest along the given direction. \end{DoxyCompactList}\item 
+void {\bf to\-\_\-polyhedron} ({\bf Polyhedron} \&p) const \label{classMoby_1_1TessellatedPolyhedron_a49211a929e0eaeba431e2551d3ec503a}
+
+\begin{DoxyCompactList}\small\item\em Creates a polyhedron from this tessellated polyhedron. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Input\-Iterator1 , class Input\-Iterator2 $>$ }\\{\bf Tessellated\-Polyhedron} (Input\-Iterator1 verts\-\_\-begin, Input\-Iterator1 verts\-\_\-end, Input\-Iterator2 facets\-\_\-begin, Input\-Iterator2 facets\-\_\-end)\label{classMoby_1_1TessellatedPolyhedron_a6cdf73cbcceb70f75068fd65cc2c42bc}
+
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{Tessellated\-Polyhedron}{p.}{classMoby_1_1TessellatedPolyhedron} from iterators to a container holding Point3d objects and iterators to a container holding \doxyref{Indexed\-Tri}{p.}{structMoby_1_1IndexedTri} types. \end{DoxyCompactList}\item 
+const std\-::list$<$ unsigned $>$ \& {\bf get\-\_\-incident\-\_\-facets} (unsigned i) const \label{classMoby_1_1TessellatedPolyhedron_a339fc3ba0dee67d21e5ef8f83e36f66d}
+
+\begin{DoxyCompactList}\small\item\em Gets the list of facets coincident to the i'th facet. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-signed\-\_\-distance} (const Ravelin\-::\-Origin3d \&point, unsigned \&closest\-\_\-facet)\label{classMoby_1_1TessellatedPolyhedron_a8dd674fa7a73d0d321fa1da9d6429d33}
+
+\begin{DoxyCompactList}\small\item\em Gets the signed distance and closest facet to a point. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-signed\-\_\-distance} (const Ravelin\-::\-Origin3d \&point)\label{classMoby_1_1TessellatedPolyhedron_a95fed822ef3c08f8673e3ff9517cf164}
+
+\begin{DoxyCompactList}\small\item\em Gets the signed distance from a point to the polyhedron. \end{DoxyCompactList}\item 
+std\-::pair$<$ Ravelin\-::\-Origin3d, \\*
+Ravelin\-::\-Origin3d $>$ {\bf get\-\_\-bounding\-\_\-box\-\_\-corners} () const \label{classMoby_1_1TessellatedPolyhedron_a215084b8331ce5f3de7c2ca051bd0bf6}
+
+\begin{DoxyCompactList}\small\item\em Gets the corners of the axis-\/aligned bounding box of this polyhedron. \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-convex} ()\label{classMoby_1_1TessellatedPolyhedron_a13556119b58cb31d86a56485165bdaee}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this polyhedron convex (to w/in floating point tolerance) \end{DoxyCompactList}\item 
+double {\bf convexity} ()
+\begin{DoxyCompactList}\small\item\em Gets the convexity of this polyhedron. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Input\-Iterator1 , class Input\-Iterator2 $>$ }\\{\bf Tessellated\-Polyhedron} (Input\-Iterator1 verts\-\_\-begin, Input\-Iterator1 verts\-\_\-end, Input\-Iterator2 facets\-\_\-begin, Input\-Iterator2 facets\-\_\-end)\label{classMoby_1_1TessellatedPolyhedron_a6cdf73cbcceb70f75068fd65cc2c42bc}
+
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{Tessellated\-Polyhedron}{p.}{classMoby_1_1TessellatedPolyhedron} from iterators to a container holding Point3d objects and iterators to a container holding \doxyref{Indexed\-Tri}{p.}{structMoby_1_1IndexedTri} types. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static {\bf Tessellated\-Polyhedron\-Ptr} {\bf minkowski} ({\bf Tessellated\-Polyhedron} \&p1, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ T1, {\bf Tessellated\-Polyhedron} \&p2, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ T2, bool reflect\-\_\-p2=true)\label{classMoby_1_1TessellatedPolyhedron_a2aee844dc6e24d29e66501f795a3a586}
+
+\begin{DoxyCompactList}\small\item\em Computes the Minkowski sum of two convex polyhedra. \end{DoxyCompactList}\item 
+static void {\bf to\-\_\-vrml} (std\-::ostream \&out, const {\bf Tessellated\-Polyhedron} \&p, Ravelin\-::\-Origin3d diffuse\-\_\-color=Ravelin\-::\-Origin3d(1, 1, 1), bool wireframe=false)\label{classMoby_1_1TessellatedPolyhedron_a0fe69af0073c28ba703813ba5f767315}
+
+\begin{DoxyCompactList}\small\item\em Sends this polyhedron to the specified stream using V\-R\-M\-L. \end{DoxyCompactList}\item 
+static {\bf Indexed\-Tri\-Array} {\bf construct\-\_\-intersection} ({\bf Tessellated\-Polyhedron} \&p1, {\bf Tessellated\-Polyhedron} \&p2)
+\begin{DoxyCompactList}\small\item\em Intersects two non-\/convex polyhedra. \end{DoxyCompactList}\item 
+static {\bf Indexed\-Tri\-Array} {\bf construct\-\_\-union} ({\bf Tessellated\-Polyhedron} \&p1, {\bf Tessellated\-Polyhedron} \&p2)\label{classMoby_1_1TessellatedPolyhedron_a94b90dec84d4f8250f9526a85a9010e8}
+
+\begin{DoxyCompactList}\small\item\em Unions two non-\/convex polyhedra. \end{DoxyCompactList}\item 
+static {\bf Indexed\-Tri\-Array} {\bf construct\-\_\-difference} ({\bf Tessellated\-Polyhedron} \&p1, {\bf Tessellated\-Polyhedron} \&p2)\label{classMoby_1_1TessellatedPolyhedron_a206a3cde718fff8404c89a61a17a84c2}
+
+\begin{DoxyCompactList}\small\item\em Constructs the Boolean difference p1 -\/ p2. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Represents a three-\/dimensional polyhedron. 
+
+Though this class is used for representing polyhedron, it is possible to represent arbitrary (i.\-e., non-\/closed) triangle meshes as well. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Tessellated\-Polyhedron@{Moby\-::\-Tessellated\-Polyhedron}!construct\-\_\-intersection@{construct\-\_\-intersection}}
+\index{construct\-\_\-intersection@{construct\-\_\-intersection}!Moby::TessellatedPolyhedron@{Moby\-::\-Tessellated\-Polyhedron}}
+\subsubsection[{construct\-\_\-intersection}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Indexed\-Tri\-Array} Tessellated\-Polyhedron\-::construct\-\_\-intersection (
+\begin{DoxyParamCaption}
+\item[{{\bf Tessellated\-Polyhedron} \&}]{p1, }
+\item[{{\bf Tessellated\-Polyhedron} \&}]{p2}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1TessellatedPolyhedron_aa7695754e171614f333cc01b7225e111}
+
+
+Intersects two non-\/convex polyhedra. 
+
+The running time for this algorithm is O(nm), where n and m are the number of triangles of p1 and p2, respectively. A faster algorithm can be obtained if p1 and p2 are both convex, but it is not implemented here. 
+
+References Moby\-::\-Indexed\-Tri\-Array\-::compress\-\_\-vertices(), and consistent().
+
+\index{Moby\-::\-Tessellated\-Polyhedron@{Moby\-::\-Tessellated\-Polyhedron}!convexity@{convexity}}
+\index{convexity@{convexity}!Moby::TessellatedPolyhedron@{Moby\-::\-Tessellated\-Polyhedron}}
+\subsubsection[{convexity}]{\setlength{\rightskip}{0pt plus 5cm}double Moby\-::\-Tessellated\-Polyhedron\-::convexity (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [inline]}}\label{classMoby_1_1TessellatedPolyhedron_ab21e51eaae09b0338c55840519717ab9}
+
+
+Gets the convexity of this polyhedron. 
+
+Convexity values less than epsilon (where epsilon is some number near zero) indicate that the polyhedron is convex; greater values indicate that the polyhedron is non-\/convex. 
+
+Referenced by is\-\_\-convex().
+
+\index{Moby\-::\-Tessellated\-Polyhedron@{Moby\-::\-Tessellated\-Polyhedron}!location@{location}}
+\index{location@{location}!Moby::TessellatedPolyhedron@{Moby\-::\-Tessellated\-Polyhedron}}
+\subsubsection[{location}]{\setlength{\rightskip}{0pt plus 5cm}Tessellated\-Polyhedron\-::\-Location\-Type Tessellated\-Polyhedron\-::location (
+\begin{DoxyParamCaption}
+\item[{const Ravelin\-::\-Origin3d \&}]{point, }
+\item[{double}]{tol = {\ttfamily NEAR\-\_\-ZERO}}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1TessellatedPolyhedron_ad1e2a218d8573d47129c88667de77739}
+
+
+Determines the location of the specified point with respect to this polyhedron. 
+
+This method handles queries when the polyhedron is not convex or more detail is necessary. Adapted from O'Rourke, p. 247-\/250. Runs in worst-\/case time O(f), where f is the number of facets of the polyhedron. \index{Moby\-::\-Tessellated\-Polyhedron@{Moby\-::\-Tessellated\-Polyhedron}!transform@{transform}}
+\index{transform@{transform}!Moby::TessellatedPolyhedron@{Moby\-::\-Tessellated\-Polyhedron}}
+\subsubsection[{transform}]{\setlength{\rightskip}{0pt plus 5cm}void Tessellated\-Polyhedron\-::transform (
+\begin{DoxyParamCaption}
+\item[{const Ravelin\-::\-Transform3d \&}]{T}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1TessellatedPolyhedron_af5795156db49a618e12f74886b91be92}
+
+
+Transforms this polyhedron by the given transformation matrix. 
+
+\begin{DoxyNote}{Note}
+none of the vertex or triangle pointers change; rather the data that they point to changes 
+\end{DoxyNote}
+
+
+Referenced by minkowski().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Tessellated\-Polyhedron.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Tessellated\-Polyhedron.\-inl\item 
+/home/drum/\-Moby/src/Tessellated\-Polyhedron.\-cpp\end{DoxyCompactItemize}

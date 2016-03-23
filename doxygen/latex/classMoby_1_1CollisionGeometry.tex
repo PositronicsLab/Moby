@@ -1,0 +1,164 @@
+\section{Moby\-:\-:Collision\-Geometry Class Reference}
+\label{classMoby_1_1CollisionGeometry}\index{Moby\-::\-Collision\-Geometry@{Moby\-::\-Collision\-Geometry}}
+
+
+Defines collision geometry that may be used (in principle) many ways\-: for rigid bodies, non-\/rigid bodies, ...  
+
+
+
+
+{\ttfamily \#include $<$Collision\-Geometry.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Collision\-Geometry\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1CollisionGeometry}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Collision\-Geometry} ()\label{classMoby_1_1CollisionGeometry_a784e93c74cc7d19422511e9d3d6ea863}
+
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} with no triangle mesh, identity transformation and relative transformation. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-relative\-\_\-pose} (const Ravelin\-::\-Pose3d \&pose)
+\begin{DoxyCompactList}\small\item\em Sets the relative pose of this geometry. \end{DoxyCompactList}\item 
+void {\bf write\-\_\-vrml} (const std\-::string \&filename) const 
+\begin{DoxyCompactList}\small\item\em Writes the collision geometry mesh to the specified V\-R\-M\-L file. \end{DoxyCompactList}\item 
+{\bf Primitive\-Ptr} {\bf set\-\_\-geometry} ({\bf Primitive\-Ptr} primitive)
+\begin{DoxyCompactList}\small\item\em Sets the collision geometry via a primitive. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1CollisionGeometry_a22ac18e99fa56f198d91faecf8b7f8e1}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1CollisionGeometry_a164759946c1a08773bc6bea03c3008c8}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+void {\bf set\-\_\-single\-\_\-body} (boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Single\-Bodyd $>$ s)\label{classMoby_1_1CollisionGeometry_a016bc02ff0f46493b25cd9bee9e9d2df}
+
+\begin{DoxyCompactList}\small\item\em Sets the single body associated with this \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry}. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p)\label{classMoby_1_1CollisionGeometry_abb1c300bd5df1aae4eedb61f6960924c}
+
+\begin{DoxyCompactList}\small\item\em Calculates the signed distance for a primitive. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&p, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&n) const \label{classMoby_1_1CollisionGeometry_a705448feff9f2765b2013dae9eb7c8a0}
+
+\begin{DoxyCompactList}\small\item\em Calculates the (unsigned) distance of a point from this collision geometry. \end{DoxyCompactList}\item 
+void {\bf get\-\_\-vertices} (std\-::vector$<$ {\bf Point3d} $>$ \&p) const \label{classMoby_1_1CollisionGeometry_ae3aa55120f6c91e387d6423010532b3b}
+
+\begin{DoxyCompactList}\small\item\em Gets vertices for a primitive. \end{DoxyCompactList}\item 
+{\bf Point3d} {\bf get\-\_\-supporting\-\_\-point} (const Ravelin\-::\-Vector3d \&d) const \label{classMoby_1_1CollisionGeometry_a287eb3ebf1dbcf95a86b849274303bfd}
+
+\begin{DoxyCompactList}\small\item\em Gets a supporting point for this geometry in a particular direction. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-farthest\-\_\-point\-\_\-distance} () const \label{classMoby_1_1CollisionGeometry_af729114ea267bc076c5480359ebc5e34}
+
+\begin{DoxyCompactList}\small\item\em Gets the farthest point from this geometry. \end{DoxyCompactList}\item 
+{\bf Collision\-Geometry\-Ptr} {\bf get\-\_\-this} ()\label{classMoby_1_1CollisionGeometry_a06e8a713c28e00acdc66d5b6450b75b2}
+
+\begin{DoxyCompactList}\small\item\em Gets the shared pointer for this. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Collision\-Geometry} $>$ {\bf get\-\_\-parent} () const \label{classMoby_1_1CollisionGeometry_af83ad26a6662a49a8271356e599cccb7}
+
+\begin{DoxyCompactList}\small\item\em Gets the parent of this \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} (or N\-U\-L\-L if there is no parent) \end{DoxyCompactList}\item 
+void {\bf set\-\_\-parent} (boost\-::weak\-\_\-ptr$<$ {\bf Collision\-Geometry} $>$ parent)\label{classMoby_1_1CollisionGeometry_a38909e804b12414d12609390407203d9}
+
+\begin{DoxyCompactList}\small\item\em Sets the parent of this \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} (or N\-U\-L\-L to indicate no parent) \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-pose} () const \label{classMoby_1_1CollisionGeometry_a97fdf323e76b63e0db1b6cbb9e2c7cc4}
+
+\begin{DoxyCompactList}\small\item\em Gets the relative transform for this \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry}. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Single\-Bodyd $>$ {\bf get\-\_\-single\-\_\-body} () const \label{classMoby_1_1CollisionGeometry_aafe9c7432f3a629529ebe525b2a3c693}
+
+\begin{DoxyCompactList}\small\item\em Gets the single body associated with this \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} (if any) \end{DoxyCompactList}\item 
+{\bf Primitive\-Ptr} {\bf get\-\_\-geometry} () const \label{classMoby_1_1CollisionGeometry_afb15f1f785a2286769f6b32eb5b22e74}
+
+\begin{DoxyCompactList}\small\item\em Gets the geometry for this primitive. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static double {\bf calc\-\_\-signed\-\_\-dist} ({\bf Collision\-Geometry\-Ptr} a, {\bf Collision\-Geometry\-Ptr} b, {\bf Point3d} \&cpa, {\bf Point3d} \&cpb)\label{classMoby_1_1CollisionGeometry_ab0db144efbcaa9b47eb68fd7c8c3cbff}
+
+\begin{DoxyCompactList}\small\item\em Calculates the signed distances between two geometries and returns closest points if geometries are not interpenetrating. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+double {\bf compliant\-\_\-layer\-\_\-depth}\label{classMoby_1_1CollisionGeometry_a9d26cd90153139bafef2fb0c63337f55}
+
+\begin{DoxyCompactList}\small\item\em The compliant layer around this geometry. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Pose3d $>$ {\bf \-\_\-\-F}\label{classMoby_1_1CollisionGeometry_ae72a0959de9c5e3c78c37def1ee89f9e}
+
+\begin{DoxyCompactList}\small\item\em The pose of the \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} (relative to the rigid body) \end{DoxyCompactList}\item 
+{\bf Primitive\-Ptr} {\bf \-\_\-geometry}\label{classMoby_1_1CollisionGeometry_a6f1e26342336c8a0602a45aedd694f69}
+
+\begin{DoxyCompactList}\small\item\em The underlying geometry. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Generalized\-C\-C\-D}\label{classMoby_1_1CollisionGeometry_ab5283d85b509bd3e4b0c7187cbb260f5}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Defines collision geometry that may be used (in principle) many ways\-: for rigid bodies, non-\/rigid bodies, ... 
+
+In principle the geometry may be very complex, and may support nonstationarity (changing over time) or deformities (e.\-g., due to collision). Note that while the underlying geometry may be shared, it is not intended for \doxyref{Collision\-Geometry}{p.}{classMoby_1_1CollisionGeometry} objects to be shared. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Collision\-Geometry@{Moby\-::\-Collision\-Geometry}!set\-\_\-geometry@{set\-\_\-geometry}}
+\index{set\-\_\-geometry@{set\-\_\-geometry}!Moby::CollisionGeometry@{Moby\-::\-Collision\-Geometry}}
+\subsubsection[{set\-\_\-geometry}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Primitive\-Ptr} Collision\-Geometry\-::set\-\_\-geometry (
+\begin{DoxyParamCaption}
+\item[{{\bf Primitive\-Ptr}}]{primitive}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1CollisionGeometry_a2ac59b456c5ffc489ec727aefcae00e9}
+
+
+Sets the collision geometry via a primitive. 
+
+The primitive is not cloned, nor is it unaltered; {\bfseries this} points to the pointer returned by this method (typically {\bfseries primitive}). \begin{DoxyReturn}{Returns}
+primitive {\itshape unless the geometry of the underlying primitive is inconsistent, degenerate, or non-\/convex{\itshape ; in that case, a corrected primitive will be returned. }}
+\end{DoxyReturn}
+\index{Moby\-::\-Collision\-Geometry@{Moby\-::\-Collision\-Geometry}!set\-\_\-relative\-\_\-pose@{set\-\_\-relative\-\_\-pose}}
+\index{set\-\_\-relative\-\_\-pose@{set\-\_\-relative\-\_\-pose}!Moby::CollisionGeometry@{Moby\-::\-Collision\-Geometry}}
+\subsubsection[{set\-\_\-relative\-\_\-pose}]{\setlength{\rightskip}{0pt plus 5cm}void Collision\-Geometry\-::set\-\_\-relative\-\_\-pose (
+\begin{DoxyParamCaption}
+\item[{const Ravelin\-::\-Pose3d \&}]{pose}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1CollisionGeometry_ad2cd01eb3bca373283a3e76e4fb5728b}
+
+
+Sets the relative pose of this geometry. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em P} & the relative pose (P.\-pose must be set relative to the single body pose) \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-Collision\-Geometry@{Moby\-::\-Collision\-Geometry}!write\-\_\-vrml@{write\-\_\-vrml}}
+\index{write\-\_\-vrml@{write\-\_\-vrml}!Moby::CollisionGeometry@{Moby\-::\-Collision\-Geometry}}
+\subsubsection[{write\-\_\-vrml}]{\setlength{\rightskip}{0pt plus 5cm}void Collision\-Geometry\-::write\-\_\-vrml (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{filename}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1CollisionGeometry_afe5b24c50f54c1f3d1841540ba67da86}
+
+
+Writes the collision geometry mesh to the specified V\-R\-M\-L file. 
+
+\begin{DoxyNote}{Note}
+the mesh is transformed using the current transformation 
+\end{DoxyNote}
+
+
+References get\-\_\-pose().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Collision\-Geometry.\-h\item 
+/home/drum/\-Moby/src/Collision\-Geometry.\-cpp\end{DoxyCompactItemize}

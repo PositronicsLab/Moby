@@ -1,0 +1,144 @@
+\section{Moby\-:\-:Plane\-Primitive Class Reference}
+\label{classMoby_1_1PlanePrimitive}\index{Moby\-::\-Plane\-Primitive@{Moby\-::\-Plane\-Primitive}}
+
+
+Represents a heightmap with height zero on the xz plane (primitive can be transformed)  
+
+
+
+
+{\ttfamily \#include $<$Plane\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Plane\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1PlanePrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Plane\-Primitive} ()\label{classMoby_1_1PlanePrimitive_a46a405787b15f20af7e822a6bf716aff}
+
+\begin{DoxyCompactList}\small\item\em Initializes the heightmap primitive. \end{DoxyCompactList}\item 
+{\bf Plane\-Primitive} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1PlanePrimitive_acec87827c1f4e6628f6f8e3f1b0e75a9}
+
+\begin{DoxyCompactList}\small\item\em Initializes the heightmap primitive. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-supporting\-\_\-point} (const Ravelin\-::\-Vector3d \&dir) const \label{classMoby_1_1PlanePrimitive_a4c43337b907d7eca31dd7d0ee6732217}
+
+\begin{DoxyCompactList}\small\item\em Gets the supporting point for the plane (for G\-J\-K) \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1PlanePrimitive_a54252ae40e4b18255a441336a98865eb}
+
+\begin{DoxyCompactList}\small\item\em Transforms the primitive. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const 
+\begin{DoxyCompactList}\small\item\em Get vertices corresponding to this primitive. \end{DoxyCompactList}\item 
+void {\bfseries get\-\_\-vertices} ({\bf B\-V\-Ptr} bv, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const \label{classMoby_1_1PlanePrimitive_a44de9591a27ac02b236b41b24e34523d}
+
+\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&point, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1PlanePrimitive_a754e5aa58e1feaf4f701ebed8609e67d}
+
+\begin{DoxyCompactList}\small\item\em Finds the signed distance betwen the plane and a point. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1PlanePrimitive_a5a04eeb1d16afc20e832414cc67829bb}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+double {\bfseries calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Polyhedral\-Primitive} $>$ b, {\bf Point3d} \&pthis, {\bf Point3d} \&pb) const \label{classMoby_1_1PlanePrimitive_aad41d8cae67e5f20c3aaf86641358134}
+
+\item 
+double {\bfseries calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Cylinder\-Primitive} $>$ s, {\bf Point3d} \&pthis, {\bf Point3d} \&psph) const \label{classMoby_1_1PlanePrimitive_a6c7d5253f56dc7f5dc45b69f04bb8fda}
+
+\item 
+double {\bfseries calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Sphere\-Primitive} $>$ s, {\bf Point3d} \&pthis, {\bf Point3d} \&psph) const \label{classMoby_1_1PlanePrimitive_a9c618fc47c58185ac290354df59b534c}
+
+\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1PlanePrimitive_a64d68735d467ea55423a1421f108977d}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance of the given point from this primitive. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1PlanePrimitive_a2df0aabf6403ae528adbc1b72da179b8}
+
+\begin{DoxyCompactList}\small\item\em Computes the O\-S\-G visualization. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1PlanePrimitive_a706451877352783453f5141a0a5209ee}
+
+\begin{DoxyCompactList}\small\item\em Gets the mesh of the heightmap. \end{DoxyCompactList}\item 
+virtual void {\bfseries calc\-\_\-mass\-\_\-properties} ()\label{classMoby_1_1PlanePrimitive_a05b7ebabe00deb1d511e6f0775e62d88}
+
+\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)\label{classMoby_1_1PlanePrimitive_a0366101dd2af4d62e2804f5e4c8722a1}
+
+\begin{DoxyCompactList}\small\item\em Gets the B\-V\-H root for the heightmap. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1PlanePrimitive_ac8093c3e57621aab0884ae91b1e37f5d}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1PlanePrimitive_a860a58e5f0a52e8b6a6c94996e0886d6}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1PlanePrimitive_abdd9fe990ba386cf892c90f010506d03}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this primitive is convex. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1PlanePrimitive_a90fa0e7cc5427358437b16be1ab60d31}
+
+\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual double {\bf calc\-\_\-height} (const {\bf Point3d} \&p) const \label{classMoby_1_1PlanePrimitive_aa0dde7637cb2abb21195d0dab1fd7657}
+
+\begin{DoxyCompactList}\small\item\em Computes the height at a particular point. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+std\-::map$<$ {\bf Collision\-Geometry\-Ptr}, \\*
+boost\-::shared\-\_\-ptr$<$ {\bf O\-B\-B} $>$ $>$ {\bf \-\_\-obbs}\label{classMoby_1_1PlanePrimitive_a76df108c0786d99c484709d174dd1548}
+
+\begin{DoxyCompactList}\small\item\em The bounding volumes for the heightmap. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries C\-C\-D}\label{classMoby_1_1PlanePrimitive_aab79385077be6367d4557d44e17ffcf0}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Represents a heightmap with height zero on the xz plane (primitive can be transformed) 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Plane\-Primitive@{Moby\-::\-Plane\-Primitive}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::PlanePrimitive@{Moby\-::\-Plane\-Primitive}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}virtual void Moby\-::\-Plane\-Primitive\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{P, }
+\item[{std\-::vector$<$ {\bf Point3d} $>$ \&}]{vertices}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1PlanePrimitive_a86473e30acbf8dd05b8c4305b5f44bc8}
+
+
+Get vertices corresponding to this primitive. 
+
+Gets the vertex indices from selected facets of an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray}.
+
+
+\begin{DoxyParams}{Parameters}
+{\em tris} & the triangle mesh \\
+\hline
+{\em fselect\-\_\-begin} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em fselect\-\_\-end} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em output} & beginning iterator to a container of type Point3d; unique vertices are copied here on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+ending iterator to a container of type Point3d; unique vertices are copied here on return 
+\end{DoxyReturn}
+
+
+Implements {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_ab50adaba8785794650193def668d4a05}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Plane\-Primitive.\-h\item 
+/home/drum/\-Moby/src/Plane\-Primitive.\-cpp\end{DoxyCompactItemize}

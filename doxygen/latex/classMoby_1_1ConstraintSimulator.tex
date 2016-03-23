@@ -1,0 +1,238 @@
+\section{Moby\-:\-:Constraint\-Simulator Class Reference}
+\label{classMoby_1_1ConstraintSimulator}\index{Moby\-::\-Constraint\-Simulator@{Moby\-::\-Constraint\-Simulator}}
+
+
+An virtual class for simulation with constraints.  
+
+
+
+
+{\ttfamily \#include $<$Constraint\-Simulator.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Constraint\-Simulator\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.000000cm]{classMoby_1_1ConstraintSimulator}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Constraint\-Simulator} ()\label{classMoby_1_1ConstraintSimulator_aedbfa53caf8953267ea8045841c3aa34}
+
+\begin{DoxyCompactList}\small\item\em Default constructor. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1ConstraintSimulator_aea925f7a62d28833ec377e7176bcca78}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1ConstraintSimulator_aa97902317a931eb41b6e67069aa3c236}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Contact\-Parameters} $>$ {\bf get\-\_\-contact\-\_\-parameters} ({\bf Collision\-Geometry\-Ptr} geom1, {\bf Collision\-Geometry\-Ptr} geom2) const 
+\begin{DoxyCompactList}\small\item\em Gets the contact data between a pair of geometries (if any) \end{DoxyCompactList}\item 
+const std\-::vector\\*
+$<$ {\bf Pairwise\-Dist\-Info} $>$ \& {\bfseries get\-\_\-pairwise\-\_\-distances} () const \label{classMoby_1_1ConstraintSimulator_a1e22560c8e48a696a627a254bc131267}
+
+\item 
+std\-::vector\\*
+$<$ {\bf Unilateral\-Constraint} $>$ \& {\bf get\-\_\-compliant\-\_\-constraints} ()\label{classMoby_1_1ConstraintSimulator_a7ce2f9725e1f96f41dcdb4452a0b2d44}
+
+\begin{DoxyCompactList}\small\item\em Gets the (sorted) compliant constraint data. \end{DoxyCompactList}\item 
+std\-::vector\\*
+$<$ {\bf Unilateral\-Constraint} $>$ \& {\bf get\-\_\-rigid\-\_\-constraints} ()\label{classMoby_1_1ConstraintSimulator_af492f176bd01f46348049ffdef756a72}
+
+\begin{DoxyCompactList}\small\item\em Gets the (sorted) rigid constraint data. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Collision\-Detection} $>$ {\bf get\-\_\-collision\-\_\-detection} () const \label{classMoby_1_1ConstraintSimulator_abce5ddbc330b074c6c3893fccb4b22c7}
+
+\begin{DoxyCompactList}\small\item\em Gets the collision detection mechanism. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Constraint\-Stabilization} {\bf cstab}\label{classMoby_1_1ConstraintSimulator_a7fd2315bffefddbc4395d413f60814a2}
+
+\begin{DoxyCompactList}\small\item\em The constraint stabilization mechanism. \end{DoxyCompactList}\item 
+std\-::set$<$ Ravelin\-::sorted\-\_\-pair\\*
+$<$ {\bf Collision\-Geometry\-Ptr} $>$ $>$ {\bf unchecked\-\_\-pairs}\label{classMoby_1_1ConstraintSimulator_a706d9def5b4e10f8cd4e6f85b4cfc4d7}
+
+\begin{DoxyCompactList}\small\item\em Determines whether two geometries are not checked. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::pair\\*
+$<$ {\bf Controlled\-Body\-Ptr}, \\*
+Ravelin\-::\-Vector\-Nd $>$ $>$ {\bf \-\_\-x0}\label{classMoby_1_1ConstraintSimulator_a631b00c84884499fffeffa568a304d94}
+
+\begin{DoxyCompactList}\small\item\em Vectors set and passed to collision detection. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::pair\\*
+$<$ {\bf Controlled\-Body\-Ptr}, \\*
+Ravelin\-::\-Vector\-Nd $>$ $>$ {\bfseries \-\_\-x1}\label{classMoby_1_1ConstraintSimulator_a873f6b7a5e8ae98d8bd394243ec7eb77}
+
+\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Contact\-Parameters} $>$($\ast$ {\bf get\-\_\-contact\-\_\-parameters\-\_\-callback\-\_\-fn} )({\bf Collision\-Geometry\-Ptr} g1, {\bf Collision\-Geometry\-Ptr} g2)\label{classMoby_1_1ConstraintSimulator_a03040cb619a75188341b5294ff7b191e}
+
+\begin{DoxyCompactList}\small\item\em Callback function for getting contact parameters. \end{DoxyCompactList}\item 
+void($\ast$ {\bf post\-\_\-mini\-\_\-step\-\_\-callback\-\_\-fn} )({\bf Constraint\-Simulator} $\ast$s)\label{classMoby_1_1ConstraintSimulator_aae799e90389294ab8b760fe7f8fcd084}
+
+\begin{DoxyCompactList}\small\item\em Callback function after a mini-\/step is completed. \end{DoxyCompactList}\item 
+void($\ast$ {\bf constraint\-\_\-callback\-\_\-fn} )(std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&, boost\-::shared\-\_\-ptr$<$ void $>$)
+\begin{DoxyCompactList}\small\item\em The callback function (called when constraints have been determined) \end{DoxyCompactList}\item 
+void($\ast$ {\bf constraint\-\_\-post\-\_\-callback\-\_\-fn} )(const std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&, boost\-::shared\-\_\-ptr$<$ void $>$)\label{classMoby_1_1ConstraintSimulator_aa0442c2de79fba335920e39949617483}
+
+\begin{DoxyCompactList}\small\item\em The callback function (called after forces/impulses are applied) \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ void $>$ {\bf constraint\-\_\-callback\-\_\-data}\label{classMoby_1_1ConstraintSimulator_aee2a305b9783b4df880bc9359244fe46}
+
+\begin{DoxyCompactList}\small\item\em Data passed to unilateral constraint callback. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ void $>$ {\bf constraint\-\_\-post\-\_\-callback\-\_\-data}\label{classMoby_1_1ConstraintSimulator_afc24fa5f9ccea2c4ae789f4ddd5ae740}
+
+\begin{DoxyCompactList}\small\item\em Data passed to post-\/constraint callback. \end{DoxyCompactList}\item 
+std\-::map$<$ Ravelin\-::sorted\-\_\-pair\\*
+$<$ {\bf Base\-Ptr} $>$, boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Contact\-Parameters} $>$ $>$ {\bf contact\-\_\-params}\label{classMoby_1_1ConstraintSimulator_a03f642db0af706d0e8e5109740853aaa}
+
+\begin{DoxyCompactList}\small\item\em Mapping from objects to contact parameters. \end{DoxyCompactList}\item 
+bool {\bf render\-\_\-contact\-\_\-points}\label{classMoby_1_1ConstraintSimulator_a62ea3e938d2119f47ba8a1d778802526}
+
+\begin{DoxyCompactList}\small\item\em If set to 'true' simulator will process contact points for rendering. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+void {\bf calc\-\_\-impacting\-\_\-unilateral\-\_\-constraint\-\_\-forces} (double dt)\label{classMoby_1_1ConstraintSimulator_ae2492e921775f0b523d4c3e2939d1d83}
+
+\begin{DoxyCompactList}\small\item\em Handles constraints. \end{DoxyCompactList}\item 
+void {\bf find\-\_\-unilateral\-\_\-constraints} ()\label{classMoby_1_1ConstraintSimulator_a7fd1a19da75d2726b825e4c2b2bcb577}
+
+\begin{DoxyCompactList}\small\item\em Finds the set of unilateral constraints. \end{DoxyCompactList}\item 
+void {\bf calc\-\_\-compliant\-\_\-unilateral\-\_\-constraint\-\_\-forces} ()\label{classMoby_1_1ConstraintSimulator_ad04440352af48ed253da7542b4ac7de7}
+
+\begin{DoxyCompactList}\small\item\em Computes compliant contact forces. \end{DoxyCompactList}\item 
+void {\bf preprocess\-\_\-constraint} ({\bf Unilateral\-Constraint} \&e)\label{classMoby_1_1ConstraintSimulator_a35cc1ffe2396ab87b6365beeb799a139}
+
+\begin{DoxyCompactList}\small\item\em Performs necessary preprocessing on an constraint. \end{DoxyCompactList}\item 
+void {\bf determine\-\_\-geometries} ()\label{classMoby_1_1ConstraintSimulator_abcaaf895ef05ecfe7c518f9b40f8f807}
+
+\begin{DoxyCompactList}\small\item\em Sets up the list of collision geometries. \end{DoxyCompactList}\item 
+void {\bf broad\-\_\-phase} (double dt)\label{classMoby_1_1ConstraintSimulator_a2356991bba83552dea0c6143c0161a7c}
+
+\begin{DoxyCompactList}\small\item\em Does broad phase collision detection, identifying which pairs of geometries may come into contact over time step of dt. \end{DoxyCompactList}\item 
+void {\bf calc\-\_\-pairwise\-\_\-distances} ()
+\begin{DoxyCompactList}\small\item\em Computes pairwise distances of geometries at their current poses, using broad phase results to determine which pairs should be checked. \end{DoxyCompactList}\item 
+void {\bf visualize\-\_\-contact} ({\bf Unilateral\-Constraint} \&constraint)\label{classMoby_1_1ConstraintSimulator_a8b1b58be1d7c22278f7fe233b8ef3598}
+
+\begin{DoxyCompactList}\small\item\em Draws a ray directed from a contact point along the contact normal. \end{DoxyCompactList}\item 
+double {\bfseries calc\-\_\-\-C\-A\-\_\-step} ()\label{classMoby_1_1ConstraintSimulator_a99ec1d3bd1dcab394b056b21cb5a4952}
+
+\item 
+double {\bfseries calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step} (double contact\-\_\-dist\-\_\-thresh) const \label{classMoby_1_1ConstraintSimulator_a08fbad5eb724574d2fb27a6743f5f9d4}
+
+\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Impact\-Constraint\-Handler} {\bf \-\_\-impact\-\_\-constraint\-\_\-handler}\label{classMoby_1_1ConstraintSimulator_a80817dedc873e645f6917744095968fc}
+
+\begin{DoxyCompactList}\small\item\em Object for handling impact constraints. \end{DoxyCompactList}\item 
+{\bf Penalty\-Constraint\-Handler} {\bf \-\_\-penalty\-\_\-constraint\-\_\-handler}\label{classMoby_1_1ConstraintSimulator_aca16b7cfc19c13d07914fd33e8167907}
+
+\begin{DoxyCompactList}\small\item\em Object for handling penalty constraints. \end{DoxyCompactList}\item 
+std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ {\bf \-\_\-rigid\-\_\-constraints}\label{classMoby_1_1ConstraintSimulator_ac363fa58326b6a110c1ec2008fd4b15d}
+
+\begin{DoxyCompactList}\small\item\em The vector of rigid constraints. \end{DoxyCompactList}\item 
+std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ {\bf \-\_\-compliant\-\_\-constraints}\label{classMoby_1_1ConstraintSimulator_adba24b0d87ec90a252674e5201905dd0}
+
+\begin{DoxyCompactList}\small\item\em The vector of compliant constraints. \end{DoxyCompactList}\item 
+std\-::vector$<$ {\bf Pairwise\-Dist\-Info} $>$ {\bf \-\_\-pairwise\-\_\-distances}\label{classMoby_1_1ConstraintSimulator_a62066a08ab5002a5acccd3ab9a47be5c}
+
+\begin{DoxyCompactList}\small\item\em Pairwise distances at bodies' current configurations. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector\-Nd {\bf \-\_\-work\-V}\label{classMoby_1_1ConstraintSimulator_a29b926f0ab32d7258118d35eb9a2a226}
+
+\begin{DoxyCompactList}\small\item\em Work vector. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ {\bf Collision\-Detection} $>$ {\bf \-\_\-coldet}\label{classMoby_1_1ConstraintSimulator_a473a4b5c73c3dc7e1478cfa918bedb68}
+
+\begin{DoxyCompactList}\small\item\em The collision detection mechanism. \end{DoxyCompactList}\item 
+std\-::vector$<$ {\bf Collision\-Geometry\-Ptr} $>$ {\bf \-\_\-geometries}\label{classMoby_1_1ConstraintSimulator_a1c0af7852e337d3c63f8f689fc353dc4}
+
+\begin{DoxyCompactList}\small\item\em The geometries in the simulator. \end{DoxyCompactList}\item 
+std\-::vector$<$ std\-::pair\\*
+$<$ {\bf Collision\-Geometry\-Ptr}, \\*
+{\bf Collision\-Geometry\-Ptr} $>$ $>$ {\bf \-\_\-pairs\-\_\-to\-\_\-check}\label{classMoby_1_1ConstraintSimulator_a08f8423e1453a35ff68f18c0a4572b5b}
+
+\begin{DoxyCompactList}\small\item\em Geometric pairs that should be checked for unilateral constraints (according to broad phase collision detection) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Collision\-Detection}\label{classMoby_1_1ConstraintSimulator_aa87aa6084db35876513fcb4fdd4427ac}
+
+\item 
+class {\bfseries Constraint\-Stabilization}\label{classMoby_1_1ConstraintSimulator_a320e2b5d0cb83071af150f47d50ca127}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+An virtual class for simulation with constraints. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Constraint\-Simulator@{Moby\-::\-Constraint\-Simulator}!calc\-\_\-pairwise\-\_\-distances@{calc\-\_\-pairwise\-\_\-distances}}
+\index{calc\-\_\-pairwise\-\_\-distances@{calc\-\_\-pairwise\-\_\-distances}!Moby::ConstraintSimulator@{Moby\-::\-Constraint\-Simulator}}
+\subsubsection[{calc\-\_\-pairwise\-\_\-distances}]{\setlength{\rightskip}{0pt plus 5cm}void Constraint\-Simulator\-::calc\-\_\-pairwise\-\_\-distances (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [protected]}}\label{classMoby_1_1ConstraintSimulator_aef9eb2121d39d21eaae43bfe65e770b6}
+
+
+Computes pairwise distances of geometries at their current poses, using broad phase results to determine which pairs should be checked. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em pairwise\-\_\-distances} & on return, contains the pairwise distances \\
+\hline
+\end{DoxyParams}
+\index{Moby\-::\-Constraint\-Simulator@{Moby\-::\-Constraint\-Simulator}!get\-\_\-contact\-\_\-parameters@{get\-\_\-contact\-\_\-parameters}}
+\index{get\-\_\-contact\-\_\-parameters@{get\-\_\-contact\-\_\-parameters}!Moby::ConstraintSimulator@{Moby\-::\-Constraint\-Simulator}}
+\subsubsection[{get\-\_\-contact\-\_\-parameters}]{\setlength{\rightskip}{0pt plus 5cm}shared\-\_\-ptr$<$ {\bf Contact\-Parameters} $>$ Constraint\-Simulator\-::get\-\_\-contact\-\_\-parameters (
+\begin{DoxyParamCaption}
+\item[{{\bf Collision\-Geometry\-Ptr}}]{geom1, }
+\item[{{\bf Collision\-Geometry\-Ptr}}]{geom2}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1ConstraintSimulator_a9657a9a8b0c9c819bb0e635f93cfebf5}
+
+
+Gets the contact data between a pair of geometries (if any) 
+
+This method looks for contact data not only between the pair of geometries, but also the rigid bodies that the geometries belong to, and any articulated bodies as well. The search proceeds in the following manner\-: \par
+ 
+\begin{DoxyEnumerate}
+\item two collision geometries 
+\item one collision geometry, one rigid body 
+\item two rigid bodies 
+\item one collision geometry, one articulated body 
+\item one rigid body, one articulated body 
+\item two articulated bodies 
+\end{DoxyEnumerate}The search order allows for multiple granularities; for example, a collision can easily be specified between two geometries of two of a robot's links (i.\-e., representing different surfaces on the links), between two links, or between two robots. 
+\begin{DoxyParams}{Parameters}
+{\em g1} & the first collision geometry \\
+\hline
+{\em g2} & the second collision geometry \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+a pointer to the contact data, if any, found 
+\end{DoxyReturn}
+
+
+\subsection{Member Data Documentation}
+\index{Moby\-::\-Constraint\-Simulator@{Moby\-::\-Constraint\-Simulator}!constraint\-\_\-callback\-\_\-fn@{constraint\-\_\-callback\-\_\-fn}}
+\index{constraint\-\_\-callback\-\_\-fn@{constraint\-\_\-callback\-\_\-fn}!Moby::ConstraintSimulator@{Moby\-::\-Constraint\-Simulator}}
+\subsubsection[{constraint\-\_\-callback\-\_\-fn}]{\setlength{\rightskip}{0pt plus 5cm}void($\ast$ Moby\-::\-Constraint\-Simulator\-::constraint\-\_\-callback\-\_\-fn)(std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&, boost\-::shared\-\_\-ptr$<$ void $>$)}\label{classMoby_1_1ConstraintSimulator_a6435646bf05f3a9ae769ea240bdcadf0}
+
+
+The callback function (called when constraints have been determined) 
+
+The callback function can remove constraints from the list, which will disable their processing (however, doing so may prevent the simulation from making progress, as the simulator attempts to disallow violations. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Constraint\-Simulator.\-h\item 
+/home/drum/\-Moby/src/Constraint\-Simulator.\-cpp\end{DoxyCompactItemize}

@@ -1,0 +1,90 @@
+\section{Moby\-:\-:Spherical\-Joint Class Reference}
+\label{classMoby_1_1SphericalJoint}\index{Moby\-::\-Spherical\-Joint@{Moby\-::\-Spherical\-Joint}}
+
+
+Defines an actuated spherical joint.  
+
+
+
+
+{\ttfamily \#include $<$Spherical\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Spherical\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.070176cm]{classMoby_1_1SphericalJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Spherical\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Spherical\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1SphericalJoint_a1350bb54591b748916f848b4081321bb}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1SphericalJoint_ab7618c745baf1630589e7fa4b4499fa0}
+
+\item 
+virtual void {\bfseries evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1SphericalJoint_a2d6833566a42976af79d9f55baaa9dad}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1SphericalJoint_a28e1587ea53e7f11be68e6e52b9fa2f2}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1SphericalJoint_a65072c101fdb9b769aecb4e3184dfc78}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1SphericalJoint_abf9f7c9a1aafc3847f91fefa5ef78795}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1SphericalJoint_a34675294343bd4326dd20d404476fcd6}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1SphericalJoint_a620cb80de5502c45583e7c74ebfa7ba1}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an actuated spherical joint. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Spherical\-Joint@{Moby\-::\-Spherical\-Joint}!Spherical\-Joint@{Spherical\-Joint}}
+\index{Spherical\-Joint@{Spherical\-Joint}!Moby::SphericalJoint@{Moby\-::\-Spherical\-Joint}}
+\subsubsection[{Spherical\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Spherical\-Joint\-::\-Spherical\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1SphericalJoint_ab8f7df4760955b6b67b561d077a21d10}
+
+
+Initializes the joint. 
+
+The axes of rotation are each set to [0 0 0]. The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+\index{Moby\-::\-Spherical\-Joint@{Moby\-::\-Spherical\-Joint}!Spherical\-Joint@{Spherical\-Joint}}
+\index{Spherical\-Joint@{Spherical\-Joint}!Moby::SphericalJoint@{Moby\-::\-Spherical\-Joint}}
+\subsubsection[{Spherical\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Spherical\-Joint\-::\-Spherical\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1SphericalJoint_a6344f9a3403a89e845175a5ec249e8f7}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+The axis of rotation is set to [0 0 0]. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Spherical\-Joint.\-h\item 
+/home/drum/\-Moby/src/Spherical\-Joint.\-cpp\end{DoxyCompactItemize}

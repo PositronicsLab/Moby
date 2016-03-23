@@ -1,0 +1,104 @@
+\section{Moby\-:\-:Base Class Reference}
+\label{classMoby_1_1Base}\index{Moby\-::\-Base@{Moby\-::\-Base}}
+
+
+Class from which all \doxyref{Moby}{p.}{namespaceMoby} classes are derived.  
+
+
+
+
+{\ttfamily \#include $<$Base.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Base\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=11.052631cm]{classMoby_1_1Base}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Base} (const {\bf Base} $\ast$b)\label{classMoby_1_1Base_a206ffc0f68275eb1675dc4311fc9ec02}
+
+\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const 
+\begin{DoxyCompactList}\small\item\em Method for saving this object to X\-M\-L. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)
+\begin{DoxyCompactList}\small\item\em Method for loading the data for this object from X\-M\-L. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$class T $>$ }\\static boost\-::shared\-\_\-ptr$<$ T $>$ {\bf clone} (boost\-::shared\-\_\-ptr$<$ T $>$ x)\label{classMoby_1_1Base_a5283a4b27f562f9d8db6a9f320919fc5}
+
+\begin{DoxyCompactList}\small\item\em Static method for cloning a shared pointer. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+boost\-::shared\-\_\-ptr$<$ void $>$ {\bf userdata}\label{classMoby_1_1Base_a88ad4f992e3b86c9963835cc0999f66e}
+
+\begin{DoxyCompactList}\small\item\em Any relevant userdata. \end{DoxyCompactList}\item 
+std\-::string {\bf id}\label{classMoby_1_1Base_a1ffc84e8895c67e1010dd34d50244cf7}
+
+\begin{DoxyCompactList}\small\item\em The unique I\-D for this object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Class from which all \doxyref{Moby}{p.}{namespaceMoby} classes are derived. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Base@{Moby\-::\-Base}!load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}}
+\index{load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}!Moby::Base@{Moby\-::\-Base}}
+\subsubsection[{load\-\_\-from\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void Base\-::load\-\_\-from\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$}]{node, }
+\item[{std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&}]{id\-\_\-map}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f}
+
+
+Method for loading the data for this object from X\-M\-L. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em node} & the subtree under which all data necessary to load this object is stored \\
+\hline
+{\em id\-\_\-map} & a map from node I\-Ds to read objects \\
+\hline
+\end{DoxyParams}
+
+
+Reimplemented in {\bf Moby\-::\-Rigid\-Body} \doxyref{}{p.}{classMoby_1_1RigidBody_a26bee5f435e488d8048e0b827ee91004}, {\bf Moby\-::\-Simulator} \doxyref{}{p.}{classMoby_1_1Simulator_a8fc61be0cf1e142e0ce9c188eb5b0871}, {\bf Moby\-::\-R\-C\-Articulated\-Body} \doxyref{}{p.}{classMoby_1_1RCArticulatedBody_a8e694464f29ac406b4b9ecef5e0d8bac}, {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_ab2cb5a7043032a8a3df736909740d1f7}, {\bf Moby\-::\-Joint} \doxyref{}{p.}{classMoby_1_1Joint_a5e0c23575a509a152d212b2b7dc3ffa6}, {\bf Moby\-::\-Collision\-Geometry} \doxyref{}{p.}{classMoby_1_1CollisionGeometry_a164759946c1a08773bc6bea03c3008c8}, {\bf Moby\-::\-Plane\-Primitive} \doxyref{}{p.}{classMoby_1_1PlanePrimitive_ac8093c3e57621aab0884ae91b1e37f5d}, {\bf Moby\-::\-Visualizable} \doxyref{}{p.}{classMoby_1_1Visualizable_a8d9fc36646c0df143c99c488740edfbb}, {\bf Moby\-::\-C\-C\-D} \doxyref{}{p.}{classMoby_1_1CCD_ac2537ed877fb1303bcef42fe372e61d5}, {\bf Moby\-::\-Gears} \doxyref{}{p.}{classMoby_1_1Gears_a5e7fe5c59b73c07c727715640f067dfb}, {\bf Moby\-::\-Heightmap\-Primitive} \doxyref{}{p.}{classMoby_1_1HeightmapPrimitive_acbe882c1a5fd97b2537a0cbab860e8a4}, {\bf Moby\-::\-Constraint\-Simulator} \doxyref{}{p.}{classMoby_1_1ConstraintSimulator_aea925f7a62d28833ec377e7176bcca78}, {\bf Moby\-::\-Polyhedral\-Primitive} \doxyref{}{p.}{classMoby_1_1PolyhedralPrimitive_a54ede66e39b6ae57827a6cbeb9480335}, {\bf Moby\-::\-Triangle\-Mesh\-Primitive} \doxyref{}{p.}{classMoby_1_1TriangleMeshPrimitive_a568de88a674606645f2b980729469aef}, {\bf Moby\-::\-Cone\-Primitive} \doxyref{}{p.}{classMoby_1_1ConePrimitive_a5fb7ad4ce31f041a8933cb67e30c3c8b}, {\bf Moby\-::\-Time\-Stepping\-Simulator} \doxyref{}{p.}{classMoby_1_1TimeSteppingSimulator_a1b29397680cc9ca652eaf790b77d0191}, {\bf Moby\-::\-Controlled\-Body} \doxyref{}{p.}{classMoby_1_1ControlledBody_aa537fd1b68d720745cd7a7a2580ce9d3}, {\bf Moby\-::\-Articulated\-Body} \doxyref{}{p.}{classMoby_1_1ArticulatedBody_a7d86b8e81bee372ba5cd5de35ccfde59}, {\bf Moby\-::\-Cylinder\-Primitive} \doxyref{}{p.}{classMoby_1_1CylinderPrimitive_a8530fa4d6370204c5333e0fe73a570df}, {\bf Moby\-::\-Prismatic\-Joint} \doxyref{}{p.}{classMoby_1_1PrismaticJoint_a32fce63f6af0d1508aeb741941f58996}, {\bf Moby\-::\-Box\-Primitive} \doxyref{}{p.}{classMoby_1_1BoxPrimitive_a3d40e1f701caccca8fbdf8cbc473b788}, {\bf Moby\-::\-Sphere\-Primitive} \doxyref{}{p.}{classMoby_1_1SpherePrimitive_abf18dff5adc902467124296cc2972e20}, {\bf Moby\-::\-Fixed\-Joint} \doxyref{}{p.}{classMoby_1_1FixedJoint_a02e637422d026f869ab138b3c76de654}, {\bf Moby\-::\-O\-S\-G\-Group\-Wrapper} \doxyref{}{p.}{classMoby_1_1OSGGroupWrapper_a9d5827d7a78065b9bc376d90e0bac2f9}, {\bf Moby\-::\-Planar\-Joint} \doxyref{}{p.}{classMoby_1_1PlanarJoint_abc73fa718eff71b90bbd0ce4ba92106d}, {\bf Moby\-::\-Revolute\-Joint} \doxyref{}{p.}{classMoby_1_1RevoluteJoint_af72df350d32e71d76b3505f29a633cce}, {\bf Moby\-::\-Spherical\-Joint} \doxyref{}{p.}{classMoby_1_1SphericalJoint_a34675294343bd4326dd20d404476fcd6}, {\bf Moby\-::\-Universal\-Joint} \doxyref{}{p.}{classMoby_1_1UniversalJoint_a5fb810551da607d8bc8288e7c0e49f4d}, {\bf Moby\-::\-Screw\-Joint} \doxyref{}{p.}{classMoby_1_1ScrewJoint_a6fd5ddb252a077e791697bc90718ab5d}, {\bf Moby\-::\-Torus\-Primitive} \doxyref{}{p.}{classMoby_1_1TorusPrimitive_af9259af65850343c7df49053a9e5a692}, {\bf Moby\-::\-Gravity\-Force} \doxyref{}{p.}{classMoby_1_1GravityForce_a61d8468de9c5bc8d2a8853bec08d14fe}, {\bf Moby\-::\-Contact\-Parameters} \doxyref{}{p.}{classMoby_1_1ContactParameters_a00c9c5d4c9c1f9a5f8235689de2c590d}, {\bf Moby\-::\-Stokes\-Drag\-Force} \doxyref{}{p.}{classMoby_1_1StokesDragForce_aa89874941cd4860ff97d8ea0cb3af524}, and {\bf Moby\-::\-Dissipation} \doxyref{}{p.}{classMoby_1_1Dissipation_ac029254a743326952f34aa8ce21b1477}.
+
+
+
+References id.
+
+\index{Moby\-::\-Base@{Moby\-::\-Base}!save\-\_\-to\-\_\-xml@{save\-\_\-to\-\_\-xml}}
+\index{save\-\_\-to\-\_\-xml@{save\-\_\-to\-\_\-xml}!Moby::Base@{Moby\-::\-Base}}
+\subsubsection[{save\-\_\-to\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void Base\-::save\-\_\-to\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{{\bf X\-M\-L\-Tree\-Ptr}}]{node, }
+\item[{std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&}]{shared\-\_\-objects}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9}
+
+
+Method for saving this object to X\-M\-L. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em node} & the X\-M\-L node to which this object should be serialized \\
+\hline
+{\em on} & output, a list of shared objects which should also be serialized \\
+\hline
+\end{DoxyParams}
+
+
+Reimplemented in {\bf Moby\-::\-Rigid\-Body} \doxyref{}{p.}{classMoby_1_1RigidBody_a071ed106863e0cd018b5ccf3bce5f5e2}, {\bf Moby\-::\-Simulator} \doxyref{}{p.}{classMoby_1_1Simulator_a95b0ea5486c10f5c80d088e85f330b12}, {\bf Moby\-::\-R\-C\-Articulated\-Body} \doxyref{}{p.}{classMoby_1_1RCArticulatedBody_a08ce8cf881fda06a41bb2323da25f802}, {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_aa5925c970e939796f5fd07d1c8198437}, {\bf Moby\-::\-Joint} \doxyref{}{p.}{classMoby_1_1Joint_ab5ad56ab0008dfd54a78aa3289854af7}, {\bf Moby\-::\-Collision\-Geometry} \doxyref{}{p.}{classMoby_1_1CollisionGeometry_a22ac18e99fa56f198d91faecf8b7f8e1}, {\bf Moby\-::\-Plane\-Primitive} \doxyref{}{p.}{classMoby_1_1PlanePrimitive_a860a58e5f0a52e8b6a6c94996e0886d6}, {\bf Moby\-::\-C\-C\-D} \doxyref{}{p.}{classMoby_1_1CCD_a9c3cf2fc9e7827ba8bcb584cf2dba31b}, {\bf Moby\-::\-Visualizable} \doxyref{}{p.}{classMoby_1_1Visualizable_a758e48d853b6bb2085c98f1d5438cf5c}, {\bf Moby\-::\-Heightmap\-Primitive} \doxyref{}{p.}{classMoby_1_1HeightmapPrimitive_a36f1a53d9a69a39f944ff1462ef161b6}, {\bf Moby\-::\-Constraint\-Simulator} \doxyref{}{p.}{classMoby_1_1ConstraintSimulator_aa97902317a931eb41b6e67069aa3c236}, {\bf Moby\-::\-Polyhedral\-Primitive} \doxyref{}{p.}{classMoby_1_1PolyhedralPrimitive_a2c023ea6208e9817586997ac753d506e}, {\bf Moby\-::\-Gears} \doxyref{}{p.}{classMoby_1_1Gears_a9aa0d3984cc06b49b42bccfe6e86f4dd}, {\bf Moby\-::\-Triangle\-Mesh\-Primitive} \doxyref{}{p.}{classMoby_1_1TriangleMeshPrimitive_a12bc7caf20ec07e992a37ffd313812d4}, {\bf Moby\-::\-Cone\-Primitive} \doxyref{}{p.}{classMoby_1_1ConePrimitive_a7cf26ee13c1fe73f766d7dba07b55cda}, {\bf Moby\-::\-Time\-Stepping\-Simulator} \doxyref{}{p.}{classMoby_1_1TimeSteppingSimulator_a9fbe88f409947ebdec530bf0d221182c}, {\bf Moby\-::\-Controlled\-Body} \doxyref{}{p.}{classMoby_1_1ControlledBody_a8652ca9cedf67ee84f29ea004bb1a872}, {\bf Moby\-::\-Articulated\-Body} \doxyref{}{p.}{classMoby_1_1ArticulatedBody_a7575e65e7721f2f2f10b1d83c18c50e1}, {\bf Moby\-::\-Cylinder\-Primitive} \doxyref{}{p.}{classMoby_1_1CylinderPrimitive_acd5e18cdf754052894557d7c84719dfd}, {\bf Moby\-::\-Prismatic\-Joint} \doxyref{}{p.}{classMoby_1_1PrismaticJoint_ac5d2ef542aa70f2efe38b59cfade8ced}, {\bf Moby\-::\-Box\-Primitive} \doxyref{}{p.}{classMoby_1_1BoxPrimitive_a7567d7f558da7d8ee30993edb465e8ab}, {\bf Moby\-::\-Sphere\-Primitive} \doxyref{}{p.}{classMoby_1_1SpherePrimitive_a153f43c1030cb7a64f40b316870aac8f}, {\bf Moby\-::\-Fixed\-Joint} \doxyref{}{p.}{classMoby_1_1FixedJoint_abd170c47b08339efdc26ea5929aea3a3}, {\bf Moby\-::\-O\-S\-G\-Group\-Wrapper} \doxyref{}{p.}{classMoby_1_1OSGGroupWrapper_ae407d4e31677c2516bd5ed795de535f7}, {\bf Moby\-::\-Planar\-Joint} \doxyref{}{p.}{classMoby_1_1PlanarJoint_a3614b2d0ff84262b8eb3656320e484a1}, {\bf Moby\-::\-Revolute\-Joint} \doxyref{}{p.}{classMoby_1_1RevoluteJoint_a97b43695c74e98937997e30f71b3b26d}, {\bf Moby\-::\-Spherical\-Joint} \doxyref{}{p.}{classMoby_1_1SphericalJoint_a620cb80de5502c45583e7c74ebfa7ba1}, {\bf Moby\-::\-Universal\-Joint} \doxyref{}{p.}{classMoby_1_1UniversalJoint_adce87f1eaaaa7ae81825d5e062060076}, {\bf Moby\-::\-Screw\-Joint} \doxyref{}{p.}{classMoby_1_1ScrewJoint_a3310bc567f4fa3a82bae87d5d35dcffb}, {\bf Moby\-::\-Torus\-Primitive} \doxyref{}{p.}{classMoby_1_1TorusPrimitive_a61fa62d907b90f00b78a66bb7b62af91}, {\bf Moby\-::\-Gravity\-Force} \doxyref{}{p.}{classMoby_1_1GravityForce_af3d2dc707d49572209c0b24105cecc98}, {\bf Moby\-::\-Contact\-Parameters} \doxyref{}{p.}{classMoby_1_1ContactParameters_aaa6f5a2f71dab3cb2a2bfd750d8ba0f2}, {\bf Moby\-::\-Stokes\-Drag\-Force} \doxyref{}{p.}{classMoby_1_1StokesDragForce_a0b072b877cff16bee5113d1fecbeccaa}, and {\bf Moby\-::\-Dissipation} \doxyref{}{p.}{classMoby_1_1Dissipation_ad064eff747616a8cd13d6385c49f4ff7}.
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Base.\-h\item 
+/home/drum/\-Moby/src/Base.\-cpp\end{DoxyCompactItemize}

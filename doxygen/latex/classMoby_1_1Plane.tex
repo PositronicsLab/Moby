@@ -1,0 +1,80 @@
+\section{Moby\-:\-:Plane Class Reference}
+\label{classMoby_1_1Plane}\index{Moby\-::\-Plane@{Moby\-::\-Plane}}
+
+
+Defines a plane using the equation $<$n, x$>$ = d.  
+
+
+
+
+{\ttfamily \#include $<$Plane.\-h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Plane} (double nx, double ny, double nz, double d)\label{classMoby_1_1Plane_a37d5c13a0133d6c55eee5af96e16575b}
+
+\item 
+{\bfseries Plane} (const Triangle \&t)\label{classMoby_1_1Plane_ab4803d0bc581e56d2f5cf9c48e2a2044}
+
+\item 
+{\bfseries Plane} (const Ravelin\-::\-Vector3d \&n, double d)\label{classMoby_1_1Plane_a84f280d1d73658bf227357c6940797a9}
+
+\item 
+{\bfseries Plane} (const Ravelin\-::\-Vector3d \&normal, const {\bf Point3d} \&point)\label{classMoby_1_1Plane_a71722c6521f295bddf1d1924f43b0f30}
+
+\item 
+{\bfseries Plane} (const {\bf Plane} \&p)\label{classMoby_1_1Plane_a48ac08a469ed2e23012e155780bb4551}
+
+\item 
+void {\bfseries operator=} (const {\bf Plane} \&p)\label{classMoby_1_1Plane_a799034ea4bec6820f37e73fd43adad00}
+
+\item 
+double {\bfseries calc\-\_\-signed\-\_\-distance} (const {\bf Point3d} \&p) const \label{classMoby_1_1Plane_ab81f0d7cd2d017bd67424575135201b2}
+
+\item 
+bool {\bfseries on\-\_\-plane} (const {\bf Point3d} \&p)\label{classMoby_1_1Plane_a995274cd185b194bf5b9a951a2e41755}
+
+\item 
+bool {\bfseries operator==} (const {\bf Plane} \&p) const \label{classMoby_1_1Plane_a1286cb4e4ce40ec860a7a8323331286f}
+
+\item 
+bool {\bfseries operator$<$} (const {\bf Plane} \&p) const \label{classMoby_1_1Plane_ae09c64e9d1b9932a983f374ce6daaf61}
+
+\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-pose} () const \label{classMoby_1_1Plane_ab84e59e12388876e8633d6a015b0e134}
+
+\item 
+{\bf Point3d} {\bf project} (const {\bf Point3d} \&p) const \label{classMoby_1_1Plane_ad111c206860bc0686214e63e76b992f7}
+
+\begin{DoxyCompactList}\small\item\em Projects a point onto the plane. \end{DoxyCompactList}\item 
+Ravelin\-::\-Origin2d {\bf to\-\_\-2\-D} (const {\bf Point3d} \&p) const \label{classMoby_1_1Plane_a0e3d453d95102cbe683cd2e2640c4c53}
+
+\begin{DoxyCompactList}\small\item\em Transforms a point to 2\-D. \end{DoxyCompactList}\item 
+{\bf Plane} {\bf transform} (const Ravelin\-::\-Transform3d \&T) const \label{classMoby_1_1Plane_a60cce749de640f995fed06f27311f666}
+
+\begin{DoxyCompactList}\small\item\em Transforms a plane. \end{DoxyCompactList}\item 
+{\bf Plane} {\bf operator-\/} () const \label{classMoby_1_1Plane_a59ab48628909d11c1c4ae274783b582d}
+
+\begin{DoxyCompactList}\small\item\em Assuming this plane represents a half-\/space, negates the half-\/space. \end{DoxyCompactList}\item 
+const Ravelin\-::\-Vector3d \& {\bf get\-\_\-normal} () const \label{classMoby_1_1Plane_a08bcde4941f96fc528f66a49db24d70e}
+
+\begin{DoxyCompactList}\small\item\em Gets the outward pointing normal to the plane. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-normal} (const Ravelin\-::\-Vector3d \&n)\label{classMoby_1_1Plane_aac985aefe61a33b73679599428d63a53}
+
+\begin{DoxyCompactList}\small\item\em Sets the outward pointing normal to the plane. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+double {\bf offset}\label{classMoby_1_1Plane_a3fdbe9871db062971473121a87b68194}
+
+\begin{DoxyCompactList}\small\item\em The plane offset such that the plane equation is given by $<$n, x$>$ = offset. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Defines a plane using the equation $<$n, x$>$ = d. 
+
+The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Plane.\-h\end{DoxyCompactItemize}

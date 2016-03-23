@@ -1,0 +1,106 @@
+\section{Moby\-:\-:X\-M\-L\-Tree Class Reference}
+\label{classMoby_1_1XMLTree}\index{Moby\-::\-X\-M\-L\-Tree@{Moby\-::\-X\-M\-L\-Tree}}
+
+
+An X\-M\-L tree used for serialization.  
+
+
+
+
+{\ttfamily \#include $<$X\-M\-L\-Tree.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:X\-M\-L\-Tree\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=2.000000cm]{classMoby_1_1XMLTree}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf X\-M\-L\-Tree} (const std\-::string \&{\bf name})\label{classMoby_1_1XMLTree_a1c4f8eb48350a70f0ebafa2124229239}
+
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{X\-M\-L\-Tree}{p.}{classMoby_1_1XMLTree} with no attributes. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Tree} (const std\-::string \&{\bf name}, const std\-::list$<$ {\bf X\-M\-L\-Attrib} $>$ \&attributes)\label{classMoby_1_1XMLTree_a7c5a17066a6f8efc4c70ee50deab268c}
+
+\begin{DoxyCompactList}\small\item\em Constructs a \doxyref{X\-M\-L\-Tree}{p.}{classMoby_1_1XMLTree} with the specified list of attributes. \end{DoxyCompactList}\item 
+{\bf X\-M\-L\-Attrib} $\ast$ {\bf get\-\_\-attrib} (const std\-::string \&attrib\-\_\-name) const 
+\begin{DoxyCompactList}\small\item\em Gets the specified attribute. \end{DoxyCompactList}\item 
+std\-::list$<$ boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf X\-M\-L\-Tree} $>$ $>$ {\bf find\-\_\-child\-\_\-nodes} (const std\-::string \&{\bf name}) const \label{classMoby_1_1XMLTree_abf8d3aa46d125e30d209f7bfd42e5640}
+
+\begin{DoxyCompactList}\small\item\em Returns a list of all child nodes (not including further descendants) matching the given name (case insensitive) \end{DoxyCompactList}\item 
+std\-::list$<$ boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf X\-M\-L\-Tree} $>$ $>$ {\bf find\-\_\-child\-\_\-nodes} (const std\-::list$<$ std\-::string $>$ \&{\bf name}) const \label{classMoby_1_1XMLTree_a615da63f804c54cf183deb2c78dd6e99}
+
+\begin{DoxyCompactList}\small\item\em Returns a list of all child nodes (not including further descendants) matching any of the names in the given list (case insensitive) \end{DoxyCompactList}\item 
+std\-::list$<$ boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf X\-M\-L\-Tree} $>$ $>$ {\bfseries find\-\_\-descendant\-\_\-nodes} (const std\-::string \&{\bf name}) const \label{classMoby_1_1XMLTree_a492f164936156bb0042f2546d0ee6610}
+
+\item 
+void {\bf add\-\_\-child} ({\bf X\-M\-L\-Tree\-Ptr} child)\label{classMoby_1_1XMLTree_a88ce405ccbbd93de822863be1286cb10}
+
+\begin{DoxyCompactList}\small\item\em Adds a child tree to this tree; also sets the parent node. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-parent} ({\bf X\-M\-L\-Tree\-Ptr} parent)\label{classMoby_1_1XMLTree_adcc3697723b0096f5fdae0f668fc8ddb}
+
+\begin{DoxyCompactList}\small\item\em Sets the parent of this tree (if any) \end{DoxyCompactList}\item 
+boost\-::weak\-\_\-ptr$<$ {\bf X\-M\-L\-Tree} $>$ {\bf get\-\_\-parent} () const \label{classMoby_1_1XMLTree_afcac17e380e3f9bdd493094b6696886a}
+
+\begin{DoxyCompactList}\small\item\em Gets the parent of this tree (if any) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf X\-M\-L\-Tree} $>$ {\bfseries read\-\_\-from\-\_\-xml} (const std\-::string \&{\bf name})\label{classMoby_1_1XMLTree_afc37219589e53c4f56b69e7c9cdad9b6}
+
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+std\-::set$<$ {\bf X\-M\-L\-Attrib} $>$ {\bf attribs}\label{classMoby_1_1XMLTree_ad1e29947ff80bbf08b0162dba19527b5}
+
+\begin{DoxyCompactList}\small\item\em The set of attributes of this node. \end{DoxyCompactList}\item 
+std\-::list$<$ {\bf X\-M\-L\-Tree\-Ptr} $>$ {\bf children}\label{classMoby_1_1XMLTree_a7044c286d1c23c53e879306e169ca663}
+
+\begin{DoxyCompactList}\small\item\em The list of children of this node. \end{DoxyCompactList}\item 
+std\-::string {\bf name}\label{classMoby_1_1XMLTree_a802fc4576aea267269d6b2913516efd2}
+
+\begin{DoxyCompactList}\small\item\em The name of this node. \end{DoxyCompactList}\item 
+std\-::string {\bf id}\label{classMoby_1_1XMLTree_a972f6bebe5496d6ef9415a7d62e34ed1}
+
+\begin{DoxyCompactList}\small\item\em The I\-D of this node. \end{DoxyCompactList}\item 
+std\-::string {\bf content}\label{classMoby_1_1XMLTree_a0b6047c0ef41740cc16149761d7ab524}
+
+\begin{DoxyCompactList}\small\item\em Any 'content' of this node. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ void $>$ {\bf object}\label{classMoby_1_1XMLTree_aad2f9d7117379f0a227aaa811a989dc4}
+
+\begin{DoxyCompactList}\small\item\em The object (if any) represented by this node. \end{DoxyCompactList}\item 
+bool {\bf processed}\label{classMoby_1_1XMLTree_a9d4b52e9e22da9806ab7b9f04f5b8a3d}
+
+\begin{DoxyCompactList}\small\item\em Indicates whether this tag has been processed. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+An X\-M\-L tree used for serialization. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-X\-M\-L\-Tree@{Moby\-::\-X\-M\-L\-Tree}!get\-\_\-attrib@{get\-\_\-attrib}}
+\index{get\-\_\-attrib@{get\-\_\-attrib}!Moby::XMLTree@{Moby\-::\-X\-M\-L\-Tree}}
+\subsubsection[{get\-\_\-attrib}]{\setlength{\rightskip}{0pt plus 5cm}{\bf X\-M\-L\-Attrib} $\ast$ X\-M\-L\-Tree\-::get\-\_\-attrib (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{attrib\-\_\-name}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1XMLTree_a017a82f60e8167fa259a71d6959ebcbe}
+
+
+Gets the specified attribute. 
+
+\begin{DoxyReturn}{Returns}
+a pointer to the attribute with the specified name, or N\-U\-L\-L if the requested attribute does not exist 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/X\-M\-L\-Tree.\-h\item 
+/home/drum/\-Moby/src/X\-M\-L\-Tree.\-cpp\end{DoxyCompactItemize}

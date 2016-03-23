@@ -1,0 +1,266 @@
+\section{Moby\-:\-:Unilateral\-Constraint Class Reference}
+\label{classMoby_1_1UnilateralConstraint}\index{Moby\-::\-Unilateral\-Constraint@{Moby\-::\-Unilateral\-Constraint}}
+
+
+Container class for describing a unilateral constraint in the simulation.  
+
+
+
+
+{\ttfamily \#include $<$Unilateral\-Constraint.\-h$>$}
+
+\subsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+enum {\bfseries Unilateral\-Constraint\-Type} \{ {\bfseries e\-None}, 
+{\bfseries e\-Contact}, 
+{\bfseries e\-Limit}
+ \}
+\item 
+enum {\bfseries Unilateral\-Constraint\-Class} \{ {\bfseries e\-Positive}, 
+{\bfseries e\-Zero}, 
+{\bfseries e\-Negative}
+ \}
+\item 
+enum {\bfseries Compliance} \{ {\bfseries e\-Rigid}, 
+{\bfseries e\-Compliant}
+ \}
+\end{DoxyCompactItemize}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Unilateral\-Constraint} ()\label{classMoby_1_1UnilateralConstraint_ac5bdd4c35cab00d08374f03127821a3d}
+
+\begin{DoxyCompactList}\small\item\em Creates an empty constraint. \end{DoxyCompactList}\item 
+{\bfseries Unilateral\-Constraint} (const {\bf Unilateral\-Constraint} \&e)\label{classMoby_1_1UnilateralConstraint_a0fbf8fa92a76aa7ff3b6a5169831ba90}
+
+\item 
+{\bf Unilateral\-Constraint} \& {\bfseries operator=} (const {\bf Unilateral\-Constraint} \&e)\label{classMoby_1_1UnilateralConstraint_a672e61327001836e2e519073562bb03e}
+
+\item 
+double {\bfseries calc\-\_\-contact\-\_\-vel} (const Ravelin\-::\-Vector3d \&v) const \label{classMoby_1_1UnilateralConstraint_af7c5c48ec183ec43d5bb209a2f0a53cd}
+
+\item 
+double {\bf calc\-\_\-constraint\-\_\-vel} () const 
+\begin{DoxyCompactList}\small\item\em Computes the velocity of this constraint. \end{DoxyCompactList}\item 
+double {\bf calc\-\_\-constraint\-\_\-tol} () const 
+\begin{DoxyCompactList}\small\item\em Computes the constraint tolerance. \end{DoxyCompactList}\item 
+Unilateral\-Constraint\-Class {\bf determine\-\_\-constraint\-\_\-class} () const \label{classMoby_1_1UnilateralConstraint_a9ccb26d4f4947778e30d000991b3f9a9}
+
+\begin{DoxyCompactList}\small\item\em Determines the type of constraint. \end{DoxyCompactList}\item 
+bool {\bfseries is\-\_\-impacting} () const \label{classMoby_1_1UnilateralConstraint_acdc46a255696c475f37d4a89f4ed48e5}
+
+\item 
+bool {\bfseries is\-\_\-resting} () const \label{classMoby_1_1UnilateralConstraint_a5ebb790d466282110f1b3da0dffbfa07}
+
+\item 
+bool {\bfseries is\-\_\-separating} () const \label{classMoby_1_1UnilateralConstraint_ab2740d28baefc1589bc02cdf2dad4c08}
+
+\item 
+void {\bf set\-\_\-contact\-\_\-parameters} (const {\bf Contact\-Parameters} \&cparams)\label{classMoby_1_1UnilateralConstraint_a8a91f87bc2bbf25c1619fa3f4df05249}
+
+\begin{DoxyCompactList}\small\item\em Sets the contact parameters for this constraint. \end{DoxyCompactList}\item 
+void {\bf determine\-\_\-contact\-\_\-tangents} ()\label{classMoby_1_1UnilateralConstraint_ac707005add03e4775ccea7ea56032275}
+
+\begin{DoxyCompactList}\small\item\em Determines the set of contact tangents. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-pose} () const \label{classMoby_1_1UnilateralConstraint_a47e03e17d6eeb8a9f84a3cd3ac98a63d}
+
+\item 
+void {\bf compute\-\_\-constraint\-\_\-data} (Ravelin\-::\-Matrix\-Nd \&M, Ravelin\-::\-Vector\-Nd \&q) const \label{classMoby_1_1UnilateralConstraint_ae6b2d71c5540d42d0374a069e4368d27}
+
+\begin{DoxyCompactList}\small\item\em Computes the constraint data. \end{DoxyCompactList}\item 
+void {\bf compute\-\_\-cross\-\_\-constraint\-\_\-data} (const {\bf Unilateral\-Constraint} \&e, Ravelin\-::\-Matrix\-Nd \&M) const \label{classMoby_1_1UnilateralConstraint_ac1fc810fa255d299a027abad0e646579}
+
+\begin{DoxyCompactList}\small\item\em Updates the constraint data. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-super\-\_\-bodies} (Output\-Iterator begin) const \label{classMoby_1_1UnilateralConstraint_ae4eedf2f7fbae611c060e191273f916c}
+
+\item 
+osg\-::\-Node $\ast$ {\bf to\-\_\-visualization\-\_\-data} () const \label{classMoby_1_1UnilateralConstraint_a3e7b2889b3c5c1782602d9d362918514}
+
+\begin{DoxyCompactList}\small\item\em Makes a contact visualizable. \end{DoxyCompactList}\item 
+void {\bf write\-\_\-vrml} (const std\-::string \&filename, double sphere\-\_\-radius=0.\-1, double normal\-\_\-length=1.\-0) const 
+\begin{DoxyCompactList}\small\item\em Writes an constraint to the specified filename in V\-R\-M\-L format for visualization. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Bidirectional\-Iterator $>$ }\\void {\bfseries insertion\-\_\-sort} (Bidirectional\-Iterator first, Bidirectional\-Iterator last)\label{classMoby_1_1UnilateralConstraint_ae8bb17ffcee453c9095068b8593faee2}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-super\-\_\-bodies} (Output\-Iterator begin) const \label{classMoby_1_1UnilateralConstraint_ae4eedf2f7fbae611c060e191273f916c}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void {\bf determine\-\_\-connected\-\_\-constraints} (const std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&constraints, const std\-::vector$<$ {\bf Joint\-Ptr} $>$ \&implicit\-\_\-joints, std\-::list$<$ std\-::pair$<$ std\-::list$<$ {\bf Unilateral\-Constraint} $\ast$ $>$, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Single\-Bodyd $>$ $>$ $>$ $>$ \&groups, std\-::list$<$ std\-::vector$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ $>$ $>$ \&remaining\-\_\-islands)
+\begin{DoxyCompactList}\small\item\em Given a vector of constraints, determines all of the sets of connected constraints. \end{DoxyCompactList}\item 
+static void {\bf remove\-\_\-inactive\-\_\-groups} (std\-::list$<$ std\-::pair$<$ std\-::list$<$ {\bf Unilateral\-Constraint} $\ast$ $>$, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Single\-Bodyd $>$ $>$ $>$ $>$ \&groups)\label{classMoby_1_1UnilateralConstraint_ac942e3b1f755df42b721730757eeb942}
+
+\begin{DoxyCompactList}\small\item\em Removes groups of contacts that contain no active contacts. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+Unilateral\-Constraint\-Type {\bf constraint\-\_\-type}\label{classMoby_1_1UnilateralConstraint_a0de861929800d6d7bbd375a8b1daa729}
+
+\begin{DoxyCompactList}\small\item\em The type of constraint. \end{DoxyCompactList}\item 
+Compliance {\bf compliance}\label{classMoby_1_1UnilateralConstraint_afd0f0de37018913a6d0928b271e648a9}
+
+\begin{DoxyCompactList}\small\item\em Compliance of the constraint. \end{DoxyCompactList}\item 
+{\bf Joint\-Ptr} {\bf limit\-\_\-joint}\label{classMoby_1_1UnilateralConstraint_a75cee3bdc087bb97b9ff6408cdb96437}
+
+\begin{DoxyCompactList}\small\item\em The joint at which the limit is reached (for limit constraints) \end{DoxyCompactList}\item 
+double {\bfseries contact\-\_\-stiffness}\label{classMoby_1_1UnilateralConstraint_ab152d096e96341234b40a9c38ecebd11}
+
+\item 
+double {\bfseries contact\-\_\-damping}\label{classMoby_1_1UnilateralConstraint_a0e675c8571eeabf65877e911082971e9}
+
+\item 
+double {\bfseries limit\-\_\-stiffness}\label{classMoby_1_1UnilateralConstraint_a7c6dc88ea4861889326331ec20a079b4}
+
+\item 
+double {\bfseries limit\-\_\-damping}\label{classMoby_1_1UnilateralConstraint_a36dcd3dd86fc85f33a0c5959b6336ffc}
+
+\item 
+double {\bf signed\-\_\-violation}\label{classMoby_1_1UnilateralConstraint_a0af4ea58e0eea332a24ff9b21ebc42ed}
+
+\begin{DoxyCompactList}\small\item\em Signed violation for this constraint. \end{DoxyCompactList}\item 
+double {\bf limit\-\_\-epsilon}\label{classMoby_1_1UnilateralConstraint_a39eb8c3525c3bd314d72dff5f8212dac}
+
+\begin{DoxyCompactList}\small\item\em The coefficient of restitution for this limit. \end{DoxyCompactList}\item 
+unsigned {\bf limit\-\_\-dof}\label{classMoby_1_1UnilateralConstraint_a34ea001c438c260b60983cbc01393915}
+
+\begin{DoxyCompactList}\small\item\em The D\-O\-F at which the limit is reached (for limit constraints) \end{DoxyCompactList}\item 
+bool {\bf limit\-\_\-upper}\label{classMoby_1_1UnilateralConstraint_a88979a765a2bffd05420329f16b79289}
+
+\begin{DoxyCompactList}\small\item\em Whether the upper/lower limit is reached (for limit constraints) \end{DoxyCompactList}\item 
+double {\bf limit\-\_\-impulse}\label{classMoby_1_1UnilateralConstraint_aad2ba3558bde31c35acb849eb6d639c1}
+
+\begin{DoxyCompactList}\small\item\em Limit impulse magnitude (for limit constraints) \end{DoxyCompactList}\item 
+{\bf Point3d} {\bf contact\-\_\-point}\label{classMoby_1_1UnilateralConstraint_a68eab0def067de618ab057acc8198eac}
+
+\begin{DoxyCompactList}\small\item\em The point contact (for contact constraints) \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector3d {\bf contact\-\_\-normal}\label{classMoby_1_1UnilateralConstraint_a6aaf164df28972c909eadf94c15b4398}
+
+\begin{DoxyCompactList}\small\item\em The vector pointing outward from the contact on the first body, in world coordinates (for contact constraints) \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector3d {\bf contact\-\_\-tan1}\label{classMoby_1_1UnilateralConstraint_afe8d3a58e95d99918c5f09e3c4006b92}
+
+\begin{DoxyCompactList}\small\item\em The first tangent direction to the contact normal. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector3d {\bf contact\-\_\-tan2}\label{classMoby_1_1UnilateralConstraint_a786e186c5d530bea46bc46a586cfd0a4}
+
+\begin{DoxyCompactList}\small\item\em The second tangent direction to the contact normal. \end{DoxyCompactList}\item 
+Ravelin\-::\-S\-Momentumd {\bf contact\-\_\-impulse}
+\begin{DoxyCompactList}\small\item\em Impulse that has been applied (for contact constraints) \end{DoxyCompactList}\item 
+{\bf Collision\-Geometry\-Ptr} {\bf contact\-\_\-geom1}\label{classMoby_1_1UnilateralConstraint_a7632321f98cecb32d75eecdd7b48f551}
+
+\begin{DoxyCompactList}\small\item\em The collision geometries involved (for contact constraints) \end{DoxyCompactList}\item 
+{\bf Collision\-Geometry\-Ptr} {\bfseries contact\-\_\-geom2}\label{classMoby_1_1UnilateralConstraint_a99dacf39b1fe9e05447f2b6722995287}
+
+\item 
+double {\bf contact\-\_\-mu\-\_\-coulomb}\label{classMoby_1_1UnilateralConstraint_a6c466e433bb619cb5cc8301753044a14}
+
+\begin{DoxyCompactList}\small\item\em The coefficient of Coulomb friction (for contact constraints) \end{DoxyCompactList}\item 
+double {\bf contact\-\_\-mu\-\_\-viscous}\label{classMoby_1_1UnilateralConstraint_ac4dba653546baccb01875d10f98d1f90}
+
+\begin{DoxyCompactList}\small\item\em The coefficient of viscous friction (for contact constraints) \end{DoxyCompactList}\item 
+double {\bf contact\-\_\-penalty\-\_\-\-Kp}\label{classMoby_1_1UnilateralConstraint_aec8bd9578b9cb06d2db25077dc3ba386}
+
+\begin{DoxyCompactList}\small\item\em Penalty Method Depth Penalty. \end{DoxyCompactList}\item 
+double {\bf contact\-\_\-penalty\-\_\-\-Kv}\label{classMoby_1_1UnilateralConstraint_ab5baefb385e742bd2b42ee31bad7f602}
+
+\begin{DoxyCompactList}\small\item\em Penalty Method Interpenetration Speed. \end{DoxyCompactList}\item 
+double {\bf contact\-\_\-epsilon}\label{classMoby_1_1UnilateralConstraint_a47276aaf51eddf9f6c4669150ee3ca14}
+
+\begin{DoxyCompactList}\small\item\em The coefficient of restitution (for contact constraints) \end{DoxyCompactList}\item 
+unsigned {\bf contact\-\_\-\-N\-K}\label{classMoby_1_1UnilateralConstraint_a543d1c0d71372b9b1a03f382898a872d}
+
+\begin{DoxyCompactList}\small\item\em The number of friction directions $>$= 4 (for contact constraints) \end{DoxyCompactList}\item 
+double {\bf tol}\label{classMoby_1_1UnilateralConstraint_aeb31d40932b7a6ab962e3f2cbf18135f}
+
+\begin{DoxyCompactList}\small\item\em Tolerance for the constraint (users never need to modify this) \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Container class for describing a unilateral constraint in the simulation. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Unilateral\-Constraint@{Moby\-::\-Unilateral\-Constraint}!calc\-\_\-constraint\-\_\-tol@{calc\-\_\-constraint\-\_\-tol}}
+\index{calc\-\_\-constraint\-\_\-tol@{calc\-\_\-constraint\-\_\-tol}!Moby::UnilateralConstraint@{Moby\-::\-Unilateral\-Constraint}}
+\subsubsection[{calc\-\_\-constraint\-\_\-tol}]{\setlength{\rightskip}{0pt plus 5cm}double Unilateral\-Constraint\-::calc\-\_\-constraint\-\_\-tol (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1UnilateralConstraint_a90be0dd81300cf0cd88c76bdc8604f9c}
+
+
+Computes the constraint tolerance. 
+
+Positive velocity indicates separation, negative velocity indicates impact, zero velocity indicates rest. \index{Moby\-::\-Unilateral\-Constraint@{Moby\-::\-Unilateral\-Constraint}!calc\-\_\-constraint\-\_\-vel@{calc\-\_\-constraint\-\_\-vel}}
+\index{calc\-\_\-constraint\-\_\-vel@{calc\-\_\-constraint\-\_\-vel}!Moby::UnilateralConstraint@{Moby\-::\-Unilateral\-Constraint}}
+\subsubsection[{calc\-\_\-constraint\-\_\-vel}]{\setlength{\rightskip}{0pt plus 5cm}double Unilateral\-Constraint\-::calc\-\_\-constraint\-\_\-vel (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1UnilateralConstraint_ab581b226c3412b7c446f1d00ffd8fd2a}
+
+
+Computes the velocity of this constraint. 
+
+Positive velocity indicates separation, negative velocity indicates impact, zero velocity indicates rest. 
+
+Referenced by Moby\-::operator$<$$<$().
+
+\index{Moby\-::\-Unilateral\-Constraint@{Moby\-::\-Unilateral\-Constraint}!determine\-\_\-connected\-\_\-constraints@{determine\-\_\-connected\-\_\-constraints}}
+\index{determine\-\_\-connected\-\_\-constraints@{determine\-\_\-connected\-\_\-constraints}!Moby::UnilateralConstraint@{Moby\-::\-Unilateral\-Constraint}}
+\subsubsection[{determine\-\_\-connected\-\_\-constraints}]{\setlength{\rightskip}{0pt plus 5cm}void Unilateral\-Constraint\-::determine\-\_\-connected\-\_\-constraints (
+\begin{DoxyParamCaption}
+\item[{const std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&}]{constraints, }
+\item[{const std\-::vector$<$ {\bf Joint\-Ptr} $>$ \&}]{implicit\-\_\-joints, }
+\item[{std\-::list$<$ std\-::pair$<$ std\-::list$<$ {\bf Unilateral\-Constraint} $\ast$ $>$, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Single\-Bodyd $>$ $>$ $>$ $>$ \&}]{groups, }
+\item[{std\-::list$<$ std\-::vector$<$ boost\-::shared\-\_\-ptr$<$ Ravelin\-::\-Dynamic\-Bodyd $>$ $>$ $>$ \&}]{remaining\-\_\-islands}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [static]}}\label{classMoby_1_1UnilateralConstraint_a16ad209d84bbca253e8b6f5aa6c09e3d}
+
+
+Given a vector of constraints, determines all of the sets of connected constraints. 
+
+A set of connected constraints is the set of all constraints such that, for a given constraint A in the set, there exists another constraint B for which A and B share at least one rigid body. 
+\begin{DoxyParams}{Parameters}
+{\em constraints} & the list of constraints \\
+\hline
+{\em groups} & the islands of connected constraints on return \\
+\hline
+\end{DoxyParams}
+
+
+References constraint\-\_\-type.
+
+\index{Moby\-::\-Unilateral\-Constraint@{Moby\-::\-Unilateral\-Constraint}!write\-\_\-vrml@{write\-\_\-vrml}}
+\index{write\-\_\-vrml@{write\-\_\-vrml}!Moby::UnilateralConstraint@{Moby\-::\-Unilateral\-Constraint}}
+\subsubsection[{write\-\_\-vrml}]{\setlength{\rightskip}{0pt plus 5cm}void Unilateral\-Constraint\-::write\-\_\-vrml (
+\begin{DoxyParamCaption}
+\item[{const std\-::string \&}]{fname, }
+\item[{double}]{sphere\-\_\-radius = {\ttfamily 0.1}, }
+\item[{double}]{normal\-\_\-length = {\ttfamily 1.0}}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1UnilateralConstraint_a5496ccaacd34fa0c78532e55a2ed0f79}
+
+
+Writes an constraint to the specified filename in V\-R\-M\-L format for visualization. 
+
+\begin{DoxyRefDesc}{Todo}
+\item[{\bf Todo}]add a cone onto the arrows \end{DoxyRefDesc}
+
+
+\subsection{Member Data Documentation}
+\index{Moby\-::\-Unilateral\-Constraint@{Moby\-::\-Unilateral\-Constraint}!contact\-\_\-impulse@{contact\-\_\-impulse}}
+\index{contact\-\_\-impulse@{contact\-\_\-impulse}!Moby::UnilateralConstraint@{Moby\-::\-Unilateral\-Constraint}}
+\subsubsection[{contact\-\_\-impulse}]{\setlength{\rightskip}{0pt plus 5cm}Ravelin\-::\-S\-Momentumd Moby\-::\-Unilateral\-Constraint\-::contact\-\_\-impulse}\label{classMoby_1_1UnilateralConstraint_a8a8965a33e493c6c8d79e96cb8c87c41}
+
+
+Impulse that has been applied (for contact constraints) 
+
+Impulse applied to the body of the first geometry; the reverse of this force / impulse is applied to the body of the second geometry. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Unilateral\-Constraint.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Unilateral\-Constraint.\-inl\item 
+/home/drum/\-Moby/src/Unilateral\-Constraint.\-cpp\end{DoxyCompactItemize}

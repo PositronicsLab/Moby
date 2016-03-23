@@ -1,0 +1,98 @@
+\section{Moby\-:\-:R\-C\-Articulated\-Body Class Reference}
+\label{classMoby_1_1RCArticulatedBody}\index{Moby\-::\-R\-C\-Articulated\-Body@{Moby\-::\-R\-C\-Articulated\-Body}}
+
+
+Defines an articulated body for use with reduced-\/coordinate dynamics algorithms.  
+
+
+
+
+{\ttfamily \#include $<$R\-C\-Articulated\-Body.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:R\-C\-Articulated\-Body\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.684211cm]{classMoby_1_1RCArticulatedBody}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf R\-C\-Articulated\-Body} ()
+\begin{DoxyCompactList}\small\item\em Default constructor. \end{DoxyCompactList}\item 
+{\bf R\-C\-Articulated\-Body\-Ptr} {\bf clone} () const \label{classMoby_1_1RCArticulatedBody_a87ca0a3a688c4febb29083fa16368f51}
+
+\begin{DoxyCompactList}\small\item\em Clones this. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1RCArticulatedBody_a08ce8cf881fda06a41bb2323da25f802}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-links\-\_\-and\-\_\-joints} (const std\-::vector$<$ {\bf Rigid\-Body\-Ptr} $>$ \&links, const std\-::vector$<$ {\bf Joint\-Ptr} $>$ \&joints)\label{classMoby_1_1RCArticulatedBody_a764f142ff0c758d9e49a674ea1206466}
+
+\begin{DoxyCompactList}\small\item\em Sets the vector of links and joints. \end{DoxyCompactList}\item 
+virtual void {\bf apply\-\_\-generalized\-\_\-impulse} (const Ravelin\-::\-Shared\-Vector\-Nd \&gj)\label{classMoby_1_1RCArticulatedBody_a620e93f720f7cf69a4bf0d87cfa08640}
+
+\begin{DoxyCompactList}\small\item\em Applies a generalized impulse to the rigid body (calls the simulator) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual void {\bf compile} ()\label{classMoby_1_1RCArticulatedBody_a4b88af6624948c9e5c74b8ff7ef9e3ca}
+
+\begin{DoxyCompactList}\small\item\em Compiles this body (updates the link transforms and velocities) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an articulated body for use with reduced-\/coordinate dynamics algorithms. 
+
+Reduced-\/coordinate articulated bodies cannot rely upon the integrator to automatically update the states (i.\-e., positions, velocities) of the links, as is done with maximal-\/coordinate articulated bodies. Rather, the integrator updates the joint positions and velocities; the states are obtained from this reduced-\/coordinate representation. Notes about concurrency\-: \par
+\par
+
+
+It is generally desirable to be able to run forward dynamics and inverse dynamics algorithms concurrently to simulate actual robotic systems. In general, derived classes should not operate on state variables (joint positions, velocities, accelerations and floating base positions, velocites, and accelerations) directly during execution of the algorithm. Rather, derived classes should operate on copies of the state variables, updating the state variables on conclusion of the algorithms. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-R\-C\-Articulated\-Body@{Moby\-::\-R\-C\-Articulated\-Body}!R\-C\-Articulated\-Body@{R\-C\-Articulated\-Body}}
+\index{R\-C\-Articulated\-Body@{R\-C\-Articulated\-Body}!Moby::RCArticulatedBody@{Moby\-::\-R\-C\-Articulated\-Body}}
+\subsubsection[{R\-C\-Articulated\-Body}]{\setlength{\rightskip}{0pt plus 5cm}R\-C\-Articulated\-Body\-::\-R\-C\-Articulated\-Body (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1RCArticulatedBody_add3181d88841c6ea6d3c132be9be8085}
+
+
+Default constructor. 
+
+Constructs a reduced-\/coordinate articulated body with no joints and no links. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-R\-C\-Articulated\-Body@{Moby\-::\-R\-C\-Articulated\-Body}!load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}}
+\index{load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}!Moby::RCArticulatedBody@{Moby\-::\-R\-C\-Articulated\-Body}}
+\subsubsection[{load\-\_\-from\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void R\-C\-Articulated\-Body\-::load\-\_\-from\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$}]{node, }
+\item[{std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&}]{id\-\_\-map}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1RCArticulatedBody_a8e694464f29ac406b4b9ecef5e0d8bac}
+
+
+Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} 
+
+\begin{DoxyPrecond}{Precondition}
+all links and joints must be loaded using their respective serialization methods before this method is called 
+\end{DoxyPrecond}
+
+
+Reimplemented from {\bf Moby\-::\-Articulated\-Body} \doxyref{}{p.}{classMoby_1_1ArticulatedBody_a7d86b8e81bee372ba5cd5de35ccfde59}.
+
+
+
+References Moby\-::\-X\-M\-L\-Attrib\-::get\-\_\-bool\-\_\-value(), Moby\-::\-X\-M\-L\-Attrib\-::get\-\_\-origin\-\_\-value(), and Moby\-::\-X\-M\-L\-Attrib\-::get\-\_\-rpy\-\_\-value().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/R\-C\-Articulated\-Body.\-h\item 
+/home/drum/\-Moby/src/R\-C\-Articulated\-Body.\-cpp\end{DoxyCompactItemize}

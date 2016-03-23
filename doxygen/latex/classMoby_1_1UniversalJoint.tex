@@ -1,0 +1,90 @@
+\section{Moby\-:\-:Universal\-Joint Class Reference}
+\label{classMoby_1_1UniversalJoint}\index{Moby\-::\-Universal\-Joint@{Moby\-::\-Universal\-Joint}}
+
+
+Defines an actuated universal joint.  
+
+
+
+
+{\ttfamily \#include $<$Universal\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Universal\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.070176cm]{classMoby_1_1UniversalJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Universal\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Universal\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1UniversalJoint_a22b6021c727ad9fb328d70af4b7b2f41}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1UniversalJoint_ad90ad1098f6d33f85b4d205e46d504d3}
+
+\item 
+virtual void {\bfseries evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1UniversalJoint_af8e20367f31af3dbafd7b61ba58dc1a9}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1UniversalJoint_a40d758a529e274c4916f086dcb8300bf}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1UniversalJoint_a744ff0038f96936c995f27e3dad183f5}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1UniversalJoint_ac3d4530415d179fb9c70b751254d52f1}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1UniversalJoint_a5fb810551da607d8bc8288e7c0e49f4d}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1UniversalJoint_adce87f1eaaaa7ae81825d5e062060076}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines an actuated universal joint. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Universal\-Joint@{Moby\-::\-Universal\-Joint}!Universal\-Joint@{Universal\-Joint}}
+\index{Universal\-Joint@{Universal\-Joint}!Moby::UniversalJoint@{Moby\-::\-Universal\-Joint}}
+\subsubsection[{Universal\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Universal\-Joint\-::\-Universal\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1UniversalJoint_a5af57cd7c031074444de248f60a59787}
+
+
+Initializes the joint. 
+
+The axes of rotation are each set to [0 0 0]. The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+\index{Moby\-::\-Universal\-Joint@{Moby\-::\-Universal\-Joint}!Universal\-Joint@{Universal\-Joint}}
+\index{Universal\-Joint@{Universal\-Joint}!Moby::UniversalJoint@{Moby\-::\-Universal\-Joint}}
+\subsubsection[{Universal\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Universal\-Joint\-::\-Universal\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1UniversalJoint_aee6340897443e8fb3dc0212ecafa32df}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+The axis of rotation is set to [0 0 0]. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Universal\-Joint.\-h\item 
+/home/drum/\-Moby/src/Universal\-Joint.\-cpp\end{DoxyCompactItemize}

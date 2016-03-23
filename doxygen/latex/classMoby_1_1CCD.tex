@@ -1,0 +1,164 @@
+\section{Moby\-:\-:C\-C\-D Class Reference}
+\label{classMoby_1_1CCD}\index{Moby\-::\-C\-C\-D@{Moby\-::\-C\-C\-D}}
+
+
+Implements the \doxyref{Collision\-Detection}{p.}{classMoby_1_1CollisionDetection} abstract class to perform exact contact finding using abstract shapes.  
+
+
+
+
+{\ttfamily \#include $<$C\-C\-D.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:C\-C\-D\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1CCD}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf C\-C\-D} ()\label{classMoby_1_1CCD_a429242f48ff0e1ac536e0849644c1859}
+
+\begin{DoxyCompactList}\small\item\em Constructs a collision detector with default tolerances. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1CCD_ac2537ed877fb1303bcef42fe372e61d5}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const 
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf broad\-\_\-phase} (double dt, const std\-::vector$<$ {\bf Controlled\-Body\-Ptr} $>$ \&bodies, std\-::vector$<$ std\-::pair$<$ {\bf Collision\-Geometry\-Ptr}, {\bf Collision\-Geometry\-Ptr} $>$ $>$ \&to\-\_\-check)\label{classMoby_1_1CCD_ab7c50d0ee1a90ec79dc784ce5c67eda7}
+
+\begin{DoxyCompactList}\small\item\em Default broad phase function (checks everything) \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step} (const {\bf Pairwise\-Dist\-Info} \&pdi)\label{classMoby_1_1CCD_ae6d895289be3908e7d693ccb98d33219}
+
+\begin{DoxyCompactList}\small\item\em Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval. \end{DoxyCompactList}\item 
+virtual void {\bfseries find\-\_\-contacts} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, std\-::vector$<$ {\bf Unilateral\-Constraint} $>$ \&contacts, double T\-O\-L=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1CCD_ad519517b741dd43212133a1b5cd72754}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1CCD_a2fd35bb15504156ecc8f68fd4d511787}
+
+\begin{DoxyCompactList}\small\item\em Determines contact data between two geometries that are touching or interpenetrating. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Bidirectional\-Iterator $>$ }\\void {\bf insertion\-\_\-sort} (Bidirectional\-Iterator first, Bidirectional\-Iterator last)\label{classMoby_1_1CCD_af6b80150bc1893d248fc011c21f8ed29}
+
+\begin{DoxyCompactList}\small\item\em Does insertion sort -- custom comparison function not supported (uses operator$<$) \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L)\label{classMoby_1_1CCD_a033267eec0d1dfcefa85d9b200bc3b3e}
+
+\begin{DoxyCompactList}\small\item\em Determines contact data between two geometries that are touching or interpenetrating. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts\-\_\-polyhedron\-\_\-polyhedron} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L)\label{classMoby_1_1CCD_a2a62472c5111f72bad9320d458d95bf7}
+
+\begin{DoxyCompactList}\small\item\em Finds contacts between two polyhedra. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-vertex\-\_\-vertex} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Vertex} $>$ v1, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Vertex} $>$ v2, double signed\-\_\-dist, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1CCD_a96214d40bc14dc8b290fd2cdde6a5375}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-vertex\-\_\-edge} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Vertex} $>$ v, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Edge} $>$ e, double signed\-\_\-dist, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1CCD_a8cfd38be3b300a5dbb6dde88e3d96b9e}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-vertex\-\_\-face} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Vertex} $>$ v\-A, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Face} $>$ f\-B, double signed\-\_\-dist, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1CCD_a2655b415f4d5a70f8e6c970a558ae263}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-edge\-\_\-edge} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Edge} $>$ e1, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Edge} $>$ e2, double signed\-\_\-dist, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1CCD_a323af5cad6abd0ceb11c7a0a06bd8d8f}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-edge\-\_\-face} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Edge} $>$ e\-A, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Face} $>$ f\-B, double signed\-\_\-dist, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1CCD_aaa067166ed3f0f57762c3390dcbae786}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-face\-\_\-face} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Face} $>$ f\-A, boost\-::shared\-\_\-ptr$<$ {\bf Polyhedron\-::\-Face} $>$ f\-B, double signed\-\_\-dist, Output\-Iterator output\-\_\-begin)\label{classMoby_1_1CCD_ae4f8fb6ad454757738d07bb4345b1322}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-generic} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L)\label{classMoby_1_1CCD_a2903fba0f1e7bca7bf7a3a340a2d4d24}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-cylinder\-\_\-plane} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator o, double T\-O\-L)\label{classMoby_1_1CCD_a0d365b79286e3409df49ad9d9931fad6}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-sphere\-\_\-plane} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator o, double T\-O\-L)\label{classMoby_1_1CCD_ad998ca8e7c93cf85ecec671df564c302}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-plane\-\_\-generic} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator o, double T\-O\-L)\label{classMoby_1_1CCD_a3186861d0f855b3869d5d752f4ba67c8}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries find\-\_\-contacts\-\_\-heightmap\-\_\-generic} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator o, double T\-O\-L)\label{classMoby_1_1CCD_a99f5c718a3331a7fb120ceca53c5146d}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts\-\_\-sphere\-\_\-heightmap} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L)\label{classMoby_1_1CCD_aa44d9b3bcf7435542138334fb79b3211}
+
+\begin{DoxyCompactList}\small\item\em Finds contacts between a sphere and a heightmap. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts\-\_\-convex\-\_\-heightmap} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L)\label{classMoby_1_1CCD_a8f31261ca1e9f6d90606101e25e16ae0}
+
+\begin{DoxyCompactList}\small\item\em Finds contacts for a convex shape and a heightmap. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts\-\_\-sphere\-\_\-sphere} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator output\-\_\-begin, double T\-O\-L)\label{classMoby_1_1CCD_a1a60a578dc9ccdd077a1f7bc58540f1d}
+
+\begin{DoxyCompactList}\small\item\em Finds contacts for two spheres (one piece of code works for both separated and non-\/separated spheres) \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts\-\_\-box\-\_\-sphere} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator o, double T\-O\-L)\label{classMoby_1_1CCD_a1df51ebbda44ad9d47da50d90afbd9f2}
+
+\begin{DoxyCompactList}\small\item\em Gets contact points between a box and a sphere. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bf find\-\_\-contacts\-\_\-torus\-\_\-plane} ({\bf Collision\-Geometry\-Ptr} cg\-A, {\bf Collision\-Geometry\-Ptr} cg\-B, Output\-Iterator o, double T\-O\-L)\label{classMoby_1_1CCD_ad58eca1925cc3a12402cfe92948b0b95}
+
+\begin{DoxyCompactList}\small\item\em Gets contact points between a torus and a plane. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Bidirectional\-Iterator $>$ }\\void {\bf insertion\-\_\-sort} (Bidirectional\-Iterator first, Bidirectional\-Iterator last)\label{classMoby_1_1CCD_af6b80150bc1893d248fc011c21f8ed29}
+
+\begin{DoxyCompactList}\small\item\em Does insertion sort -- custom comparison function not supported (uses operator$<$) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static unsigned {\bfseries constrain\-\_\-unsigned} (int ii, int maxi)\label{classMoby_1_1CCD_a0bd788eb70022b6feb9d15e22cc902ec}
+
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+std\-::set$<$ Ravelin\-::sorted\-\_\-pair\\*
+$<$ {\bf Collision\-Geometry\-Ptr} $>$ $>$ {\bf disabled\-\_\-pairs}
+\begin{DoxyCompactList}\small\item\em Pairs of collision geometries that aren't checked for contact/collision. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual double {\bfseries calc\-\_\-next\-\_\-\-C\-A\-\_\-\-Euler\-\_\-step} (const {\bf Pairwise\-Dist\-Info} \&pdi)\label{classMoby_1_1CCD_a0a2c6a28b0321dfae19bdf4db329c5ae}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Implements the \doxyref{Collision\-Detection}{p.}{classMoby_1_1CollisionDetection} abstract class to perform exact contact finding using abstract shapes. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-C\-C\-D@{Moby\-::\-C\-C\-D}!save\-\_\-to\-\_\-xml@{save\-\_\-to\-\_\-xml}}
+\index{save\-\_\-to\-\_\-xml@{save\-\_\-to\-\_\-xml}!Moby::CCD@{Moby\-::\-C\-C\-D}}
+\subsubsection[{save\-\_\-to\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void C\-C\-D\-::save\-\_\-to\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{{\bf X\-M\-L\-Tree\-Ptr}}]{node, }
+\item[{std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&}]{shared\-\_\-objects}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1CCD_a9c3cf2fc9e7827ba8bcb584cf2dba31b}
+
+
+Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} 
+
+\begin{DoxyNote}{Note}
+neither the contact cache nor the pairs currently in collision are saved 
+\end{DoxyNote}
+
+
+Reimplemented from {\bf Moby\-::\-Base} \doxyref{}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9}.
+
+
+
+\subsection{Member Data Documentation}
+\index{Moby\-::\-C\-C\-D@{Moby\-::\-C\-C\-D}!disabled\-\_\-pairs@{disabled\-\_\-pairs}}
+\index{disabled\-\_\-pairs@{disabled\-\_\-pairs}!Moby::CCD@{Moby\-::\-C\-C\-D}}
+\subsubsection[{disabled\-\_\-pairs}]{\setlength{\rightskip}{0pt plus 5cm}std\-::set$<$Ravelin\-::sorted\-\_\-pair$<${\bf Collision\-Geometry\-Ptr}$>$ $>$ Moby\-::\-C\-C\-D\-::disabled\-\_\-pairs}\label{classMoby_1_1CCD_a10741909c60ac53956b459cb124b8fe4}
+
+
+Pairs of collision geometries that aren't checked for contact/collision. 
+
+\begin{DoxyNote}{Note}
+collisions between geometries for two disabled bodies and collisions between geometries for a single body are automatically not checked and do not need to be added to this set. 
+\end{DoxyNote}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/C\-C\-D.\-h\item 
+/home/drum/\-Moby/include/\-Moby/C\-C\-D.\-inl\item 
+/home/drum/\-Moby/src/C\-C\-D.\-cpp\end{DoxyCompactItemize}

@@ -1,0 +1,129 @@
+\section{Moby\-:\-:Cone\-Primitive Class Reference}
+\label{classMoby_1_1ConePrimitive}\index{Moby\-::\-Cone\-Primitive@{Moby\-::\-Cone\-Primitive}}
+
+
+Defines a cone primitive.  
+
+
+
+
+{\ttfamily \#include $<$Cone\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Cone\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1ConePrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Cone\-Primitive} ()\label{classMoby_1_1ConePrimitive_a7e7a6043232e237073e3ffe07135e072}
+
+\begin{DoxyCompactList}\small\item\em Constructs a cone centered at the origin, with the longitudinal axis aligned with the y-\/axis, radius 1.\-0, height 1.\-0, 1 ring and 10 circle points. \end{DoxyCompactList}\item 
+{\bf Cone\-Primitive} (double radius, double height)\label{classMoby_1_1ConePrimitive_ada340a7ab2801b710a56e30056acc732}
+
+\begin{DoxyCompactList}\small\item\em Constructs a cone along the y-\/axis with specified radius and height, centered at the origin, with 1 ring and 10 circle points. \end{DoxyCompactList}\item 
+{\bfseries Cone\-Primitive} (double radius, double height, unsigned npoints, unsigned nrings, const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1ConePrimitive_a58ff803e6b380676d86a5bc6b049ee41}
+
+\item 
+{\bfseries Cone\-Primitive} (double radius, double height, const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1ConePrimitive_a20f8169124c41c8a3c5e8dd934ac07db}
+
+\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1ConePrimitive_a5e45656c53f0532b3ac315d58a2c3800}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this primitive is convex. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-radius} (double radius)\label{classMoby_1_1ConePrimitive_a5bde5de4ff34f5c6d1e87eca8cff537a}
+
+\begin{DoxyCompactList}\small\item\em Sets the radius for this cone. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-height} (double height)\label{classMoby_1_1ConePrimitive_a615e78d4a474b2b4270b6182990fb24a}
+
+\begin{DoxyCompactList}\small\item\em Sets the height for this cone. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-circle\-\_\-points} (unsigned n)\label{classMoby_1_1ConePrimitive_a97c846357dcafc281fb024e72e297227}
+
+\begin{DoxyCompactList}\small\item\em Sets the number of points in the rings of the cone. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-num\-\_\-rings} (unsigned n)\label{classMoby_1_1ConePrimitive_aadcfd4b1248c4e53167cbe602e757fda}
+
+\begin{DoxyCompactList}\small\item\em Sets the number of rings in the cone. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1ConePrimitive_a5fb7ad4ce31f041a8933cb67e30c3c8b}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1ConePrimitive_a7cf26ee13c1fe73f766d7dba07b55cda}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)
+\begin{DoxyCompactList}\small\item\em Gets vertices from the primitive. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const \label{classMoby_1_1ConePrimitive_aa4f41bf896b4d1605c508d11d37506d3}
+
+\begin{DoxyCompactList}\small\item\em Gets vertices from the primitive. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1ConePrimitive_adaf388fdaf4e7fbe9331c768a6211775}
+
+\begin{DoxyCompactList}\small\item\em Transforms the primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&point, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1ConePrimitive_af1d5f382f63f8cbbb7188b2b8413101e}
+
+\begin{DoxyCompactList}\small\item\em Computes the distance and normal from a point on the primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1ConePrimitive_a5082277dcf1f1b16333de5b026809855}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1ConePrimitive_a21873b1161a88b316087413075913d22}
+
+\begin{DoxyCompactList}\small\item\em Gets the triangle mesh for the cone, computing it if necessary. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1ConePrimitive_a5c73da36a3b61b6cc84f76148bb6db7a}
+
+\begin{DoxyCompactList}\small\item\em Creates the visualization for this primitive. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-supporting\-\_\-point} (const Ravelin\-::\-Vector3d \&d) const \label{classMoby_1_1ConePrimitive_ae25dcfd230a01bf2f93055f85d4cbc37}
+
+\begin{DoxyCompactList}\small\item\em Gets a supporting point in a particular direction. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1ConePrimitive_aa3ab279f08fb4deadb656e008144d89f}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance from the cylinder. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1ConePrimitive_aecd2fdebaaa7356e9b26a88ecb65613e}
+
+\item 
+unsigned {\bf get\-\_\-num\-\_\-rings} () const \label{classMoby_1_1ConePrimitive_a6b6e405185d2eb9fdbcf96567d037b0b}
+
+\begin{DoxyCompactList}\small\item\em Gets the number of rings on the cone. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-radius} () const \label{classMoby_1_1ConePrimitive_acdea677cfe6803c65a819a201951b0f9}
+
+\begin{DoxyCompactList}\small\item\em Gets the radius of this cone. \end{DoxyCompactList}\item 
+double {\bf get\-\_\-height} () const \label{classMoby_1_1ConePrimitive_ac09f06faad30a5746a88fb3f00fcf2dd}
+
+\begin{DoxyCompactList}\small\item\em Gets the height of this cone. \end{DoxyCompactList}\item 
+unsigned {\bf get\-\_\-circle\-\_\-points} () const \label{classMoby_1_1ConePrimitive_a819203cb8e6a8e38dba3aebe36738458}
+
+\begin{DoxyCompactList}\small\item\em Gets the number of points in a circle on the cone. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a cone primitive. 
+
+The axis of the untransformed cone lies along the global Y-\/axis, and the center of the cone is coincident with the global origin. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Cone\-Primitive@{Moby\-::\-Cone\-Primitive}!get\-\_\-\-B\-V\-H\-\_\-root@{get\-\_\-\-B\-V\-H\-\_\-root}}
+\index{get\-\_\-\-B\-V\-H\-\_\-root@{get\-\_\-\-B\-V\-H\-\_\-root}!Moby::ConePrimitive@{Moby\-::\-Cone\-Primitive}}
+\subsubsection[{get\-\_\-\-B\-V\-H\-\_\-root}]{\setlength{\rightskip}{0pt plus 5cm}{\bf B\-V\-Ptr} Cone\-Primitive\-::get\-\_\-\-B\-V\-H\-\_\-root (
+\begin{DoxyParamCaption}
+\item[{{\bf Collision\-Geometry\-Ptr}}]{geom}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1ConePrimitive_a6c6f49d922bce62f4d1dccf3fe5ddb9a}
+
+
+Gets vertices from the primitive. 
+
+Gets the \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB} 
+
+Implements {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_a2c9a61ca714a7b1ac6bc8ae2d9956510}.
+
+
+
+References Moby\-::\-Primitive\-::get\-\_\-pose().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Cone\-Primitive.\-h\item 
+/home/drum/\-Moby/src/Cone\-Primitive.\-cpp\end{DoxyCompactItemize}

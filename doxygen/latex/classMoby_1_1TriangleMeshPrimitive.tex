@@ -1,0 +1,177 @@
+\section{Moby\-:\-:Triangle\-Mesh\-Primitive Class Reference}
+\label{classMoby_1_1TriangleMeshPrimitive}\index{Moby\-::\-Triangle\-Mesh\-Primitive@{Moby\-::\-Triangle\-Mesh\-Primitive}}
+
+
+Represents a triangle mesh \char`\"{}primitive\char`\"{} for inertia properties, collision detection, and visualization.  
+
+
+
+
+{\ttfamily \#include $<$Triangle\-Mesh\-Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Triangle\-Mesh\-Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.000000cm]{classMoby_1_1TriangleMeshPrimitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Triangle\-Mesh\-Primitive} ()\label{classMoby_1_1TriangleMeshPrimitive_ac103c63ee656ecf13c09c5e6e75a21b6}
+
+\begin{DoxyCompactList}\small\item\em Creates the triangle mesh primitive. \end{DoxyCompactList}\item 
+{\bfseries Triangle\-Mesh\-Primitive} (const std\-::string \&filename, bool center=true)\label{classMoby_1_1TriangleMeshPrimitive_ab860873326685d16700ecd9f83ec040d}
+
+\item 
+{\bfseries Triangle\-Mesh\-Primitive} (const std\-::string \&filename, const Ravelin\-::\-Pose3d \&T, bool center=true)\label{classMoby_1_1TriangleMeshPrimitive_a7ea49b76ffd82a51aefe699290008c1a}
+
+\item 
+void {\bf set\-\_\-edge\-\_\-sample\-\_\-length} (double len)\label{classMoby_1_1TriangleMeshPrimitive_aaa33611f584ab387a05c59aa6948b100}
+
+\begin{DoxyCompactList}\small\item\em Sets the edge sample length for this triangle mesh. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf create\-\_\-visualization} ()\label{classMoby_1_1TriangleMeshPrimitive_ab58bfe522331f8e671e322adab6f3c6f}
+
+\begin{DoxyCompactList}\small\item\em Creates the visualization for this primitive. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const \label{classMoby_1_1TriangleMeshPrimitive_a107b4c1456e503751f534cfb402dcc99}
+
+\item 
+double {\bf get\-\_\-edge\-\_\-sample\-\_\-length} () const \label{classMoby_1_1TriangleMeshPrimitive_a86c251ce9488e239ffde86e03dd47ade}
+
+\begin{DoxyCompactList}\small\item\em Gets the length of an edge in the mesh above which point sub-\/samples are created. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1TriangleMeshPrimitive_ada9cb9407472241c90959e940661058f}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance to a point from the mesh. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1TriangleMeshPrimitive_a12bc7caf20ec07e992a37ffd313812d4}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)\label{classMoby_1_1TriangleMeshPrimitive_a60142bd6fdcd46446f5aecd0cd4e68f4}
+
+\begin{DoxyCompactList}\small\item\em Gets the pointer to the root bounding box. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const 
+\begin{DoxyCompactList}\small\item\em Get vertices corresponding to this primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&point, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const \label{classMoby_1_1TriangleMeshPrimitive_acafc9bea832f7da157978606ce7f3056}
+
+\begin{DoxyCompactList}\small\item\em Computes the distance and normal from a point on the mesh. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1TriangleMeshPrimitive_ad130d3a5a661cbab2a3175c0a5a609ec}
+
+\begin{DoxyCompactList}\small\item\em Gets the underlying triangle mesh for this primitive. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const {\bf Indexed\-Tri\-Array} $>$ mesh)\label{classMoby_1_1TriangleMeshPrimitive_a0bda568457bc891164862cdddf79e5bd}
+
+\begin{DoxyCompactList}\small\item\em Sets the mesh. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1TriangleMeshPrimitive_a189461004cd7fd16d57d65214417e22b}
+
+\begin{DoxyCompactList}\small\item\em Transforms this primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const \label{classMoby_1_1TriangleMeshPrimitive_af9fb7b4d81b5ab8004ca389be85e7bfe}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1TriangleMeshPrimitive_acb389ba78ca13e873e6d6760d1c3d7c1}
+
+\begin{DoxyCompactList}\small\item\em Returns whether the mesh is convex (currently mesh must be convex) \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Input\-Iterator , class Output\-Iterator $>$ }\\Output\-Iterator {\bf get\-\_\-vertices} (const {\bf Indexed\-Tri\-Array} \&tris, Input\-Iterator fselect\-\_\-begin, Input\-Iterator fselect\-\_\-end, Output\-Iterator output, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)
+\begin{DoxyCompactList}\small\item\em Gets the vertex indices from selected facets of an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Represents a triangle mesh \char`\"{}primitive\char`\"{} for inertia properties, collision detection, and visualization. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Triangle\-Mesh\-Primitive@{Moby\-::\-Triangle\-Mesh\-Primitive}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::TriangleMeshPrimitive@{Moby\-::\-Triangle\-Mesh\-Primitive}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}template$<$class Input\-Iterator , class Output\-Iterator $>$ Output\-Iterator Moby\-::\-Triangle\-Mesh\-Primitive\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{const {\bf Indexed\-Tri\-Array} \&}]{tris, }
+\item[{Input\-Iterator}]{fselect\-\_\-begin, }
+\item[{Input\-Iterator}]{fselect\-\_\-end, }
+\item[{Output\-Iterator}]{output, }
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{P}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1TriangleMeshPrimitive_a774c6587dd24a423b0db70778af3ce1f}
+
+
+Gets the vertex indices from selected facets of an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray}. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em tris} & the triangle mesh \\
+\hline
+{\em fselect\-\_\-begin} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em fselect\-\_\-end} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em output} & beginning iterator to a container of type Point3d; unique vertices are copied here on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+ending iterator to a container of type Point3d; unique vertices are copied here on return 
+\end{DoxyReturn}
+
+
+References Moby\-::\-Indexed\-Tri\-::a, Moby\-::\-Indexed\-Tri\-::b, Moby\-::\-Indexed\-Tri\-::c, Moby\-::\-Indexed\-Tri\-Array\-::get\-\_\-facets(), and Moby\-::\-Indexed\-Tri\-Array\-::get\-\_\-vertices().
+
+\index{Moby\-::\-Triangle\-Mesh\-Primitive@{Moby\-::\-Triangle\-Mesh\-Primitive}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::TriangleMeshPrimitive@{Moby\-::\-Triangle\-Mesh\-Primitive}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}virtual void Moby\-::\-Triangle\-Mesh\-Primitive\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{P, }
+\item[{std\-::vector$<$ {\bf Point3d} $>$ \&}]{vertices}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1TriangleMeshPrimitive_a357c2548745c24131a308cc976ea54f6}
+
+
+Get vertices corresponding to this primitive. 
+
+Gets the vertex indices from selected facets of an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray}.
+
+
+\begin{DoxyParams}{Parameters}
+{\em tris} & the triangle mesh \\
+\hline
+{\em fselect\-\_\-begin} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em fselect\-\_\-end} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em output} & beginning iterator to a container of type Point3d; unique vertices are copied here on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+ending iterator to a container of type Point3d; unique vertices are copied here on return 
+\end{DoxyReturn}
+
+
+Implements {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_ab50adaba8785794650193def668d4a05}.
+
+\index{Moby\-::\-Triangle\-Mesh\-Primitive@{Moby\-::\-Triangle\-Mesh\-Primitive}!load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}}
+\index{load\-\_\-from\-\_\-xml@{load\-\_\-from\-\_\-xml}!Moby::TriangleMeshPrimitive@{Moby\-::\-Triangle\-Mesh\-Primitive}}
+\subsubsection[{load\-\_\-from\-\_\-xml}]{\setlength{\rightskip}{0pt plus 5cm}void Triangle\-Mesh\-Primitive\-::load\-\_\-from\-\_\-xml (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$}]{node, }
+\item[{std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&}]{id\-\_\-map}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1TriangleMeshPrimitive_a568de88a674606645f2b980729469aef}
+
+
+Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} 
+
+\begin{DoxyNote}{Note}
+if centering is done, it is done $<$i$<$before any transform is applied 
+\end{DoxyNote}
+
+
+Reimplemented from {\bf Moby\-::\-Primitive} \doxyref{}{p.}{classMoby_1_1Primitive_ab2cb5a7043032a8a3df736909740d1f7}.
+
+
+
+References Moby\-::\-X\-M\-L\-Attrib\-::get\-\_\-bool\-\_\-value(), Moby\-::\-X\-M\-L\-Attrib\-::get\-\_\-real\-\_\-value(), Moby\-::\-Primitive\-::load\-\_\-from\-\_\-xml(), Moby\-::\-Indexed\-Tri\-Array\-::read\-\_\-from\-\_\-obj(), set\-\_\-edge\-\_\-sample\-\_\-length(), set\-\_\-mesh(), and Moby\-::\-Primitive\-::update\-\_\-visualization().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Triangle\-Mesh\-Primitive.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Triangle\-Mesh\-Primitive.\-inl\item 
+/home/drum/\-Moby/src/Triangle\-Mesh\-Primitive.\-cpp\end{DoxyCompactItemize}

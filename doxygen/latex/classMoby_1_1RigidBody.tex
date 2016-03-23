@@ -1,0 +1,177 @@
+\section{Moby\-:\-:Rigid\-Body Class Reference}
+\label{classMoby_1_1RigidBody}\index{Moby\-::\-Rigid\-Body@{Moby\-::\-Rigid\-Body}}
+
+
+Represents a single rigid body.  
+
+
+
+
+{\ttfamily \#include $<$Rigid\-Body.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Rigid\-Body\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=4.605263cm]{classMoby_1_1RigidBody}
+\end{center}
+\end{figure}
+\subsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+enum {\bfseries Compliance} \{ {\bfseries e\-Rigid}, 
+{\bfseries e\-Compliant}
+ \}
+\end{DoxyCompactItemize}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Rigid\-Body} ()
+\begin{DoxyCompactList}\small\item\em Default constructor. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-visualization\-\_\-data} (osg\-::\-Node $\ast$vdata)\label{classMoby_1_1RigidBody_aa920d8cc52cd38f7282b4c192a57ed08}
+
+\begin{DoxyCompactList}\small\item\em Sets the visualization data from a node. \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1RigidBody_a26bee5f435e488d8048e0b827ee91004}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1RigidBody_a071ed106863e0cd018b5ccf3bce5f5e2}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-child\-\_\-link} (boost\-::shared\-\_\-ptr$<$ const {\bf Rigid\-Body} $>$ query) const \label{classMoby_1_1RigidBody_a7907871ed17117ec16d59de2a0932ff0}
+
+\begin{DoxyCompactList}\small\item\em Determines whether the given link is a child link of this. \end{DoxyCompactList}\item 
+bool {\bf is\-\_\-descendant\-\_\-link} (boost\-::shared\-\_\-ptr$<$ const {\bf Rigid\-Body} $>$ query) const 
+\begin{DoxyCompactList}\small\item\em Determines whether the given link is a descendant of this. \end{DoxyCompactList}\item 
+{\bf Rigid\-Body\-Ptr} {\bf get\-\_\-parent\-\_\-link} () const \label{classMoby_1_1RigidBody_aef849d722736091bde943426f72b2f65}
+
+\begin{DoxyCompactList}\small\item\em Gets the first parent link of this link; returns N\-U\-L\-L if there is no parent. \end{DoxyCompactList}\item 
+{\bf Joint\-Ptr} {\bf get\-\_\-inner\-\_\-joint\-\_\-explicit} () const 
+\begin{DoxyCompactList}\small\item\em Gets the explicit inner joint of this link; returns N\-U\-L\-L if there is no explicit inner joint. \end{DoxyCompactList}\item 
+virtual void {\bf prepare\-\_\-to\-\_\-calc\-\_\-ode} (Ravelin\-::\-Shared\-Const\-Vector\-Nd \&x, double t, double dt, void $\ast$data)\label{classMoby_1_1RigidBody_ab39581c787c03702e3c38186625890dc}
+
+\begin{DoxyCompactList}\small\item\em Prepares to compute the O\-D\-E. \end{DoxyCompactList}\item 
+virtual void {\bf prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints} (Ravelin\-::\-Shared\-Const\-Vector\-Nd \&x, double t, double dt, void $\ast$data)\label{classMoby_1_1RigidBody_a34766f49520ffd4fa25e1b148ac7df15}
+
+\begin{DoxyCompactList}\small\item\em Prepares to compute the derivative of the body (sustained constraints) \end{DoxyCompactList}\item 
+virtual void {\bf ode} (double t, double dt, void $\ast$data, Ravelin\-::\-Shared\-Vector\-Nd \&dx)\label{classMoby_1_1RigidBody_add1c713a00195f49a20196ae4196c8b6}
+
+\begin{DoxyCompactList}\small\item\em Computes the O\-D\-E. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-articulated\-\_\-body} (boost\-::shared\-\_\-ptr$<$ {\bf Articulated\-Body} $>$ body)
+\begin{DoxyCompactList}\small\item\em Sets the articulated body corresponding to this body. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-inertia} (const Ravelin\-::\-Spatial\-R\-B\-Inertiad \&J)\label{classMoby_1_1RigidBody_a95342ceec35b4ed59270acb3152201da}
+
+\begin{DoxyCompactList}\small\item\em Sets the rigid body inertia for this body. \end{DoxyCompactList}\item 
+virtual void {\bf apply\-\_\-generalized\-\_\-impulse} (const Ravelin\-::\-Shared\-Vector\-Nd \&gj)\label{classMoby_1_1RigidBody_a143af073f492eca104c916554b4d2b8d}
+
+\begin{DoxyCompactList}\small\item\em Applies a generalized impulse to the rigid body (calls the simulator) \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-parent\-\_\-links} (Output\-Iterator begin) const \label{classMoby_1_1RigidBody_a1bccd0004208c2f4fdad476616f10b67}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-child\-\_\-links} (Output\-Iterator begin) const \label{classMoby_1_1RigidBody_a4361f780f430975b6a7db6aa845f5af5}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-parent\-\_\-links} (Output\-Iterator begin) const \label{classMoby_1_1RigidBody_a1bccd0004208c2f4fdad476616f10b67}
+
+\item 
+{\footnotesize template$<$class Output\-Iterator $>$ }\\Output\-Iterator {\bfseries get\-\_\-child\-\_\-links} (Output\-Iterator begin) const \label{classMoby_1_1RigidBody_a4361f780f430975b6a7db6aa845f5af5}
+
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+std\-::list$<$ {\bf Collision\-Geometry\-Ptr} $>$ {\bf geometries}\label{classMoby_1_1RigidBody_add39aaa78b528ce6af4f3c2c8c491787}
+
+\begin{DoxyCompactList}\small\item\em Collision geometries, if any, for this rigid body. \end{DoxyCompactList}\item 
+Compliance {\bf compliance}\label{classMoby_1_1RigidBody_a8a6469c96b4c444dcebb50c8c86f4915}
+
+\begin{DoxyCompactList}\small\item\em Compliance value, determines event type. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Articulated\-Body}\label{classMoby_1_1RigidBody_a7d29a1ee423a6e8dab5bf1a58b001f17}
+
+\item 
+class {\bfseries R\-C\-Articulated\-Body}\label{classMoby_1_1RigidBody_af04ff9fbc4b43045d831b0922dfad60c}
+
+\item 
+class {\bfseries M\-C\-Articulated\-Body}\label{classMoby_1_1RigidBody_a8671e4c6b33a082e8cbbc13466bdd6f4}
+
+\item 
+class {\bfseries Time\-Stepping\-Simulator}\label{classMoby_1_1RigidBody_a9a45dd70a5ca67a83fe0954e77276589}
+
+\item 
+class {\bfseries Joint}\label{classMoby_1_1RigidBody_a2b27269e818d7b63995be0e0f812bf54}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Represents a single rigid body. 
+
+Contains information needed to represent a rigid body, including position and velocity (both linear and angular), mass, center of mass, inertia matrix, collision data, and visualization data. This class is used for both non-\/articulated and articulated rigid bodies, though not all member data may be used in the latter. \begin{DoxyRefDesc}{Todo}
+\item[{\bf Todo}]implement rest matrix \end{DoxyRefDesc}
+
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Rigid\-Body@{Moby\-::\-Rigid\-Body}!Rigid\-Body@{Rigid\-Body}}
+\index{Rigid\-Body@{Rigid\-Body}!Moby::RigidBody@{Moby\-::\-Rigid\-Body}}
+\subsubsection[{Rigid\-Body}]{\setlength{\rightskip}{0pt plus 5cm}Rigid\-Body\-::\-Rigid\-Body (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1RigidBody_a28203d38d278da0695ace20c66ee5f0a}
+
+
+Default constructor. 
+
+Constructs a rigid body with zero mass, zero inertia tensor, and center of mass at [0,0,0] with position at [0,0,0], identity orientation, and zero linear and angular velocity. Body is enabled by default. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Rigid\-Body@{Moby\-::\-Rigid\-Body}!get\-\_\-inner\-\_\-joint\-\_\-explicit@{get\-\_\-inner\-\_\-joint\-\_\-explicit}}
+\index{get\-\_\-inner\-\_\-joint\-\_\-explicit@{get\-\_\-inner\-\_\-joint\-\_\-explicit}!Moby::RigidBody@{Moby\-::\-Rigid\-Body}}
+\subsubsection[{get\-\_\-inner\-\_\-joint\-\_\-explicit}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Joint\-Ptr} Rigid\-Body\-::get\-\_\-inner\-\_\-joint\-\_\-explicit (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1RigidBody_af1e9ffb4be18421ac010d7c41666b567}
+
+
+Gets the explicit inner joint of this link; returns N\-U\-L\-L if there is no explicit inner joint. 
+
+Throws an exception if this link has multiple explicit inner joints \index{Moby\-::\-Rigid\-Body@{Moby\-::\-Rigid\-Body}!is\-\_\-descendant\-\_\-link@{is\-\_\-descendant\-\_\-link}}
+\index{is\-\_\-descendant\-\_\-link@{is\-\_\-descendant\-\_\-link}!Moby::RigidBody@{Moby\-::\-Rigid\-Body}}
+\subsubsection[{is\-\_\-descendant\-\_\-link}]{\setlength{\rightskip}{0pt plus 5cm}bool Rigid\-Body\-::is\-\_\-descendant\-\_\-link (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const {\bf Rigid\-Body} $>$}]{query}
+\end{DoxyParamCaption}
+) const}\label{classMoby_1_1RigidBody_ae488e06d52ec66cd4a7d170e7654717a}
+
+
+Determines whether the given link is a descendant of this. 
+
+\begin{DoxyNote}{Note}
+returns {\bfseries true} if query == this 
+\end{DoxyNote}
+\index{Moby\-::\-Rigid\-Body@{Moby\-::\-Rigid\-Body}!set\-\_\-articulated\-\_\-body@{set\-\_\-articulated\-\_\-body}}
+\index{set\-\_\-articulated\-\_\-body@{set\-\_\-articulated\-\_\-body}!Moby::RigidBody@{Moby\-::\-Rigid\-Body}}
+\subsubsection[{set\-\_\-articulated\-\_\-body}]{\setlength{\rightskip}{0pt plus 5cm}void Rigid\-Body\-::set\-\_\-articulated\-\_\-body (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ {\bf Articulated\-Body} $>$}]{body}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1RigidBody_a49d971ac0c958ec133df664008b8af21}
+
+
+Sets the articulated body corresponding to this body. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em body} & a pointer to the articulated body or N\-U\-L\-L if this body is not a link in an articulated body \\
+\hline
+\end{DoxyParams}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Rigid\-Body.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Rigid\-Body.\-inl\item 
+/home/drum/\-Moby/src/Rigid\-Body.\-cpp\end{DoxyCompactItemize}

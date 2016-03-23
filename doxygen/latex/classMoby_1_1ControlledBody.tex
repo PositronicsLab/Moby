@@ -1,0 +1,73 @@
+\section{Moby\-:\-:Controlled\-Body Class Reference}
+\label{classMoby_1_1ControlledBody}\index{Moby\-::\-Controlled\-Body@{Moby\-::\-Controlled\-Body}}
+
+
+Superclass for controlled bodies.  
+
+
+
+
+{\ttfamily \#include $<$Controlled\-Body.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Controlled\-Body\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=5.526316cm]{classMoby_1_1ControlledBody}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1ControlledBody_aa537fd1b68d720745cd7a7a2580ce9d3}
+
+\begin{DoxyCompactList}\small\item\em Loads the body's state via X\-M\-L. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1ControlledBody_a8652ca9cedf67ee84f29ea004bb1a872}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+const std\-::list\\*
+$<$ {\bf Recurrent\-Force\-Ptr} $>$ \& {\bf get\-\_\-recurrent\-\_\-forces} () const \label{classMoby_1_1ControlledBody_a64e7f87362bcdb718b82f7d30f5d4367}
+
+\begin{DoxyCompactList}\small\item\em Gets the set of recurrent forces applied to this body. \end{DoxyCompactList}\item 
+std\-::list$<$ {\bf Recurrent\-Force\-Ptr} $>$ \& {\bf get\-\_\-recurrent\-\_\-forces} ()\label{classMoby_1_1ControlledBody_a872a0c7e78528cfc3dceae7491397384}
+
+\begin{DoxyCompactList}\small\item\em Gets the set of recurrent forces applied to this body. \end{DoxyCompactList}\item 
+virtual void {\bf prepare\-\_\-to\-\_\-calc\-\_\-ode\-\_\-sustained\-\_\-constraints} (Ravelin\-::\-Shared\-Const\-Vector\-Nd \&x, double t, double dt, void $\ast$data)=0\label{classMoby_1_1ControlledBody_a6df8a844762bcc3cacd27b21e1e3b0c9}
+
+\begin{DoxyCompactList}\small\item\em Prepares to compute the derivative of the body (sustained constraints) \end{DoxyCompactList}\item 
+virtual void {\bf prepare\-\_\-to\-\_\-calc\-\_\-ode} (Ravelin\-::\-Shared\-Const\-Vector\-Nd \&x, double t, double dt, void $\ast$data)=0\label{classMoby_1_1ControlledBody_aa1b930c7402320aee050f6867bd53ef7}
+
+\begin{DoxyCompactList}\small\item\em Prepares to compute the derivative of the body. \end{DoxyCompactList}\item 
+virtual void {\bf ode} (double t, double dt, void $\ast$data, Ravelin\-::\-Shared\-Vector\-Nd \&dx)=0\label{classMoby_1_1ControlledBody_a938883c043d39824b1b2353ecb3752b6}
+
+\begin{DoxyCompactList}\small\item\em Computes the derivative of the body. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+Ravelin\-::\-Vector\-Nd \&($\ast$ {\bf controller} )(boost\-::shared\-\_\-ptr$<$ {\bf Controlled\-Body} $>$ body, Ravelin\-::\-Vector\-Nd \&, double, void $\ast$)\label{classMoby_1_1ControlledBody_af0f0f287bc6b7201ea2454b180cb7e51}
+
+\begin{DoxyCompactList}\small\item\em The controller callback, if any, for this body. \end{DoxyCompactList}\item 
+void $\ast$ {\bf controller\-\_\-arg}\label{classMoby_1_1ControlledBody_a2a8301ec8cd93f152f9a868e531b4f57}
+
+\begin{DoxyCompactList}\small\item\em Argument to be passed to the controller. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+boost\-::weak\-\_\-ptr$<$ {\bf Simulator} $>$ {\bf simulator}\label{classMoby_1_1ControlledBody_ae05a3dda7730a3036867a0726211f078}
+
+\begin{DoxyCompactList}\small\item\em Pointer to the simulator (necessary for applying impulses w/constraints) \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Simulator}\label{classMoby_1_1ControlledBody_a4ba4278eee9a6776d60f4aa6b42c3a76}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Superclass for controlled bodies. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Controlled\-Body.\-h\item 
+/home/drum/\-Moby/src/Controlled\-Body.\-cpp\end{DoxyCompactItemize}

@@ -1,0 +1,215 @@
+\section{Moby\-:\-:Primitive Class Reference}
+\label{classMoby_1_1Primitive}\index{Moby\-::\-Primitive@{Moby\-::\-Primitive}}
+
+
+Defines a triangle-\/mesh-\/based primitive type used for inertial property calculation and geometry provisions.  
+
+
+
+
+{\ttfamily \#include $<$Primitive.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Primitive\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=10.131579cm]{classMoby_1_1Primitive}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Primitive} ()\label{classMoby_1_1Primitive_ae6b6e9440d482575d1dcbf77a936c201}
+
+\begin{DoxyCompactList}\small\item\em Constructs a primitive under the identity transformation. \end{DoxyCompactList}\item 
+{\bfseries Primitive} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1Primitive_ac005739f92deab6182ad9b887413e5cf}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1Primitive_ab2cb5a7043032a8a3df736909740d1f7}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} for serialization. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1Primitive_aa5925c970e939796f5fd07d1c8198437}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} for serialization. \end{DoxyCompactList}\item 
+void {\bf update\-\_\-visualization} ()\label{classMoby_1_1Primitive_a89ee97934a86698bbfedeb603e7b17ad}
+
+\begin{DoxyCompactList}\small\item\em Updates the visualization on the primitive. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-mass} (double mass)
+\begin{DoxyCompactList}\small\item\em Sets the mass of this primitive. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-density} (double density)\label{classMoby_1_1Primitive_a4237eca57396dbb01e07a8ebb376b5e9}
+
+\begin{DoxyCompactList}\small\item\em Sets the density of this primitive. \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-pose} (const Ravelin\-::\-Pose3d \&T)\label{classMoby_1_1Primitive_a136eb09810531c47a0da93ef70534950}
+
+\begin{DoxyCompactList}\small\item\em Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated) \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-supporting\-\_\-point} (const Ravelin\-::\-Vector3d \&d) const \label{classMoby_1_1Primitive_a497607bdbb73e48cd4eaa4cfb3a34502}
+
+\begin{DoxyCompactList}\small\item\em Gets a supporting point from a primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (const {\bf Point3d} \&p) const \label{classMoby_1_1Primitive_a06829f79f039faea7f23460036c913b5}
+
+\begin{DoxyCompactList}\small\item\em Calculates the signed distance from this primitive. \end{DoxyCompactList}\item 
+void {\bf add\-\_\-collision\-\_\-geometry} ({\bf Collision\-Geometry\-Ptr} cg)\label{classMoby_1_1Primitive_aa6db4769773cc5fd99032df52f73d681}
+
+\begin{DoxyCompactList}\small\item\em Adds a collision geometry. \end{DoxyCompactList}\item 
+void {\bf remove\-\_\-collision\-\_\-geometry} ({\bf Collision\-Geometry\-Ptr} cg)\label{classMoby_1_1Primitive_afb386d7c5d657b773084647e6ce81b6d}
+
+\begin{DoxyCompactList}\small\item\em Removes a collision geometry. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-pose} ({\bf Collision\-Geometry\-Ptr} g) const \label{classMoby_1_1Primitive_a15029c143c9a8b28c454bbfc7146aa2b}
+
+\begin{DoxyCompactList}\small\item\em Gets the pose of this primitive relative to a particular collision geometry. \end{DoxyCompactList}\item 
+virtual double {\bfseries get\-\_\-bounding\-\_\-radius} () const =0\label{classMoby_1_1Primitive_a291847b5c5eb652edb56116240a29fe7}
+
+\item 
+virtual double {\bf calc\-\_\-max\-\_\-dist} (double lin\-\_\-cont, double ang\-\_\-cont, double dist, const Ravelin\-::\-Vector3d \&d0, const Ravelin\-::\-Vector3d \&w0, boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)\label{classMoby_1_1Primitive_ae9ec4a781a67b5b223acf0c25eb3637d}
+
+\begin{DoxyCompactList}\small\item\em Computes the maximum distance by a point on the geometry. \end{DoxyCompactList}\item 
+virtual bool {\bf is\-\_\-convex} () const \label{classMoby_1_1Primitive_a0be49e3c40dfcbd264f9f7f4e0dcde8c}
+
+\begin{DoxyCompactList}\small\item\em Determines whether this primitive is convex. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-dist\-\_\-and\-\_\-normal} (const {\bf Point3d} \&p, std\-::vector$<$ Ravelin\-::\-Vector3d $>$ \&normals) const =0\label{classMoby_1_1Primitive_affd613f067f7962071a0be583d5b96e3}
+
+\begin{DoxyCompactList}\small\item\em Computes the distance between a point and this primitive. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-signed\-\_\-dist} (boost\-::shared\-\_\-ptr$<$ const {\bf Primitive} $>$ p, {\bf Point3d} \&pthis, {\bf Point3d} \&pp) const =0\label{classMoby_1_1Primitive_aa1145109efb717cc8f2fa2913333432a}
+
+\begin{DoxyCompactList}\small\item\em Computes the signed distance between this and another primitive. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bf get\-\_\-visualization} ()
+\begin{DoxyCompactList}\small\item\em Gets the visualization for this primitive. \end{DoxyCompactList}\item 
+virtual osg\-::\-Node $\ast$ {\bfseries create\-\_\-visualization} ()=0\label{classMoby_1_1Primitive_aaa0bfdcbffd208c94e6ee9106ed6df11}
+
+\item 
+virtual {\bf B\-V\-Ptr} {\bf get\-\_\-\-B\-V\-H\-\_\-root} ({\bf Collision\-Geometry\-Ptr} geom)=0\label{classMoby_1_1Primitive_a2c9a61ca714a7b1ac6bc8ae2d9956510}
+
+\begin{DoxyCompactList}\small\item\em Gets the root bounding volume for this primitive. \end{DoxyCompactList}\item 
+virtual void {\bf get\-\_\-vertices} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P, std\-::vector$<$ {\bf Point3d} $>$ \&vertices) const =0
+\begin{DoxyCompactList}\small\item\em Get vertices corresponding to this primitive. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-inertial\-\_\-pose} () const \label{classMoby_1_1Primitive_aaf23611e6d4ce55c1c2addfb8a01ef86}
+
+\begin{DoxyCompactList}\small\item\em Gets the inertial frame of this primitive. \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ const \\*
+Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-pose} () const \label{classMoby_1_1Primitive_abe4bd32862d6751eefffe027b9c73dfb}
+
+\begin{DoxyCompactList}\small\item\em Gets the pose of this primitive. \end{DoxyCompactList}\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const {\bf Indexed\-Tri\-Array} $>$ {\bf get\-\_\-mesh} (boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$ P)=0\label{classMoby_1_1Primitive_a052f0ffce62cd6a4cc70b3a502805680}
+
+\begin{DoxyCompactList}\small\item\em Gets the underlying triangle mesh for this primitive. \end{DoxyCompactList}\item 
+const Ravelin\-::\-Spatial\-R\-B\-Inertiad \& {\bf get\-\_\-inertia} () const \label{classMoby_1_1Primitive_a8432a999408274b19c0cff7f8b88e9c7}
+
+\begin{DoxyCompactList}\small\item\em Gets the inertia for this primitive. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual void {\bfseries calc\-\_\-mass\-\_\-properties} ()=0\label{classMoby_1_1Primitive_aab0913166b78dc4edd0e3a4ee711b155}
+
+\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Pose3d $>$ {\bf \-\_\-\-F}\label{classMoby_1_1Primitive_ad98d98a5dfa37697a1f4521cb99ae141}
+
+\begin{DoxyCompactList}\small\item\em The pose of this primitive (relative to the global frame) \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Pose3d $>$ {\bf \-\_\-j\-F}\label{classMoby_1_1Primitive_a30db12a0347ecce27ee5aa65a15119f1}
+
+\begin{DoxyCompactList}\small\item\em The inertial pose of this primitive (relative to the global frame) \end{DoxyCompactList}\item 
+boost\-::shared\-\_\-ptr$<$ double $>$ {\bf \-\_\-density}\label{classMoby_1_1Primitive_ac672dec61e0aa326af42295b9296fbd7}
+
+\begin{DoxyCompactList}\small\item\em The density of this primitive. \end{DoxyCompactList}\item 
+Ravelin\-::\-Spatial\-R\-B\-Inertiad {\bf \-\_\-\-J}\label{classMoby_1_1Primitive_aa94527ec165d3f13f4ab09930ddd2b2c}
+
+\begin{DoxyCompactList}\small\item\em The inertia of the primitive. \end{DoxyCompactList}\item 
+std\-::map$<$ boost\-::weak\-\_\-ptr\\*
+$<$ {\bf Collision\-Geometry} $>$\\*
+, boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Pose3d $>$ $>$ {\bf \-\_\-cg\-\_\-poses}\label{classMoby_1_1Primitive_a105d49633f38c853caf6755d8751483a}
+
+\begin{DoxyCompactList}\small\item\em The poses of this primitive, relative to a collision geometry. \end{DoxyCompactList}\item 
+std\-::set$<$ boost\-::shared\-\_\-ptr\\*
+$<$ Ravelin\-::\-Pose3d $>$ $>$ {\bf \-\_\-poses}\label{classMoby_1_1Primitive_a050112e1cf40938a8f38804903f62930}
+
+\begin{DoxyCompactList}\small\item\em The poses, relative to a particular collision geometry. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries C\-S\-G}\label{classMoby_1_1Primitive_ad0d3fb1bc236a9a5a29b058e7fc522fc}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a triangle-\/mesh-\/based primitive type used for inertial property calculation and geometry provisions. 
+
+The center-\/of-\/mass of derived types may be at the origin of the world, or not. Additionally, \doxyref{Primitive}{p.}{classMoby_1_1Primitive} can take a transformation matrix in its constructor, with which the primitive data (com, inertia matrix, and geometry) can be transformed. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Primitive@{Moby\-::\-Primitive}!get\-\_\-vertices@{get\-\_\-vertices}}
+\index{get\-\_\-vertices@{get\-\_\-vertices}!Moby::Primitive@{Moby\-::\-Primitive}}
+\subsubsection[{get\-\_\-vertices}]{\setlength{\rightskip}{0pt plus 5cm}Output\-Iterator Primitive\-::get\-\_\-vertices (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ const Ravelin\-::\-Pose3d $>$}]{P, }
+\item[{std\-::vector$<$ {\bf Point3d} $>$ \&}]{vertices}
+\end{DoxyParamCaption}
+) const\hspace{0.3cm}{\ttfamily [pure virtual]}}\label{classMoby_1_1Primitive_ab50adaba8785794650193def668d4a05}
+
+
+Get vertices corresponding to this primitive. 
+
+Gets the vertex indices from selected facets of an \doxyref{Indexed\-Tri\-Array}{p.}{classMoby_1_1IndexedTriArray}.
+
+
+\begin{DoxyParams}{Parameters}
+{\em tris} & the triangle mesh \\
+\hline
+{\em fselect\-\_\-begin} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em fselect\-\_\-end} & iterator to a container of type unsigned (facet indices) \\
+\hline
+{\em output} & beginning iterator to a container of type Point3d; unique vertices are copied here on return \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+ending iterator to a container of type Point3d; unique vertices are copied here on return 
+\end{DoxyReturn}
+
+
+Implemented in {\bf Moby\-::\-Box\-Primitive} \doxyref{}{p.}{classMoby_1_1BoxPrimitive_a329b84ac213b791173b787fb54996e6c}, {\bf Moby\-::\-Triangle\-Mesh\-Primitive} \doxyref{}{p.}{classMoby_1_1TriangleMeshPrimitive_a357c2548745c24131a308cc976ea54f6}, {\bf Moby\-::\-Cone\-Primitive} \doxyref{}{p.}{classMoby_1_1ConePrimitive_aa4f41bf896b4d1605c508d11d37506d3}, {\bf Moby\-::\-Cylinder\-Primitive} \doxyref{}{p.}{classMoby_1_1CylinderPrimitive_a2791b58128eaa481b522aaed9fc7ef60}, {\bf Moby\-::\-Torus\-Primitive} \doxyref{}{p.}{classMoby_1_1TorusPrimitive_a798df248235219ce892fe41bb3323afb}, {\bf Moby\-::\-Polyhedral\-Primitive} \doxyref{}{p.}{classMoby_1_1PolyhedralPrimitive_a7466ac4071e3710894bf8c002026cd3f}, {\bf Moby\-::\-Sphere\-Primitive} \doxyref{}{p.}{classMoby_1_1SpherePrimitive_a5d19a009a35bf70fe6532a1d286c913a}, {\bf Moby\-::\-Plane\-Primitive} \doxyref{}{p.}{classMoby_1_1PlanePrimitive_a86473e30acbf8dd05b8c4305b5f44bc8}, and {\bf Moby\-::\-Heightmap\-Primitive} \doxyref{}{p.}{classMoby_1_1HeightmapPrimitive_ae24de93fef445d0c3ed621fbd65465a1}.
+
+
+
+References Moby\-::\-Indexed\-Tri\-::a, Moby\-::\-Indexed\-Tri\-::b, Moby\-::\-Indexed\-Tri\-::c, Moby\-::\-Indexed\-Tri\-Array\-::get\-\_\-facets(), and Moby\-::\-Indexed\-Tri\-Array\-::get\-\_\-vertices().
+
+\index{Moby\-::\-Primitive@{Moby\-::\-Primitive}!get\-\_\-visualization@{get\-\_\-visualization}}
+\index{get\-\_\-visualization@{get\-\_\-visualization}!Moby::Primitive@{Moby\-::\-Primitive}}
+\subsubsection[{get\-\_\-visualization}]{\setlength{\rightskip}{0pt plus 5cm}osg\-::\-Node $\ast$ Primitive\-::get\-\_\-visualization (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1Primitive_ab53d48258100bd1abbc22e95bc462f8e}
+
+
+Gets the visualization for this primitive. 
+
+Gets the visualization for this primitive, creating it if necessary. \index{Moby\-::\-Primitive@{Moby\-::\-Primitive}!set\-\_\-mass@{set\-\_\-mass}}
+\index{set\-\_\-mass@{set\-\_\-mass}!Moby::Primitive@{Moby\-::\-Primitive}}
+\subsubsection[{set\-\_\-mass}]{\setlength{\rightskip}{0pt plus 5cm}void Primitive\-::set\-\_\-mass (
+\begin{DoxyParamCaption}
+\item[{double}]{mass}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Primitive_ad4b74c3405a4ef73103fea91e83d8fcd}
+
+
+Sets the mass of this primitive. 
+
+\begin{DoxyNote}{Note}
+sets the density too 
+\end{DoxyNote}
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Primitive.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Primitive.\-inl\item 
+/home/drum/\-Moby/src/Primitive.\-cpp\end{DoxyCompactItemize}

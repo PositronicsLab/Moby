@@ -1,0 +1,79 @@
+\section{Moby\-:\-:Fixed\-Joint Class Reference}
+\label{classMoby_1_1FixedJoint}\index{Moby\-::\-Fixed\-Joint@{Moby\-::\-Fixed\-Joint}}
+
+
+Defines a joint for fixing two bodies together or fixing one body to the ground.  
+
+
+
+
+{\ttfamily \#include $<$Fixed\-Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Fixed\-Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.070176cm]{classMoby_1_1FixedJoint}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Fixed\-Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Fixed\-Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)\label{classMoby_1_1FixedJoint_aa08bb6cd8972ebc448a05a810608fba0}
+
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+virtual unsigned {\bfseries num\-\_\-dof} () const \label{classMoby_1_1FixedJoint_a1c7512ec1d003ca7b67450a479bfc6e8}
+
+\item 
+virtual bool {\bfseries is\-\_\-singular\-\_\-config} () const \label{classMoby_1_1FixedJoint_aaa0f02261e54e3c1a40f1bb4ebef5a28}
+
+\item 
+virtual void {\bfseries evaluate\-\_\-constraints} (double C[$\,$])\label{classMoby_1_1FixedJoint_aba72f09b9e9bba18d2bbd0a0ba269baf}
+
+\item 
+virtual const std\-::vector\\*
+$<$ Ravelin\-::\-S\-Velocityd $>$ \& {\bfseries get\-\_\-spatial\-\_\-axes\-\_\-dot} ()\label{classMoby_1_1FixedJoint_a84c5b8f1c91c1f744703209c76c5e225}
+
+\item 
+virtual void {\bfseries determine\-\_\-q} (Ravelin\-::\-Vector\-Nd \&q)\label{classMoby_1_1FixedJoint_a63d5ed33ab218c68558ac543d7879db5}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bfseries get\-\_\-induced\-\_\-pose} ()\label{classMoby_1_1FixedJoint_ae6cf80897ad8a62deefb8211cfe6eb11}
+
+\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1FixedJoint_a02e637422d026f869ab138b3c76de654}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1FixedJoint_abd170c47b08339efdc26ea5929aea3a3}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a joint for fixing two bodies together or fixing one body to the ground. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Fixed\-Joint@{Moby\-::\-Fixed\-Joint}!Fixed\-Joint@{Fixed\-Joint}}
+\index{Fixed\-Joint@{Fixed\-Joint}!Moby::FixedJoint@{Moby\-::\-Fixed\-Joint}}
+\subsubsection[{Fixed\-Joint}]{\setlength{\rightskip}{0pt plus 5cm}Fixed\-Joint\-::\-Fixed\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1FixedJoint_ab66790cd6e3b1ffb7f6c0acfc7c11540}
+
+
+Initializes the joint. 
+
+The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Joint\-::init\-\_\-data().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Fixed\-Joint.\-h\item 
+/home/drum/\-Moby/src/Fixed\-Joint.\-cpp\end{DoxyCompactItemize}

@@ -1,0 +1,51 @@
+\section{Moby\-:\-:R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo Class Reference}
+\label{classMoby_1_1RCArticulatedBodyInvDynAlgo}\index{Moby\-::\-R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo@{Moby\-::\-R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo}}
+
+
+Abstract class for performing inverse dynamics computation on a reduced-\/coordinate articulatedc body.  
+
+
+
+
+{\ttfamily \#include $<$R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1RCArticulatedBodyInvDynAlgo}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+virtual std\-::map\\*
+$<$ boost\-::shared\-\_\-ptr$<$ {\bf Joint} $>$\\*
+, Ravelin\-::\-Vector\-Nd $>$ {\bf calc\-\_\-inv\-\_\-dyn} (boost\-::shared\-\_\-ptr$<$ {\bf R\-C\-Articulated\-Body} $>$ body, const std\-::map$<$ boost\-::shared\-\_\-ptr$<$ {\bf Rigid\-Body} $>$, {\bf R\-C\-Articulated\-Body\-Inv\-Dyn\-Data} $>$ \&inv\-\_\-dyn\-\_\-data)=0
+\begin{DoxyCompactList}\small\item\em Classes must implement the method below. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Abstract class for performing inverse dynamics computation on a reduced-\/coordinate articulatedc body. 
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo@{Moby\-::\-R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo}!calc\-\_\-inv\-\_\-dyn@{calc\-\_\-inv\-\_\-dyn}}
+\index{calc\-\_\-inv\-\_\-dyn@{calc\-\_\-inv\-\_\-dyn}!Moby::RCArticulatedBodyInvDynAlgo@{Moby\-::\-R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo}}
+\subsubsection[{calc\-\_\-inv\-\_\-dyn}]{\setlength{\rightskip}{0pt plus 5cm}virtual std\-::map$<$boost\-::shared\-\_\-ptr$<${\bf Joint}$>$, Ravelin\-::\-Vector\-Nd$>$ Moby\-::\-R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo\-::calc\-\_\-inv\-\_\-dyn (
+\begin{DoxyParamCaption}
+\item[{boost\-::shared\-\_\-ptr$<$ {\bf R\-C\-Articulated\-Body} $>$}]{body, }
+\item[{const std\-::map$<$ boost\-::shared\-\_\-ptr$<$ {\bf Rigid\-Body} $>$, {\bf R\-C\-Articulated\-Body\-Inv\-Dyn\-Data} $>$ \&}]{inv\-\_\-dyn\-\_\-data}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [pure virtual]}}\label{classMoby_1_1RCArticulatedBodyInvDynAlgo_acb5f5edb8cb4ed336570c7519350ad9a}
+
+
+Classes must implement the method below. 
+
+Given the current base position and velocity, the joint positions and joint velocities, the external forces on all links (including the base), and the desired joint and base accelerations, the inverse dynamics method must compute the forces applied to the joint actuators to achieve these accelerations. \begin{DoxyReturn}{Returns}
+a map from joints to computed actuator forces 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following file\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/R\-C\-Articulated\-Body\-Inv\-Dyn\-Algo.\-h\end{DoxyCompactItemize}

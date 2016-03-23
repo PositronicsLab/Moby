@@ -1,0 +1,269 @@
+\section{Moby\-:\-:Joint Class Reference}
+\label{classMoby_1_1Joint}\index{Moby\-::\-Joint@{Moby\-::\-Joint}}
+
+
+Defines a joint used in articulated rigid body dynamics simulation.  
+
+
+
+
+{\ttfamily \#include $<$Joint.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Joint\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=7.368422cm]{classMoby_1_1Joint}
+\end{center}
+\end{figure}
+\subsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+enum {\bf Constraint\-Type} \{ {\bfseries e\-Unknown}, 
+{\bfseries e\-Explicit}, 
+{\bfseries e\-Implicit}
+ \}
+\item 
+enum {\bfseries D\-O\-Fs} \{ \\*
+{\bfseries D\-O\-F\-\_\-1} =0, 
+{\bfseries D\-O\-F\-\_\-2} =1, 
+{\bfseries D\-O\-F\-\_\-3} =2, 
+{\bfseries D\-O\-F\-\_\-4} =3, 
+\\*
+{\bfseries D\-O\-F\-\_\-5} =4, 
+{\bfseries D\-O\-F\-\_\-6} =5
+ \}
+\end{DoxyCompactItemize}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Joint} ()
+\begin{DoxyCompactList}\small\item\em Initializes the joint. \end{DoxyCompactList}\item 
+{\bf Joint} (boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ inboard, boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$ outboard)
+\begin{DoxyCompactList}\small\item\em Initializes the joint with the specified inboard and outboard links. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-location} (const {\bf Point3d} \&p, {\bf Rigid\-Body\-Ptr} inboard, {\bf Rigid\-Body\-Ptr} outboard)\label{classMoby_1_1Joint_afd574362724420c8efa455fa9b98808a}
+
+\begin{DoxyCompactList}\small\item\em Sets the location of this joint with specified inboard and outboard links. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector\-Nd \& {\bf get\-\_\-scaled\-\_\-force} (Ravelin\-::\-Vector\-Nd \&f)
+\begin{DoxyCompactList}\small\item\em Gets the scaled actuator forces. \end{DoxyCompactList}\item 
+virtual void {\bf save\-\_\-to\-\_\-xml} ({\bf X\-M\-L\-Tree\-Ptr} node, std\-::list$<$ boost\-::shared\-\_\-ptr$<$ const {\bf Base} $>$ $>$ \&shared\-\_\-objects) const \label{classMoby_1_1Joint_ab5ad56ab0008dfd54a78aa3289854af7}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::save\-\_\-to\-\_\-xml()}{p.}{classMoby_1_1Base_aed64905ca39893d02d1e6c3f03f73aa9} \end{DoxyCompactList}\item 
+virtual void {\bf load\-\_\-from\-\_\-xml} (boost\-::shared\-\_\-ptr$<$ const {\bf X\-M\-L\-Tree} $>$ node, std\-::map$<$ std\-::string, {\bf Base\-Ptr} $>$ \&id\-\_\-map)\label{classMoby_1_1Joint_a5e0c23575a509a152d212b2b7dc3ffa6}
+
+\begin{DoxyCompactList}\small\item\em Implements \doxyref{Base\-::load\-\_\-from\-\_\-xml()}{p.}{classMoby_1_1Base_a98b861c1d615a748b576aa613f17389f} \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-inboard\-\_\-link} ({\bf Rigid\-Body\-Ptr} link, bool update\-\_\-pose)\label{classMoby_1_1Joint_a99fa85e0b9d7011b8c68f81b1a6174fd}
+
+\begin{DoxyCompactList}\small\item\em Sets the pointer to the inboard link for this joint (and updates the spatial axes, if the outboard link has been set) \end{DoxyCompactList}\item 
+virtual void {\bf set\-\_\-outboard\-\_\-link} ({\bf Rigid\-Body\-Ptr} link, bool update\-\_\-pose)
+\begin{DoxyCompactList}\small\item\em Sets the pointer to the outboard link for this joint. \end{DoxyCompactList}\item 
+void {\bf set\-\_\-articulated\-\_\-body} ({\bf Articulated\-Body\-Ptr} abody)
+\begin{DoxyCompactList}\small\item\em Sets the articulated body corresponding to this body. \end{DoxyCompactList}\item 
+{\bf Articulated\-Body\-Ptr} {\bf get\-\_\-articulated\-\_\-body} ()
+\begin{DoxyCompactList}\small\item\em Gets the articulated body corresponding to this body. \end{DoxyCompactList}\item 
+{\bf Rigid\-Body\-Ptr} {\bf get\-\_\-inboard\-\_\-link} () const \label{classMoby_1_1Joint_ad1568079a879ef854eb3f75eac01a7a4}
+
+\begin{DoxyCompactList}\small\item\em Gets the inboard link for this joint. \end{DoxyCompactList}\item 
+{\bf Rigid\-Body\-Ptr} {\bf get\-\_\-outboard\-\_\-link} () const \label{classMoby_1_1Joint_a34ebb19de0943fa0d1b4679fea81ea04}
+
+\begin{DoxyCompactList}\small\item\em Gets the outboard link for this joint. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+Ravelin\-::\-Vector\-Nd {\bf lolimit}\label{classMoby_1_1Joint_acabab537c9c909dcbdbce43947880081}
+
+\begin{DoxyCompactList}\small\item\em The lower joint limit. \end{DoxyCompactList}\item 
+Ravelin\-::\-Vector\-Nd {\bf hilimit}\label{classMoby_1_1Joint_a19cdc15da08714e00415f5a94fffa50d}
+
+\begin{DoxyCompactList}\small\item\em The upper joint limit. \end{DoxyCompactList}\item 
+double {\bf limit\-\_\-restitution}\label{classMoby_1_1Joint_a2eb51b2bd2e2e029794480eb7dfd6e1d}
+
+\begin{DoxyCompactList}\small\item\em The coefficient of restitution applied when this joint reaches a limit. \end{DoxyCompactList}\item 
+double {\bf mu\-\_\-fc}\label{classMoby_1_1Joint_a00d23e7dc39568e83c1685a6a244d5ce}
+
+\begin{DoxyCompactList}\small\item\em The coulomb friction coefficient for this joint. \end{DoxyCompactList}\item 
+double {\bf mu\-\_\-fv}\label{classMoby_1_1Joint_ad77c028abff83b4e4177f34b2c4fb0c4}
+
+\begin{DoxyCompactList}\small\item\em The viscous friction coefficient for this joint. \end{DoxyCompactList}\item 
+double {\bf compliant\-\_\-layer\-\_\-depth}\label{classMoby_1_1Joint_a9989b3b0b92662b7a0d7949334355429}
+
+\begin{DoxyCompactList}\small\item\em The depth of the compliant layer around the joint limit. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+void {\bf determine\-\_\-q\-\_\-dot} ()\label{classMoby_1_1Joint_abe44fa8bbfec2483a2f73e5729b7e580}
+
+\begin{DoxyCompactList}\small\item\em (Relatively slow) method for determining the joint velocity from current link velocities \end{DoxyCompactList}\item 
+virtual void {\bf init\-\_\-data} ()
+\begin{DoxyCompactList}\small\item\em Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+class {\bfseries Articulated\-Body}\label{classMoby_1_1Joint_a7d29a1ee423a6e8dab5bf1a58b001f17}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Defines a joint used in articulated rigid body dynamics simulation. 
+
+\begin{DoxyRefDesc}{Todo}
+\item[{\bf Todo}]implement a rest position for q? \end{DoxyRefDesc}
+
+
+\subsection{Member Enumeration Documentation}
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!Constraint\-Type@{Constraint\-Type}}
+\index{Constraint\-Type@{Constraint\-Type}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{Constraint\-Type}]{\setlength{\rightskip}{0pt plus 5cm}enum {\bf Moby\-::\-Joint\-::\-Constraint\-Type}}\label{classMoby_1_1Joint_aea02c1460a96e29fdc5fa9bc82c77d1d}
+The constraint type is implicit if constraint forces must be determined to hold the inner and outer links together and explicit otherwise. 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!Joint@{Joint}}
+\index{Joint@{Joint}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{Joint}]{\setlength{\rightskip}{0pt plus 5cm}Joint\-::\-Joint (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Joint_a79a7a4715b2166714e039d7c7c5ea3b4}
+
+
+Initializes the joint. 
+
+The inboard and outboard links are set to N\-U\-L\-L. 
+
+References Moby\-::\-Visualizable\-::\-\_\-v\-F, compliant\-\_\-layer\-\_\-depth, limit\-\_\-restitution, mu\-\_\-fc, and mu\-\_\-fv.
+
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!Joint@{Joint}}
+\index{Joint@{Joint}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{Joint}]{\setlength{\rightskip}{0pt plus 5cm}Joint\-::\-Joint (
+\begin{DoxyParamCaption}
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{inboard, }
+\item[{boost\-::weak\-\_\-ptr$<$ {\bf Rigid\-Body} $>$}]{outboard}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Joint_ae1909595061a35c097bd3f5f4532ddee}
+
+
+Initializes the joint with the specified inboard and outboard links. 
+
+\begin{DoxyNote}{Note}
+does not set the inner joint for the outboard link or add the outboard as a child of the inboard link 
+\end{DoxyNote}
+
+
+References Moby\-::\-Visualizable\-::\-\_\-v\-F, compliant\-\_\-layer\-\_\-depth, limit\-\_\-restitution, mu\-\_\-fc, and mu\-\_\-fv.
+
+
+
+\subsection{Member Function Documentation}
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!get\-\_\-articulated\-\_\-body@{get\-\_\-articulated\-\_\-body}}
+\index{get\-\_\-articulated\-\_\-body@{get\-\_\-articulated\-\_\-body}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{get\-\_\-articulated\-\_\-body}]{\setlength{\rightskip}{0pt plus 5cm}{\bf Articulated\-Body\-Ptr} Joint\-::get\-\_\-articulated\-\_\-body (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Joint_abb7699b566e8670182a27cec6647804a}
+
+
+Gets the articulated body corresponding to this body. 
+
+\begin{DoxyReturn}{Returns}
+a pointer to the articulated body, or N\-U\-L\-L if this body is not a link an articulated body 
+\end{DoxyReturn}
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!get\-\_\-scaled\-\_\-force@{get\-\_\-scaled\-\_\-force}}
+\index{get\-\_\-scaled\-\_\-force@{get\-\_\-scaled\-\_\-force}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{get\-\_\-scaled\-\_\-force}]{\setlength{\rightskip}{0pt plus 5cm}Vector\-Nd \& Joint\-::get\-\_\-scaled\-\_\-force (
+\begin{DoxyParamCaption}
+\item[{Ravelin\-::\-Vector\-Nd \&}]{f}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Joint_a07406fd8c0e415fbfbee5f090a872912}
+
+
+Gets the scaled actuator forces. 
+
+\begin{DoxyNote}{Note}
+relevant only to reduced-\/coordinate articulated bodies 
+\end{DoxyNote}
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!init\-\_\-data@{init\-\_\-data}}
+\index{init\-\_\-data@{init\-\_\-data}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{init\-\_\-data}]{\setlength{\rightskip}{0pt plus 5cm}void Joint\-::init\-\_\-data (
+\begin{DoxyParamCaption}
+{}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [protected]}, {\ttfamily [virtual]}}\label{classMoby_1_1Joint_ae884303111aa3dc7700bda55d70b38eb}
+
+
+Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters. 
+
+Sets the number of degrees-\/of-\/freedom for this joint.
+
+
+\begin{DoxyParams}{Parameters}
+{\em body} & the body with which the constraint Jacobian will be calculated; if the body is not either the inner or outer link, the constraint Jacobian will be a zero matrix \\
+\hline
+{\em index} & the index of the constraint equation for which to calculate \\
+\hline
+{\em Cq} & a vector that contains the corresponding column of the constraint Jacobian on return\-Computes the time derivative of the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters \\
+\hline
+{\em body} & the body with which the constraint Jacobian will be calculated; if the body is not either the inner or outer link, the constraint Jacobian will be a zero matrix \\
+\hline
+{\em index} & the index of the constraint equation for which to calculate \\
+\hline
+{\em Cq} & a vector that contains the corresponding column of the constraint Jacobian on return\-Method for initializing all variables in the joint This method should be called at the beginning of all constructors of all derived classes.\\
+\hline
+\end{DoxyParams}
+\begin{DoxyNote}{Note}
+resets all joint values (q, qd, qdd) to zero, limits to -\//+ infinity, actuator forces to zero, and actuator limit to infinity. 
+\end{DoxyNote}
+
+
+References hilimit, and lolimit.
+
+
+
+Referenced by Moby\-::\-Fixed\-Joint\-::\-Fixed\-Joint(), Moby\-::\-Gears\-::\-Gears(), Moby\-::\-Planar\-Joint\-::\-Planar\-Joint(), Moby\-::\-Prismatic\-Joint\-::\-Prismatic\-Joint(), Moby\-::\-Revolute\-Joint\-::\-Revolute\-Joint(), Moby\-::\-Screw\-Joint\-::\-Screw\-Joint(), Moby\-::\-Spherical\-Joint\-::\-Spherical\-Joint(), and Moby\-::\-Universal\-Joint\-::\-Universal\-Joint().
+
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!set\-\_\-articulated\-\_\-body@{set\-\_\-articulated\-\_\-body}}
+\index{set\-\_\-articulated\-\_\-body@{set\-\_\-articulated\-\_\-body}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{set\-\_\-articulated\-\_\-body}]{\setlength{\rightskip}{0pt plus 5cm}void Joint\-::set\-\_\-articulated\-\_\-body (
+\begin{DoxyParamCaption}
+\item[{{\bf Articulated\-Body\-Ptr}}]{abody}
+\end{DoxyParamCaption}
+)}\label{classMoby_1_1Joint_adabbf5e404df798c371f59d9c0e343e3}
+
+
+Sets the articulated body corresponding to this body. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em body} & a pointer to the articulated body or N\-U\-L\-L if this body is not a link in an articulated body \\
+\hline
+\end{DoxyParams}
+
+
+Referenced by load\-\_\-from\-\_\-xml().
+
+\index{Moby\-::\-Joint@{Moby\-::\-Joint}!set\-\_\-outboard\-\_\-link@{set\-\_\-outboard\-\_\-link}}
+\index{set\-\_\-outboard\-\_\-link@{set\-\_\-outboard\-\_\-link}!Moby::Joint@{Moby\-::\-Joint}}
+\subsubsection[{set\-\_\-outboard\-\_\-link}]{\setlength{\rightskip}{0pt plus 5cm}void Joint\-::set\-\_\-outboard\-\_\-link (
+\begin{DoxyParamCaption}
+\item[{{\bf Rigid\-Body\-Ptr}}]{outboard, }
+\item[{bool}]{update\-\_\-pose}
+\end{DoxyParamCaption}
+)\hspace{0.3cm}{\ttfamily [virtual]}}\label{classMoby_1_1Joint_a5e294552d064f9e756baf726690962d1}
+
+
+Sets the pointer to the outboard link for this joint. 
+
+\begin{DoxyNote}{Note}
+also points the outboard link to this joint 
+\end{DoxyNote}
+
+
+Referenced by load\-\_\-from\-\_\-xml(), and set\-\_\-location().
+
+
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Joint.\-h\item 
+/home/drum/\-Moby/src/Joint.\-cpp\end{DoxyCompactItemize}

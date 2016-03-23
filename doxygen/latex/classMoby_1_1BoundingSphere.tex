@@ -1,0 +1,100 @@
+\section{Moby\-:\-:Bounding\-Sphere Class Reference}
+\label{classMoby_1_1BoundingSphere}\index{Moby\-::\-Bounding\-Sphere@{Moby\-::\-Bounding\-Sphere}}
+
+
+A sphere used for bounding geometry.  
+
+
+
+
+{\ttfamily \#include $<$Bounding\-Sphere.\-h$>$}
+
+Inheritance diagram for Moby\-:\-:Bounding\-Sphere\-:\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[height=3.000000cm]{classMoby_1_1BoundingSphere}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Bounding\-Sphere} (const {\bf Bounding\-Sphere} \&bsphere)\label{classMoby_1_1BoundingSphere_a3c316bd7ca072b4f5ff4b440bcffc733}
+
+\item 
+{\bfseries Bounding\-Sphere} (const {\bf Point3d} \&{\bf center}, double {\bf radius})\label{classMoby_1_1BoundingSphere_a3f32f97b884ec7e0ad5da99559c82728}
+
+\item 
+{\bf Bounding\-Sphere} \& {\bfseries operator=} (const {\bf Bounding\-Sphere} \&bsphere)\label{classMoby_1_1BoundingSphere_a9fc0eadf6cd317d4b50ec10330a381ee}
+
+\item 
+virtual void {\bf transform} (const Ravelin\-::\-Transform3d \&T, {\bf B\-V} $\ast$result) const \label{classMoby_1_1BoundingSphere_ad98a6c022e649e3daeb4b93aa17e6542}
+
+\begin{DoxyCompactList}\small\item\em Transforms the \doxyref{Bounding\-Sphere}{p.}{classMoby_1_1BoundingSphere} using the given transform. \end{DoxyCompactList}\item 
+virtual std\-::ostream \& {\bf to\-\_\-vrml} (std\-::ostream \&out, const Ravelin\-::\-Pose3d \&T) const \label{classMoby_1_1BoundingSphere_a4100028dc2527071eb5641783c69a043}
+
+\begin{DoxyCompactList}\small\item\em Sends the bounding sphere to V\-R\-M\-L. \end{DoxyCompactList}\item 
+virtual {\bf B\-V\-Ptr} {\bf calc\-\_\-swept\-\_\-\-B\-V} ({\bf Collision\-Geometry\-Ptr} g, const Ravelin\-::\-S\-Velocityd \&v) const \label{classMoby_1_1BoundingSphere_a6d265cdebfde00b3590984c378a238ea}
+
+\begin{DoxyCompactList}\small\item\em Calculates the velocity expanded bounding volume for the bounding sphere (calculates an \doxyref{O\-B\-B}{p.}{classMoby_1_1OBB}) \end{DoxyCompactList}\item 
+virtual bool {\bf outside} (const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O) const \label{classMoby_1_1BoundingSphere_a9c824241029d9f9e4f1dfa46a527989e}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside the bounding volume. \end{DoxyCompactList}\item 
+virtual bool {\bf intersects} (const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q) const \label{classMoby_1_1BoundingSphere_ab0deb5f2f3092e28f77c1515ac3cf7a8}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a line segment intersects the bounding volume. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bfseries Bounding\-Sphere} (Forward\-Iterator begin, Forward\-Iterator end)\label{classMoby_1_1BoundingSphere_aa537bfa2c92b76569e5e36f4f9091ad7}
+
+\item 
+virtual boost\-::shared\-\_\-ptr\\*
+$<$ const Ravelin\-::\-Pose3d $>$ {\bf get\-\_\-relative\-\_\-pose} () const \label{classMoby_1_1BoundingSphere_ab09f942d3a5579e520147b05920b68be}
+
+\begin{DoxyCompactList}\small\item\em Gets the pose for this \doxyref{B\-V}{p.}{classMoby_1_1BV}. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-lower\-\_\-bounds} () const \label{classMoby_1_1BoundingSphere_ae25662c6fe52cc20c1c1e6596c7e954d}
+
+\begin{DoxyCompactList}\small\item\em Gets the lower bounds on the bounding sphere. \end{DoxyCompactList}\item 
+virtual {\bf Point3d} {\bf get\-\_\-upper\-\_\-bounds} () const \label{classMoby_1_1BoundingSphere_adddd0717740622228b3bab382ecc08ab}
+
+\begin{DoxyCompactList}\small\item\em Gets the upper bounds on the bounding sphere. \end{DoxyCompactList}\item 
+virtual double {\bf calc\-\_\-volume} () const \label{classMoby_1_1BoundingSphere_a5a2cfd36687d6824ab9925f762962ed7}
+
+\begin{DoxyCompactList}\small\item\em Calculates the volume of this bounding volume. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class Forward\-Iterator $>$ }\\{\bfseries Bounding\-Sphere} (Forward\-Iterator begin, Forward\-Iterator end)\label{classMoby_1_1BoundingSphere_aa537bfa2c92b76569e5e36f4f9091ad7}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static double {\bf calc\-\_\-dist} (const {\bf Bounding\-Sphere} \&s1, const {\bf Bounding\-Sphere} \&s2)\label{classMoby_1_1BoundingSphere_a41641188763f43f2cfc477c03d5571f2}
+
+\begin{DoxyCompactList}\small\item\em Calculates the signed distance between two bounding spheres. \end{DoxyCompactList}\item 
+static bool {\bf intersects} (const {\bf Bounding\-Sphere} \&a, const {\bf Bounding\-Sphere} \&b)\label{classMoby_1_1BoundingSphere_aac83893cd52fa0d57f1c179e876cf883}
+
+\begin{DoxyCompactList}\small\item\em Determines whether two bounding spheres intersect. \end{DoxyCompactList}\item 
+static bool {\bfseries intersects} (const {\bf Bounding\-Sphere} \&a, const {\bf Bounding\-Sphere} \&b, const Ravelin\-::\-Transform3d \&a\-Tb)\label{classMoby_1_1BoundingSphere_a803c8a0eccb8e1bf0c8ff888f8dcc9ac}
+
+\item 
+static bool {\bf intersects} (const {\bf Bounding\-Sphere} \&a, const {\bf Line\-Seg3} \&seg, double \&tmin, double tmax, {\bf Point3d} \&q)\label{classMoby_1_1BoundingSphere_a2bd57b6560bb9acbf0ebbac3c0466bb9}
+
+\begin{DoxyCompactList}\small\item\em Determines whether there is an intersection between the primitive and a line segment. \end{DoxyCompactList}\item 
+static bool {\bf outside} (const {\bf Bounding\-Sphere} \&a, const {\bf Point3d} \&point, double tol=N\-E\-A\-R\-\_\-\-Z\-E\-R\-O)\label{classMoby_1_1BoundingSphere_a6c3005331db76b991b983619eb4ff28d}
+
+\begin{DoxyCompactList}\small\item\em Determines whether a point is outside of the bounding sphere. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bf Point3d} {\bf center}\label{classMoby_1_1BoundingSphere_ad70ff801d5c2ec394e6881491437408d}
+
+\begin{DoxyCompactList}\small\item\em Center of the bounding box. \end{DoxyCompactList}\item 
+double {\bf radius}\label{classMoby_1_1BoundingSphere_a9831276da18b12505ecc6414d1773aab}
+
+\begin{DoxyCompactList}\small\item\em The radius of the bounding sphere (we use a float b/c accuracy here not so important) \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+A sphere used for bounding geometry. 
+
+The documentation for this class was generated from the following files\-:\begin{DoxyCompactItemize}
+\item 
+/home/drum/\-Moby/include/\-Moby/Bounding\-Sphere.\-h\item 
+/home/drum/\-Moby/include/\-Moby/Bounding\-Sphere.\-inl\item 
+/home/drum/\-Moby/src/Bounding\-Sphere.\-cpp\end{DoxyCompactItemize}
