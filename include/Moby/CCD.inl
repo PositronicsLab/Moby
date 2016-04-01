@@ -137,7 +137,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     {
       tpoly = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
     }
-    catch (NumericalException e)
+    catch (Ravelin::NumericalException e)
     {
       // case #2: polyhedra are kissing
       FILE_LOG(LOG_COLDET) << "qhull unable to compute intersection *volume*" << std::endl;
@@ -323,9 +323,40 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     // get the vertices from the polyhedron
     const std::vector<Ravelin::Origin3d>& vertices = tpoly->get_vertices();
  
+    // compute the skip distance, used to compute the normal 
+    double skip_dist = std::numeric_limits<double>::max();
+    const std::vector<IndexedTri>& facets = tpoly->get_facets();
+    for (unsigned i=0; i< facets.size(); i++)
+    {
+      // setup a triangle
+      Triangle tri(Point3d(vertices[facets[i].a], GLOBAL), 
+                   Point3d(vertices[facets[i].b], GLOBAL),
+                   Point3d(vertices[facets[i].c], GLOBAL));
+
+      // get the maximum distance of all vertices
+      double max_vert_dist = -std::numeric_limits<double>::max();
+
+      // ensure that the plane containing this triangle is from 
+      // polyhedron B by checking that signed distances from all vertices of B 
+      // are negative
+      // NOTE: this is currently an O(n) operation, but it could be turned into
+      //       an O(lg N) one
+      for (unsigned j=0; j< polyB.get_vertices().size(); j++)
+      {
+        Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
+        double tri_dist = tri.calc_signed_dist(v);
+        max_vert_dist = std::max(tri_dist, max_vert_dist);
+      }
+
+      // update the skip distance
+      skip_dist = std::min(skip_dist, max_vert_dist);
+    }
+
+    // make the skip distance tolerant
+    skip_dist = std::max(skip_dist, NEAR_ZERO);
+
     // determine the normal; the normal will be from the face that
     // yields the minimum maximum distance
-    const std::vector<IndexedTri>& facets = tpoly->get_facets();
     for (unsigned i=0; i< facets.size(); i++)
     {
       // setup a triangle
@@ -343,7 +374,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       {
         Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
         double tri_dist = tri.calc_signed_dist(v);
-        if (tri_dist > NEAR_ZERO)
+        if (tri_dist > skip_dist + NEAR_ZERO)
         {
           skip = true;
           break;
@@ -383,7 +414,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     {
       // compute the interpenetration depth
       double depth = normal.dot(Point3d(vertices[i], GLOBAL)) - offset;
-      assert(depth < NEAR_ZERO);
 
       // create the contact
       *output_begin++ = create_contact(cgA, cgB, Point3d(vertices[i], GLOBAL), normal, depth);
