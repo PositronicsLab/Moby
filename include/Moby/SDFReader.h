@@ -67,12 +67,12 @@ class SDFReader
     static PrimitivePtr read_polyhedron(boost::shared_ptr<const XMLTree> node);
     static ControlledBodyPtr read_model(boost::shared_ptr<const XMLTree> node, std::map<RigidBodyPtr, boost::shared_ptr<SurfaceData> >& sdata);
     static RigidBodyPtr read_link(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<SurfaceData>& sdata);
-    static void read_collision_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, std::map<CollisionGeometryPtr, boost::shared_ptr<Ravelin::Pose3d> >& collision_poses, boost::shared_ptr<SurfaceData>& sd);
-    static void read_visual_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<Ravelin::Pose3d> origin);
+    static void read_collision_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<SurfaceData>& sd);
+    static void read_visual_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);
     static osg::Node* read_visual_geometry(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_geometry(boost::shared_ptr<const XMLTree> node);
     static Ravelin::Pose3d read_pose(boost::shared_ptr<const XMLTree> node);
-    static Ravelin::SpatialRBInertiad read_inertial(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<Ravelin::Pose3d>& inertial_pose);
+    static Ravelin::SpatialRBInertiad read_inertial(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);
 
     static JointPtr read_joint(boost::shared_ptr<const XMLTree> node, const std::map<std::string, RigidBodyPtr>& link_map, RigidBodyPtr& base_link);
     static TupleType get_tuple(boost::shared_ptr<const XMLTree> node);
