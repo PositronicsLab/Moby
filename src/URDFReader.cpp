@@ -381,12 +381,39 @@ void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, cons
   // joint frame is defined relative to the parent link frame
   shared_ptr<Pose3d> origin(new Pose3d(read_origin(node, data)));
   origin->rpose = inboard->get_pose(); 
+
+  // get the joint location
   Point3d location_origin(0.0, 0.0, 0.0, origin);
   Point3d location = Pose3d::transform_point(GLOBAL, location_origin);
-  origin->update_relative_pose(outboard->get_pose()->rpose);
 
-  // child frame is defined relative to the joint frame
-  outboard->set_pose(*origin);
+  // setup a second pose, which is the inertial frame
+  assert(data.inertial_poses.find(outboard) != data.inertial_poses.end());
+  shared_ptr<Pose3d> inertial_frame(new Pose3d(*data.inertial_poses[outboard]));
+  inertial_frame->rpose = origin;
+
+  // get the old link pose- we'll use it to setup the new visualization and
+  // collision poses
+  shared_ptr<Pose3d> viz_pose = data.visualization_poses[outboard]; 
+  viz_pose->rpose = origin;
+  viz_pose->update_relative_pose(GLOBAL); 
+  BOOST_FOREACH(CollisionGeometryPtr cg, outboard->geometries)
+  {
+    data.collision_poses[cg]->rpose = origin;
+    data.collision_poses[cg]->update_relative_pose(GLOBAL);
+  }
+
+  // update the outboard link pose
+  inertial_frame->update_relative_pose(outboard->get_pose()->rpose);
+  outboard->set_pose(*inertial_frame);
+
+  // now, re-update the visualization and collision poses for the outboard link
+  viz_pose->update_relative_pose(outboard->get_pose());
+  outboard->set_visualization_relative_pose(*viz_pose);
+  BOOST_FOREACH(CollisionGeometryPtr cg, outboard->geometries)
+  {
+    data.collision_poses[cg]->update_relative_pose(outboard->get_pose());
+    cg->set_relative_pose(*data.collision_poses[cg]);
+  }
 
   // setup the inboard and outboard links for the joint
   joint->set_location(location, inboard, outboard);
@@ -621,11 +648,15 @@ void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, R
       // set the inertial frame relative to the link frame
       origin->rpose = link->get_pose();
 
-      // set inertial properties
-      SpatialRBInertiad J(origin);
+      // set inertial properties, assuming that link pose has already been
+      // set to point to the center-of-mass
+      SpatialRBInertiad J(link->get_pose());
       J.m = mass;
       J.J = inertia;
       link->set_inertia(J);
+
+      // add the inertial pose data
+      data.inertial_poses[link] = origin;
 
       // reading inertial was a success, attempt to read no further...
       // (multiple inertial tags not supported)
@@ -767,6 +798,7 @@ void URDFReader::read_visual(shared_ptr<const XMLTree> node, URDFData& data, Rig
       // setup the relative pose
       shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
       origin->rpose = link->get_pose();
+      data.visualization_poses[link] = origin;
       link->set_visualization_relative_pose(*origin);
 
       // reading visual was a success, attempt to read no further...
@@ -800,6 +832,7 @@ void URDFReader::read_collision(shared_ptr<const XMLTree> node, URDFData& data, 
       // setup the relative pose
       shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
       origin->rpose = link->get_pose();
+      data.collision_poses[cg] = origin;
       cg->set_relative_pose(*origin);
 
       // reading collision geometry was a success, attempt to read no further...

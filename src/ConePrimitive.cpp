@@ -682,8 +682,8 @@ BVPtr ConePrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return obb;
 }
 
-/// The signum function
 namespace Moby {
+/// The signum function
 static double sgn(double x) { return x / std::fabs(x); }
 }
 

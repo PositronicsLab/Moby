@@ -20,7 +20,6 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
-#include <Moby/NumericalException.h>
 #include <Moby/ImpactConstraintHandler.h>
 
 using namespace Ravelin;

@@ -13,8 +13,8 @@
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
+#include <Moby/ConstraintSimulator.h>
 #include <Moby/ImpactToleranceException.h>
-#include <Moby/NumericalException.h>
 #include <Moby/ImpactConstraintHandler.h>
 
 using namespace Ravelin;
@@ -39,6 +39,9 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
 
   // reset problem data
   _epd.reset();
+
+  // set the simulator
+  _epd.simulator = _simulator;
 
   // save the constraints
   _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
@@ -125,7 +128,9 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _LL.set_zero(NK_DIRS, N_CONST);
   _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
 
-  MatrixNd Cs_X_CnT,Ct_X_CnT,Ct_X_CsT,L_X_CnT,L_X_CsT,L_X_CtT;
+  MatrixNd Cn_X_CnT, Cs_X_CnT,Ct_X_CnT,Ct_X_CsT,L_X_CnT,L_X_CsT,L_X_CtT, L_X_LT;
+  Cn_X_CnT = q.Cn_X_CnT;
+  L_X_LT = q.L_X_LT;
   Ravelin::MatrixNd::transpose(q.Cn_X_LT,L_X_CnT);
   Ravelin::MatrixNd::transpose(q.Cs_X_LT,L_X_CsT);
   Ravelin::MatrixNd::transpose(q.Ct_X_LT,L_X_CtT);
@@ -158,6 +163,19 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_X_LT;
   FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cs': " << std::endl << L_X_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Ct': " << std::endl << L_X_CtT;
+
+  // setup contact damping
+  const unsigned N_CONTACTS = q.contact_constraints.size();
+  ColumnIteratord Cn_X_CnT_iter = Cn_X_CnT.column_iterator_begin(); 
+  for (unsigned i=0; i< N_CONTACTS; i++, Cn_X_CnT_iter++)
+    *Cn_X_CnT_iter += q.contact_constraints[i]->contact_damping;
+
+  // setup limit damping
+  const unsigned N_LIMITS = q.limit_constraints.size();
+  ColumnIteratord L_X_LT_iter = L_X_LT.column_iterator_begin(); 
+  for (unsigned i=0; i< N_LIMITS; i++, L_X_LT_iter++)
+    *L_X_LT_iter += q.limit_constraints[i]->limit_damping;
+
   // Set positive submatrices
   /*
           n          r          r           r           r
@@ -167,12 +185,21 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   r  Ct_X_CnT  Ct_X_CsT               Ct_X_CtT
   r                         Ct_X_CsT               Ct_X_CtT
   */
-  _UL.set_sub_mat(0,0,q.Cn_X_CnT);
+  _UL.set_sub_mat(0,0,Cn_X_CnT);
+
   // setup the LCP matrix
 
   // setup the LCP vector
   _qq.set_zero(_MM.rows());
   _qq.set_sub_vec(0,q.Cn_v);
+
+  // setup contact stiffness
+  for (unsigned i=0; i< N_CONTACTS; i++)
+    _qq[i] += q.contact_constraints[i]->signed_violation * q.contact_constraints[i]->contact_stiffness;
+
+  // setup limit stiffness
+  for (unsigned i=0; i< N_LIMITS; i++)
+    _qq[i+N_FRICT] += q.limit_constraints[i]->signed_violation * q.limit_constraints[i]->limit_stiffness;
 
   _UL.set_sub_mat(NC,NC,q.Cs_X_CsT);
   _UL.set_sub_mat(NC,0,Cs_X_CnT);
@@ -188,7 +215,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _UL.set_sub_mat(NC+NC*3,NC+NC*3,q.Ct_X_CtT);
 
   // Joint Limits
-  _UL.set_sub_mat(N_FRICT,N_FRICT,q.L_X_LT);
+  _UL.set_sub_mat(N_FRICT,N_FRICT,L_X_LT);
   _UL.set_sub_mat(N_FRICT,0,L_X_CnT);
   _UL.set_sub_mat(0,N_FRICT,q.Cn_X_LT);
   _UL.set_sub_mat(NC,N_FRICT,q.Cs_X_LT);

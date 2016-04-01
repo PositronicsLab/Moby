@@ -32,18 +32,6 @@
         </geometry>
       </visual>
     </link>
-    <joint name='world_joint' type='revolute'>
-      <child>base_link</child>
-      <parent>world</parent>
-      <axis>
-        <limit>
-          <lower>-0.00001</lower>
-          <upper>0.00001</upper>
-        </limit>
-        <use_parent_model_frame>1</use_parent_model_frame>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
     <link name='shoulder_link'>
       <pose>0 0 0.1273 0 0 0</pose>
       <inertial>

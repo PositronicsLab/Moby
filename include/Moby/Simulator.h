@@ -16,6 +16,7 @@
 #include <Moby/Base.h>
 #include <Moby/Log.h>
 #include <Moby/RigidBody.h>
+#include <Moby/Dissipation.h>
 #include <Moby/ArticulatedBody.h>
 
 namespace osg { 
@@ -25,7 +26,6 @@ namespace osg {
 
 namespace Moby {
 
-class Dissipation;
 class RigidBody;
 class ArticulatedBody;
 class RCArticulatedBody;

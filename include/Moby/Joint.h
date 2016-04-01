@@ -72,6 +72,9 @@ class Joint : public Visualizable, public virtual Ravelin::Jointd
     /// The viscous friction coefficient for this joint
     double mu_fv;
 
+    /// The depth of the compliant layer around the joint limit
+    double compliant_layer_depth;
+
   protected:
     void determine_q_dot();
 

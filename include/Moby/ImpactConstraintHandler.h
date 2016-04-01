@@ -20,6 +20,7 @@
 #include <Moby/LCP_IPOPT.h>
 #endif
 #include <Ravelin/LinAlgd.h>
+#include <Ravelin/RigidBodyd.h>
 #include <Moby/Base.h>
 #include <Moby/Types.h>
 #include <Moby/LCP.h>

@@ -7,14 +7,19 @@ using boost::dynamic_pointer_cast;
 using namespace Ravelin;
 using namespace Moby;
 
-class TorusPlanePlugin : public CollisionDetection
+class TorusPlanePlugin : public CCD
 {
   private:
     boost::shared_ptr<TimeSteppingSimulator> sim;
-    boost::shared_ptr<CCD> ccd;
     ControlledBodyPtr walker;
     RigidBodyPtr ground_body, left_foot_body, right_foot_body;
     CollisionGeometryPtr ground_cg, left_foot_cg, right_foot_cg;
+
+    protected:
+      virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
+      {
+        return std::numeric_limits<double>::max();
+      }
 
   public:
     TorusPlanePlugin() {}
@@ -61,9 +66,6 @@ class TorusPlanePlugin : public CollisionDetection
       ground_cg = ground_body->geometries.front();
       left_foot_cg = left_foot_body->geometries.front();
       right_foot_cg = right_foot_body->geometries.front();
-
-      // create the continuous collision detection system
-      ccd = boost::shared_ptr<CCD>(new CCD);
     }
 
     virtual ~TorusPlanePlugin() {}
@@ -85,7 +87,7 @@ class TorusPlanePlugin : public CollisionDetection
         }
 
       // call CCD on the remainder
-      ccd->broad_phase(dt, remainder, to_check);
+      CCD::broad_phase(dt, remainder, to_check);
 
       // now add in collision geometries for the plane and the walker
       to_check.push_back(std::make_pair(ground_cg, left_foot_cg));
@@ -95,7 +97,7 @@ class TorusPlanePlugin : public CollisionDetection
     /// Computes a conservative advancement step for Euler integration
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
     {
-      return ccd->calc_CA_Euler_step(pdi);
+      return CCD::calc_CA_Euler_step(pdi);
     }
 
     double fRand(double fMin, double fMax)
@@ -327,7 +329,7 @@ class TorusPlanePlugin : public CollisionDetection
       else if (cgA == ground_cg && cgB == right_foot_cg)
         find_contacts_torus_plane(cgB, cgA, contacts);
       else
-        ccd->find_contacts(cgA, cgB, contacts, TOL);
+        CCD::find_contacts(cgA, cgB, contacts, TOL);
     }
 
     /// Computes signed distance between geometries
@@ -343,14 +345,8 @@ class TorusPlanePlugin : public CollisionDetection
       else if (cgA == ground_cg && cgB == right_foot_cg)
         return calc_signed_dist_torus_plane(cgB, cgA, pA, pB);
       else
-        return ccd->calc_signed_dist(cgA, cgB, pA, pB);
+        return CCD::calc_signed_dist(cgA, cgB, pA, pB);
     }
-
-    protected:
-      virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
-      {
-        return std::numeric_limits<double>::max();
-      }
 };
 
 extern "C"

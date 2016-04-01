@@ -1,79 +1,165 @@
-<!-- a five link chain; doesn't really illustrate anything novel -->
+<!-- a double pendulum with fixed base -->
 
 <XML>
-
-  <DRIVER step-size="0.01">
+  <DRIVER step-size="0.017">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" num-circle-points="100" num-rings="100" density="1.0" />
-    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
+    <Cylinder id="c" radius="1" height="5" num-rings="100" num-circle-points="25" density="1.0" /> 
+    <Box id="b1" xlen="2" ylen="5" zlen="2" density="10.0" />
+    <Box id="b3" xlen="1" ylen="10" zlen="1" density="10.0" />
+    <Plane id="plane" />
+    <Box id="plane-viz" xlen="25" zlen="25" ylen="100" />
 
+    <!-- integrators, collision and contact methods, forces, fdyn algos -->
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <TimeSteppingSimulator>
-    <RecurrentForce recurrent-force-id="gravity" /> 
-    <DynamicBody dynamic-body-id="chain" />
-    <DynamicBody dynamic-body-id="platform" />
-    <DisabledPair object1-id="l1" object2-id="l2" />
-    <DisabledPair object1-id="l1" object2-id="l3" />
-    <DisabledPair object1-id="l1" object2-id="l4" />
-    <DisabledPair object1-id="l1" object2-id="l5" />
-    <DisabledPair object1-id="l2" object2-id="l3" />
-    <DisabledPair object1-id="l2" object2-id="l4" />
-    <DisabledPair object1-id="l2" object2-id="l5" />
-    <DisabledPair object1-id="l3" object2-id="l4" />
-    <DisabledPair object1-id="l3" object2-id="l5" />
-    <DisabledPair object1-id="l4" object2-id="l5" />
-    <ContactParameters object1-id="platform" object2-id="l1" epsilon="0" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l2" epsilon="0" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l3" epsilon="0" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l4" epsilon="0" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l5" epsilon="0" mu-coulomb="0" />
-  </TimeSteppingSimulator>
+    <!-- the simulator -->
+    <Simulator min-step-size="1e-3" >
+      <RecurrentForce recurrent-force-id="gravity" /> 
+      <DynamicBody dynamic-body-id="chain" />
+      <DynamicBody dynamic-body-id="platform" />
+      <DisabledPair object1-id="l1" object2-id="l2" />
+      <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1"  />
+    </Simulator>
+    
+    <!-- the chain -->
+    <RCArticulatedBody id="chain" floating-base="false" > 
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
-
-      <RigidBody id="base" position="0 0 0"/>
-
-      <RigidBody id="l1" position="0 -2.5 0" visualization-id="c">
+      <!-- links in the chain -->
+      <RigidBody id="base" position="0 0 0">
         <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c"  />
       </RigidBody>
 
-      <RigidBody id="l2" position="0 -7.5 0" visualization-id="c">
-        <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c"  />
+      <RigidBody id="l1" position="0 -2.5 0" rpy="0 0 0" visualization-id="b1" color=".25 0 .5 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
-      <RigidBody id="l3"  position="0 -12.5 0" visualization-id="c">
-        <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c"  />
+      <RigidBody id="l2" position="0 -7.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
-      <RigidBody id="l4" position="0 -17.5 0" visualization-id="c">
-        <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c"  />
-      </RigidBody>
-      
-      <RigidBody id="l5" position="0 -22.5 0" visualization-id="c">
-        <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c" />
+      <RigidBody id="l3" position="0 -12.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
-      <RevoluteJoint id="q" q="1.57079632679" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-1" upper-limits="3.14" axis="0 0 1" />
-      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" lower-limits="-.1" upper-limits=".1" axis="0 0 1" />
-      <RevoluteJoint id="q3" q="0" qd="0" location="0 -10 0" inboard-link-id="l2" outboard-link-id="l3" lower-limits="-.5" upper-limits=".5" axis="0 0 1"  />
-      <RevoluteJoint id="q4" q="0" qd="0" location="0 -15 0" inboard-link-id="l3" outboard-link-id="l4" lower-limits="-.5" upper-limits=".5" axis="0 0 1"  />
-      <RevoluteJoint id="q5" q="0" qd="0" location="0 -20 0" inboard-link-id="l4" outboard-link-id="l5" lower-limits="-.5" upper-limits=".5" axis="0 0 1"  />
+      <RigidBody id="l4" position="0 -17.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l5" position="0 -22.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l6" position="0 -27.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l7" position="0 -32.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l8" position="0 -37.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l9" position="0 -42.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l10" position="0 -47.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l11" position="0 -52.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l12" position="0 -57.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l13" position="0 -62.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l14" position="0 -67.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l15" position="0 -72.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l16" position="0 -77.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l17" position="0 -82.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l18" position="0 -87.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l19" position="0 -92.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l20" position="0 -97.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- joints in the chain -->
+      <RevoluteJoint id="q" q="1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" axis="0 0 1" />
+      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" axis="0 0 1" />
+      <RevoluteJoint id="q3" q="0" qd="0" location="0 -10 0" inboard-link-id="l2" outboard-link-id="l3" axis="0 0 1" />
+      <RevoluteJoint id="q4" q="0" qd="0" location="0 -15 0" inboard-link-id="l3" outboard-link-id="l4" axis="0 0 1" />
+      <RevoluteJoint id="q5" q="0" qd="0" location="0 -20 0" inboard-link-id="l4" outboard-link-id="l5" axis="0 0 1" />
+      <RevoluteJoint id="q6" q="0" qd="0" location="0 -25 0" inboard-link-id="l5" outboard-link-id="l6" axis="0 0 1" />
+      <RevoluteJoint id="q7" q="0" qd="0" location="0 -30 0" inboard-link-id="l6" outboard-link-id="l7" axis="0 0 1" />
+      <RevoluteJoint id="q8" q="0" qd="0" location="0 -35 0" inboard-link-id="l7" outboard-link-id="l8" axis="0 0 1" />
+      <RevoluteJoint id="q9" q="0" qd="0" location="0 -40 0" inboard-link-id="l8" outboard-link-id="l9" axis="0 0 1" />
+      <RevoluteJoint id="q10" q="0" qd="0" location="0 -45 0" inboard-link-id="l9" outboard-link-id="l10" axis="0 0 1" />
+      <RevoluteJoint id="q11" q="0" qd="0" location="0 -50 0" inboard-link-id="l10" outboard-link-id="l11" axis="0 0 1" />
+      <RevoluteJoint id="q12" q="0" qd="0" location="0 -55 0" inboard-link-id="l11" outboard-link-id="l12" axis="0 0 1" />
+      <RevoluteJoint id="q13" q="0" qd="0" location="0 -60 0" inboard-link-id="l12" outboard-link-id="l13" axis="0 0 1" />
+      <RevoluteJoint id="q14" q="0" qd="0" location="0 -65 0" inboard-link-id="l13" outboard-link-id="l14" axis="0 0 1" />
+      <RevoluteJoint id="q15" q="0" qd="0" location="0 -70 0" inboard-link-id="l14" outboard-link-id="l15" axis="0 0 1" />
+      <RevoluteJoint id="q16" q="0" qd="0" location="0 -75 0" inboard-link-id="l15" outboard-link-id="l16" axis="0 0 1" />
+      <RevoluteJoint id="q17" q="0" qd="0" location="0 -80 0" inboard-link-id="l16" outboard-link-id="l17" axis="0 0 1" />
+      <RevoluteJoint id="q18" q="0" qd="0" location="0 -85 0" inboard-link-id="l17" outboard-link-id="l18" axis="0 0 1" />
+      <RevoluteJoint id="q19" q="0" qd="0" location="0 -90 0" inboard-link-id="l18" outboard-link-id="l19" axis="0 0 1" />
+      <RevoluteJoint id="q20" q="0" qd="0" location="0 -95 0" inboard-link-id="l19" outboard-link-id="l20" axis="0 0 1" />
     </RCArticulatedBody>
 
     <!-- setup the platform rigid body; it is not active -->
-    <RigidBody id="platform" enabled="false"
-      position="-5 -24 0" visualization-id="b3">
-      <CollisionGeometry primitive-id="b3"  />
+    <RigidBody id="platform" enabled="false" position="0 -9 0" color=".25 .25 .25 0">
+        <CollisionGeometry primitive-id="plane" />
+	<Visualization visualization-id="plane-viz" visualization-rel-origin="0 -50 0" />
     </RigidBody>
 
   </MOBY>

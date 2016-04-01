@@ -12,7 +12,6 @@
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/RCArticulatedBody.h>
-#include <Moby/NumericalException.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/RevoluteJoint.h>

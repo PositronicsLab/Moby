@@ -23,13 +23,13 @@
 #include <Ravelin/Origin3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/Matrix3d.h>
+#include <Ravelin/NumericalException.h>
 #include <Moby/Constants.h>
 #include <Moby/Triangle.h>
 #include <Moby/FastThreadable.h>
 #include <Moby/TessellatedPolyhedron.h>
 #include <Moby/Log.h>
 #include <Moby/LP.h>
-#include <Moby/NumericalException.h>
 #include <Moby/Types.h>
 
 #ifdef THREADSAFE

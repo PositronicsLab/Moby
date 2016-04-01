@@ -11,7 +11,6 @@
 #include <Moby/Constants.h>
 #include <Moby/Plane.h>
 #include <Moby/Log.h>
-#include <Moby/NumericalException.h>
 
 // needed for qhull
 extern "C"
@@ -24,6 +23,7 @@ namespace Moby {
 
 class PolyhedralPrimitive;
 
+/// A potentially-non-convex polyhedron of genus 0
 class Polyhedron 
 {
   friend class TessellatedPolyhedron;
@@ -31,6 +31,7 @@ class Polyhedron
   public:
     class Edge;
 
+    /// A vertex, face, or edge in a polyhedron
     struct Feature
     {
       virtual ~Feature() {}
@@ -63,7 +64,7 @@ class Polyhedron
       boost::shared_ptr<void> data;                // arbitrary user data
     };
 
-    // iterates over the vertices in a face
+    /// iterates over the vertices in a face
     class VertexFaceIterator
     {
       public:

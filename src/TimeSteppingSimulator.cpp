@@ -139,7 +139,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     calc_pairwise_distances();
 
     // get the conservative step 
-    double CA_step = calc_next_CA_Euler_step(contact_dist_thresh);
+    double CA_step = calc_next_CA_Euler_step();
 
     // look for impact
     if (CA_step <= 0.0)
@@ -169,35 +169,39 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;
 
-  // prepare to calculate forward dynamics
-  precalc_fwd_dyn();
+  // only integrate velocity if h > 0
+  if (h > 0.0)
+  { 
+    // prepare to calculate forward dynamics
+    precalc_fwd_dyn();
 
-  // apply compliant unilateral constraint forces
-  calc_compliant_unilateral_constraint_forces();
+    // apply compliant unilateral constraint forces
+    calc_compliant_unilateral_constraint_forces();
 
-  // compute forward dynamics
-  calc_fwd_dyn(h);
+    // compute forward dynamics
+    calc_fwd_dyn(h);
 
-  // integrate the bodies' velocities forward by h
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
-    db->get_generalized_acceleration(qdd);
-    qdd *= h;
-    db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
-    FILE_LOG(LOG_DYNAMICS) << "old velocity: " << qd << std::endl; 
-    qd += qdd;
-    db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
-    FILE_LOG(LOG_DYNAMICS) << "new velocity: " << qd << std::endl; 
+    // integrate the bodies' velocities forward by h
+    for (unsigned i=0; i< _bodies.size(); i++)
+    {
+      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+      db->get_generalized_acceleration(qdd);
+      qdd *= h;
+      db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
+      FILE_LOG(LOG_DYNAMICS) << "old velocity: " << qd << std::endl; 
+      qd += qdd;
+      db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
+      FILE_LOG(LOG_DYNAMICS) << "new velocity: " << qd << std::endl; 
+    }
   }
 
   // dissipate some energy
-  if (_dissipator)
+  if (dissipator)
   {
     vector<shared_ptr<DynamicBodyd> > bodies;
     BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
       bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(cb));
-    _dissipator->apply(bodies);
+    dissipator->apply(bodies);
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;
@@ -206,7 +210,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   calc_pairwise_distances();
 
   // find unilateral constraints
-  find_unilateral_constraints(contact_dist_thresh);
+  find_unilateral_constraints();
 
   // handle any impacts
   calc_impacting_unilateral_constraint_forces(-1.0);
@@ -269,7 +273,7 @@ std::set<sorted_pair<CollisionGeometryPtr> > TimeSteppingSimulator::get_current_
  *       designates an event as occuring at the current time, constraint
  *       violation could occur.
  */
-double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh) const
+double TimeSteppingSimulator::calc_next_CA_Euler_step() const
 {
   const double INF = std::numeric_limits<double>::max();
   double next_event_time = INF;

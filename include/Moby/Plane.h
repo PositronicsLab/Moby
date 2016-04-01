@@ -26,13 +26,15 @@ class Plane
     void operator=(const Plane& p) { _normal = p._normal; offset = p.offset; }
     double calc_signed_distance(const Point3d& p) const { return _normal.dot(p) - offset; }
     bool on_plane(const Point3d& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO * std::max((double) 1.0, std::max(p.norm_inf(), std::fabs(offset))); }
-    Plane operator-() const { return Plane(-_normal, -offset); }
     bool operator==(const Plane& p) const { double dot = _normal.dot(p.get_normal()); return (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(offset - p.offset) < NEAR_ZERO); }
     bool operator<(const Plane& p) const;
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _normal.pose; }
     Point3d project(const Point3d& p) const;
     Ravelin::Origin2d to_2D(const Point3d& p) const;
     Plane transform(const Ravelin::Transform3d& T) const;
+
+    /// Assuming this plane represents a half-space, negates the half-space
+    Plane operator-() const { return Plane(-_normal, -offset); }
 
     /// Gets the outward pointing normal to the plane
     const Ravelin::Vector3d& get_normal() const { return _normal; }

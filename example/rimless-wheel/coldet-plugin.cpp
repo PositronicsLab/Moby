@@ -211,7 +211,7 @@ class BladePlanePlugin : public CCD
     virtual void find_contacts_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
     {
       const unsigned Y = 1;
-      const double TOL = sim->contact_dist_thresh;
+      const double TOL = 0.0; 
 
       // delete the IPC token
       if (FIND_MAP)

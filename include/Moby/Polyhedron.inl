@@ -123,7 +123,7 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    throw NumericalException(); 
+    throw Ravelin::NumericalException(); 
     return Polyhedron();
   }
 

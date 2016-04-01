@@ -14,6 +14,7 @@
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/ContactParameters.h>
+#include <Moby/LCPSolverException.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
@@ -51,9 +52,6 @@ ConstraintSimulator::ConstraintSimulator()
   post_mini_step_callback_fn = NULL;
   get_contact_parameters_callback_fn = NULL;
   render_contact_points = false;
-
-  // setup contact distance thresholds
-  contact_dist_thresh = 1e-6;
 
   // setup the collision detector
   _coldet = shared_ptr<CollisionDetection>(new CCD);
@@ -348,6 +346,11 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
       std::cerr << "warning: constraint tolerances exceeded; constraint velocity violation " << e.violation << std::endl;
     #endif
   }
+  catch (LCPSolverException e)
+  {
+    std::cerr << "(the simulation has likely become unstable)" << std::endl;
+    throw e;
+  }
 
   // call the post application callback, if any
   if (constraint_post_callback_fn)
@@ -485,7 +488,7 @@ void ConstraintSimulator::broad_phase(double dt)
 }
 
 /// Finds the set of unilateral constraints
-void ConstraintSimulator::find_unilateral_constraints(double contact_dist_thresh)
+void ConstraintSimulator::find_unilateral_constraints()
 {
   FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::find_unilateral_constraints() entered" << std::endl;
 
@@ -505,23 +508,41 @@ void ConstraintSimulator::find_unilateral_constraints(double contact_dist_thresh
     ab->find_limit_constraints(std::back_inserter(_rigid_constraints));
   }
 
+  // set constraint violation on the joint limits
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+  {
+    double depth = _rigid_constraints[i].limit_joint->compliant_layer_depth;
+    _rigid_constraints[i].signed_violation -= depth;
+  }
+
+  // get the current number of joint limits
+  const unsigned N_LIMITS = _rigid_constraints.size();
+
   // find contact constraints
   BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
-    if (pdi.dist < contact_dist_thresh)
+  {
+    double dist_thresh = pdi.a->compliant_layer_depth + 
+                         pdi.b->compliant_layer_depth;
+
+    if (pdi.dist <= dist_thresh + NEAR_ZERO)
     {
       // see whether one of the bodies is compliant
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
-      if (rba->compliance == RigidBody::eCompliant || 
-          rbb->compliance == RigidBody::eCompliant)
-        _coldet->find_contacts(pdi.a, pdi.b, _compliant_constraints);
-      else        
-        _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, contact_dist_thresh);
+      _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, dist_thresh + NEAR_ZERO);
     }
+  }
+
+  // set constraint violation
+  for (unsigned i=N_LIMITS; i< _rigid_constraints.size(); i++)
+  {
+    double depth = _rigid_constraints[i].contact_geom1->compliant_layer_depth +                    _rigid_constraints[i].contact_geom2->compliant_layer_depth;
+
+    // setup the signed violation
+    _rigid_constraints[i].signed_violation -= depth;
+  }
 
   // set constraints to proper type
-  for (unsigned i=0; i< _compliant_constraints.size(); i++)
-    _compliant_constraints[i].compliance = UnilateralConstraint::eCompliant;
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
     _rigid_constraints[i].compliance = UnilateralConstraint::eRigid;
 
@@ -547,16 +568,6 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
 
   // first, load all data specified to the Simulator object
   Simulator::load_from_xml(node, id_map);
-
-  // read the dissipator, if any
-  XMLAttrib* dissipator_attrib = node->get_attrib("dissipator-id");
-  if (dissipator_attrib)
-  {
-    const std::string dissipator_id = dissipator_attrib->get_string_value();
-    _dissipator = dynamic_pointer_cast<Dissipation>(id_map[dissipator_id]);
-    if (!_dissipator)
-      throw std::runtime_error("Unable to load dissipator");
-  }
 
   // read the collision detection plugin, if any
   XMLAttrib* coldet_plugin_attrib = node->get_attrib("collision-detection-plugin");
@@ -585,11 +596,6 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
   XMLAttrib* cstab_max_iter_attrib = node->get_attrib("constraint-stabilization-max-iterations");
   if (cstab_max_iter_attrib)
     cstab.max_iterations = cstab_max_iter_attrib->get_unsigned_value();
-
-  // read the contact distance threshold, if any
-  XMLAttrib* contact_dist_thresh_attrib = node->get_attrib("contact-dist-thresh");
-  if (contact_dist_thresh_attrib)
-    contact_dist_thresh = contact_dist_thresh_attrib->get_real_value();
 
   // read in any ContactParameters
   child_nodes = node->find_child_nodes("ContactParameters");
@@ -721,22 +727,12 @@ void ConstraintSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Bas
   node->attribs.insert(XMLAttrib("bilateral-stabilization-tol", cstab.bilateral_eps));
   node->attribs.insert(XMLAttrib("constraint-stabilization-max-iterations", cstab.max_iterations));
 
-  // save the dissipation mechanism
-  if (_dissipator)
-  {
-    node->attribs.insert(XMLAttrib("dissipator-id", _dissipator->id));
-    shared_objects.push_back(_dissipator);
-  }
-
   // save any collision detection plugins
   if (!dynamic_pointer_cast<CCD>(_coldet))
   {
     node->attribs.insert(XMLAttrib("collision-detection-plugin", _coldet->id));
     shared_objects.push_back(_coldet);
   }
-
-  // save the distance thresholds
-  node->attribs.insert(XMLAttrib("contact-dist-thesh", contact_dist_thresh));
 
   // save all ContactParameters
   for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)

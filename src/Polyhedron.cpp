@@ -1406,10 +1406,10 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       if(r == eContinue && iteration_count > MAX_ITERATION)
       {
-        std::cerr << "Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        FILE_LOG(LOG_COLDET) << "v-clip maximum iteration number has been reached; calculating distance" << std::endl;
+        FILE_LOG(LOG_COLDET) << " using the current feature" << std::endl;
         r=eInterpenetrating;
       }
-
 
       if (r == eContinue)
         continue;
@@ -1453,7 +1453,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       if(r == eContinue && iteration_count > MAX_ITERATION)
       {
-        std::cerr << "Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        FILE_LOG(LOG_COLDET) << "v-clip maximum iteration number has been reached; calculating distance" << std::endl;
+        FILE_LOG(LOG_COLDET) << " using the current feature" << std::endl;
         r=eInterpenetrating;
       }
 
@@ -1512,7 +1513,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       if(r == eContinue && iteration_count > MAX_ITERATION)
       {
-        std::cerr << "Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        FILE_LOG(LOG_COLDET) << "v-clip maximum iteration number has been reached; calculating distance" << std::endl;
+        FILE_LOG(LOG_COLDET) << " using the current feature" << std::endl;
         r=eInterpenetrating;
       }
       
@@ -1544,7 +1546,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       if(r == eContinue && iteration_count > MAX_ITERATION)
       {
-        std::cerr << " Maximum iteration number reached, the algorithm is going to calculate the distance with the current feature";
+        FILE_LOG(LOG_COLDET) << "v-clip maximum iteration number has been reached; calculating distance" << std::endl;
+        FILE_LOG(LOG_COLDET) << " using the current feature" << std::endl;
         r=eInterpenetrating;
       }
       

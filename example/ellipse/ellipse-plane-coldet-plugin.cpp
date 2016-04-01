@@ -18,14 +18,20 @@ struct Ellipse
 
 Ellipse e; 
 
-class EllipsePlanePlugin : public CollisionDetection
+class EllipsePlanePlugin : public CCD
 {
   private:
     boost::shared_ptr<TimeSteppingSimulator> sim;
-    boost::shared_ptr<CCD> ccd;
     RigidBodyPtr ellipse;
     RigidBodyPtr ground_body, wall_pos_body, wall_neg_body;
     CollisionGeometryPtr ground_cg, ellipse_cg, wall_pos_cg, wall_neg_cg;
+
+    protected:
+      virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
+      {
+        return std::numeric_limits<double>::max();
+      }
+
 
   public:
     EllipsePlanePlugin() {}
@@ -34,7 +40,7 @@ class EllipsePlanePlugin : public CollisionDetection
     {
       if (pdi.dist <= 0.0)
         return std::numeric_limits<double>::max();
-      else return ccd->calc_CA_Euler_step(pdi);
+      else return CCD::calc_CA_Euler_step(pdi);
     }
 
     virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim)
@@ -70,9 +76,6 @@ class EllipsePlanePlugin : public CollisionDetection
       ellipse_cg = ellipse->geometries.front();
       wall_pos_cg = wall_pos_body->geometries.front();
       wall_neg_cg = wall_neg_body->geometries.front();
-
-      // create the continuous collision detection system
-      ccd = boost::shared_ptr<CCD>(new CCD);
     }
 
     virtual ~EllipsePlanePlugin() {}
@@ -94,7 +97,7 @@ class EllipsePlanePlugin : public CollisionDetection
         }
 
       // call CCD on the remainder
-      ccd->broad_phase(dt, remainder, to_check);
+      CCD::broad_phase(dt, remainder, to_check);
 
       // now add in collision geometries for the planes and the ellipse 
       to_check.push_back(std::make_pair(ground_cg, ellipse_cg));
@@ -351,7 +354,7 @@ class EllipsePlanePlugin : public CollisionDetection
       else if (cgA == wall_neg_cg && cgB == ellipse_cg)
         find_contacts_ellipse_plane(cgB, cgA, contacts);
       else
-        ccd->find_contacts(cgA, cgB, contacts, TOL);
+        CCD::find_contacts(cgA, cgB, contacts, TOL);
     }
 
     /// Computes signed distance between geometries
@@ -375,7 +378,7 @@ class EllipsePlanePlugin : public CollisionDetection
       else if (cgA == wall_neg_cg && cgB == ellipse_cg)
         return calc_signed_dist_ellipse_plane(cgB, cgA, pA, pB);
       else
-        return ccd->calc_signed_dist(cgA, cgB, pA, pB);
+        return CCD::calc_signed_dist(cgA, cgB, pA, pB);
     }
 
   private:

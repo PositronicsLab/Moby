@@ -26,6 +26,7 @@ using namespace Moby;
 CollisionGeometry::CollisionGeometry()
 {
   _F = shared_ptr<Pose3d>(new Pose3d);
+  compliant_layer_depth = 0.0;
 }
 
 /// Gets a supporting point for this geometry in a particular direction
@@ -319,6 +320,11 @@ void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   // verify that this node is of type CollisionGeometry
   assert (strcasecmp(node->name.c_str(), "CollisionGeometry") == 0);
 
+  // load the compliant layer depth, if specified
+  XMLAttrib* cld_attr = node->get_attrib("compliant-layer-depth");
+  if (cld_attr)
+    compliant_layer_depth = cld_attr->get_real_value();
+
   // read relative pose, if specified
   Pose3d TR;
   TR.rpose = _F->rpose;
@@ -368,6 +374,9 @@ void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
 
   // set the node name
   node->name = "CollisionGeometry";
+
+  // save the compliant layer depth
+  node->attribs.insert(XMLAttrib("compliant-layer-depth", compliant_layer_depth));
 
   // add the relative pose 
   node->attribs.insert(XMLAttrib("relative-origin", _F->x));

@@ -31,6 +31,7 @@ struct OutputToFile
   static void output(const std::string& msg);
 };
 
+/// Moby's logging utility
 template <typename OutputPolicy>
 class Log
 {

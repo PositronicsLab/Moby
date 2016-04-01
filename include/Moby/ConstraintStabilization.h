@@ -17,6 +17,7 @@ namespace Moby {
 
 class ConstraintSimulator;
 
+/// Projected constraint stabilization mechanism
 class ConstraintStabilization 
 {
   public:

@@ -17,9 +17,9 @@
 
     <!-- Rigid bodies -->
       <!-- the cylinder -->
-      <RigidBody id="cylinder" enabled="true" position="0 0.5 0" visualization-id="s1" linear-velocity="10 0 0" angular-velocity="0 0 -10" color="1 0 0 0">
+      <RigidBody id="cylinder" enabled="true" position="0 0.500001 0" visualization-id="s1" linear-velocity="10 0 0" angular-velocity="0 0 -10" color="1 0 0 0">
         <InertiaFromPrimitive primitive-id="s1" />
-        <CollisionGeometry primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" compliant-layer-depth="1e-6" />
       </RigidBody>
 
       <!-- the ground -->
@@ -33,7 +33,7 @@
       <DynamicBody dynamic-body-id="cylinder" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="cylinder" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
+      <ContactParameters object1-id="ground" object2-id="cylinder" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" stiffness="1e-8" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>

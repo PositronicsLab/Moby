@@ -12,19 +12,19 @@
 
   <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
-<!--  downhill at alpha = 0.05 -->
+<!--  downhill at gamma = 0.05 -->
 <!-- GravityForce id="gravity" accel="0.049979 0 -0.99875" /> --> 
 
-<!--  downhill at alpha = 0.1 -->
+<!--  downhill at gamma = 0.1 -->
 <GravityForce id="gravity" accel="0.099833 0 -0.995" />
 
-<!--  downhill at alpha = 0.2 -->
+<!--  downhill at gamma = 0.2 -->
 <!--<GravityForce id="gravity" accel="0.198669330795061 0 -0.980066577841242" />-->
-<!--  downhill at alpha = 0.4 -->
+<!--  downhill at gamma = 0.4 -->
 <!--
 <GravityForce id="gravity" accel="0.389418342308651 0 -0.921060994002885" />
 -->
-<!--  downhill at alpha = 0.5 -->
+<!--  downhill at gamma = 0.5 -->
 <!--
 <GravityForce id="gravity" accel="0.47943 0 -0.87758" />
 -->

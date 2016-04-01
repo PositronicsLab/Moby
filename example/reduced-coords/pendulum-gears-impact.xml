@@ -14,14 +14,14 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <TimeSteppingSimulator min-step-size="1e-3">
+  <TimeSteppingSimulator>
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="platform" />
-    <ContactParamaters object1-id="l1" object2-id="platform" />
+    <ContactParameters object1-id="l1" object2-id="platform" />
   </TimeSteppingSimulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="true">
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 
       <RigidBody id="base" position="0 0 0">
         <InertiaFromPrimitive primitive-id="sphere" />
@@ -38,8 +38,8 @@
         <InertiaFromPrimitive primitive-id="sphere" />
       </RigidBody>
 
-      <RevoluteJoint id="q" q="0" q-tare="-1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-forces="10000" lower-limits="-10" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
-      <RevoluteJoint id="q2" q="0" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l2" max-forces="10000" axis="0 1 0" />
+      <RevoluteJoint id="q" q="1.5708" q-tare="-1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-10" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
+      <RevoluteJoint id="q2" q="0" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l2" axis="0 1 0" />
       <Gears id="gears" inboard-link-id="l2" outboard-link-id="l1" gear-ratio=".0" />
     </RCArticulatedBody>
 

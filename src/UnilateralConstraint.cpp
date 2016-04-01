@@ -53,6 +53,10 @@ UnilateralConstraint::UnilateralConstraint()
   compliance = eRigid;
   constraint_type = eNone;
   signed_violation = 0.0;
+  contact_stiffness = 0.0;
+  contact_damping = 0.0;
+  limit_stiffness = 0.0;
+  limit_damping = 0.0;
   limit_dof = std::numeric_limits<unsigned>::max();
   limit_epsilon = (double) 0.0;
   limit_upper = false;
@@ -75,6 +79,10 @@ UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint
   signed_violation = e.signed_violation;
   constraint_type = e.constraint_type;
   compliance = e.compliance;
+  contact_stiffness = e.contact_stiffness;
+  contact_damping = e.contact_damping;
+  limit_stiffness = e.limit_stiffness;
+  limit_damping = e.limit_damping;
   limit_epsilon = e.limit_epsilon;
   limit_dof = e.limit_dof;
   limit_upper = e.limit_upper;
@@ -634,7 +642,8 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   contact_penalty_Kp = cparams.penalty_Kp;
   contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
-  contact_compliance = cparams.compliance;
+  contact_stiffness = cparams.stiffness;
+  contact_damping = cparams.damping;
   contact_NK = cparams.NK;
 
   // redetermine contact tangents

@@ -12,7 +12,6 @@
 #include <cmath>
 #include <sstream>
 #include <Ravelin/MatrixNd.h>
-#include <Moby/MissizeException.h>
 #include <Moby/XMLTree.h>
 
 using boost::shared_ptr;

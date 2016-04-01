@@ -26,8 +26,10 @@ class LCP
     bool lcp_fast_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
     bool fast_pivoting(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double eps = std::sqrt(std::numeric_limits<double>::epsilon()));
 
-  private:
+    /// number of pivots required by the last call to the solver
     unsigned pivots;
+
+  private:
     static void log_failure(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q);
     static void set_basis(unsigned n, unsigned count, std::vector<unsigned>& bas, std::vector<unsigned>& nbas);
     static unsigned rand_min(const Ravelin::VectorNd& v, double zero_tol);

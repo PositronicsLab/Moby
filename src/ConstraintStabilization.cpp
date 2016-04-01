@@ -233,11 +233,21 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
       break;
     }
 
+    // save last violations
+    double last_uvio = max_uvio;
+    double last_bvio = max_bvio;
+
     // update minimum distance
     max_uvio = evaluate_unilateral_constraints(sim, uC);
 
     // update constraint violation
     max_bvio = evaluate_bilateral_constraints(sim, C);
+
+    if (last_uvio >= max_uvio && max_bvio >= last_bvio)
+    {
+      FILE_LOG(LOG_SIMULATOR) << " -- could not stabilize constraints further" << std::endl;
+      break;
+    } 
 
     iterations++;
   }

@@ -528,7 +528,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   {
     hull = CompGeom::calc_convex_hull(begin, end);
   }
-  catch (NumericalException e)
+  catch (Ravelin::NumericalException e)
   {
   }
   if (!hull)

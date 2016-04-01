@@ -85,17 +85,9 @@ class ConstraintSimulator : public Simulator
     /// Gets the collision detection mechanism
     boost::shared_ptr<CollisionDetection> get_collision_detection() const { return _coldet; }
 
-    /// The distance threshold for a contact to be handled
-    /**
-     * Bodies are only considered to be in contact 
-     * if their distance is less than this
-     * threshold.
-     */
-    double contact_dist_thresh;
-
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
-    void find_unilateral_constraints(double min_contact_dist);
+    void find_unilateral_constraints();
     void calc_compliant_unilateral_constraint_forces();
     void preprocess_constraint(UnilateralConstraint& e);
     void determine_geometries();
@@ -119,9 +111,6 @@ class ConstraintSimulator : public Simulator
 
     double calc_CA_step();
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
-
-    /// The dissipation mechanism, if any
-    boost::shared_ptr<Dissipation> _dissipator;
 
     /// Pairwise distances at bodies' current configurations
     std::vector<PairwiseDistInfo> _pairwise_distances;

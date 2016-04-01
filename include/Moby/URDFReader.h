@@ -51,6 +51,9 @@ class URDFReader
         std::map<RigidBodyPtr, void*> visual_transform_nodes;
         std::map<JointPtr, RigidBodyPtr> joint_parent, joint_child;
         std::map<std::string, std::pair<Ravelin::VectorNd, std::string> > materials;
+        std::map<RigidBodyPtr, boost::shared_ptr<Ravelin::Pose3d> > visualization_poses;
+        std::map<CollisionGeometryPtr, boost::shared_ptr<Ravelin::Pose3d> > collision_poses;
+        std::map<RigidBodyPtr, boost::shared_ptr<Ravelin::Pose3d> > inertial_poses;
     };
 
     static void find_outboards(const URDFData& data, RigidBodyPtr link, std::vector<std::pair<JointPtr, RigidBodyPtr> >& outboards, std::map<RigidBodyPtr, RigidBodyPtr>& parents);

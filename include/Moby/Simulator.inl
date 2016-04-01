@@ -38,6 +38,15 @@ double Simulator::integrate(double dt, ForwardIterator begin, ForwardIterator en
     ga *= dt;
     gv += ga;
 
+   // dissipate some energy
+   if (dissipator)
+   {
+     std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > bodies;
+     BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
+       bodies.push_back(boost::dynamic_pointer_cast<Ravelin::DynamicBodyd>(cb));
+     dissipator->apply(bodies);
+   }
+
     // integrate the generalized position forward
     gve *= dt;
     db->get_generalized_coordinates_euler(gc);

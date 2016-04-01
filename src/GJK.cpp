@@ -548,7 +548,7 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
 
     // look and see whether the origin is contained in the simplex
     double pnorm = p.norm();
-    if (pnorm <= 0.0)
+    if (pnorm <= NEAR_ZERO)
     {
       FILE_LOG(LOG_COLDET) << "GJK::do_gjk() shapes are intersecting"  << std::endl;
 

@@ -10,7 +10,6 @@
 #include <Moby/Joint.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
-#include <Moby/NumericalException.h>
 #include <Moby/XMLReader.h>
 #include <Moby/Simulator.h>
 #include <Moby/RCArticulatedBody.h>

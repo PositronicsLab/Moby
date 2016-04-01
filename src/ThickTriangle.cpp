@@ -6,7 +6,6 @@
 
 #include <boost/foreach.hpp>
 #include <Moby/Log.h>
-#include <Moby/NumericalException.h>
 #include <Moby/ThickTriangle.h>
 
 using namespace Ravelin;

@@ -34,7 +34,6 @@ class TimeSteppingSimulator : public ConstraintSimulator
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual double step(double dt);
-    boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
 
     // the minimum step that the simulator should take (default = 1e-8)
     double min_step_size;
@@ -53,7 +52,7 @@ class TimeSteppingSimulator : public ConstraintSimulator
     std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > get_current_contact_geoms() const;
     double do_mini_step(double dt);
     void step_si_Euler(double dt);
-    double calc_next_CA_Euler_step(double contact_dist_thresh) const;
+    double calc_next_CA_Euler_step() const;
 }; // end class
 
 } // end namespace

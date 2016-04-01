@@ -55,11 +55,11 @@ void StokesDragForce::add_force(shared_ptr<DynamicBodyd> body)
     BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, links)
     {
       SForced w;
-      w.set_force(rb->get_velocity().get_linear() * -this->b);
-      w.set_torque(rb->get_velocity().get_angular() * -this->b_ang);
-      w.pose = rb->get_velocity().pose;
-      SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
-      rb->add_force(wx);
+      w.set_force(rbd->get_velocity().get_linear() * -this->b);
+      w.set_torque(rbd->get_velocity().get_angular() * -this->b_ang);
+      w.pose = rbd->get_velocity().pose;
+      SForced wx = Pose3d::transform(rbd->get_computation_frame(), w);
+      rbd->add_force(wx);
     }
   }
 }

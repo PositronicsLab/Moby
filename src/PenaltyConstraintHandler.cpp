@@ -18,7 +18,6 @@
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
-#include <Moby/NumericalException.h>
 #include <Moby/PenaltyConstraintHandler.h>
 #ifdef HAVE_IPOPT
 #include <Moby/NQP_IPOPT.h>

@@ -12,7 +12,6 @@
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RCArticulatedBody.h>
-#include <Moby/NumericalException.h>
 
 using std::vector;
 using boost::shared_ptr;
@@ -31,6 +30,9 @@ Joint::Joint() : Jointd()
 
   // initialize restitution coefficient
   limit_restitution = (double) 0.0;
+
+  // initialize the compliant layer depth
+  compliant_layer_depth = 0.0;
 
   // mark the indices as invalid initially
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
@@ -52,6 +54,9 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
 
   // initialize restitution coefficient
   limit_restitution = (double) 0.0;
+
+  // initialize the compliant layer depth
+  compliant_layer_depth = 0.0;
 
   // set the inboard and outboard links
   _inboard_link = RigidBodyPtr(inboard);
@@ -219,6 +224,11 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
 
   // save the id
   joint_id = id;
+
+  // load the compliant layer depth, if specified
+  XMLAttrib* cld_attr = node->get_attrib("compliant-layer-depth");
+  if (cld_attr)
+    compliant_layer_depth = cld_attr->get_real_value();
 
   // read the lower limits, if given
   XMLAttrib* lolimit_attr = node->get_attrib("lower-limits");
@@ -391,6 +401,9 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
 
   // set the name (even though the joint will be subclassed)
   node->name = "Joint";
+
+  // save the compliant layer depth
+  node->attribs.insert(XMLAttrib("compliant-layer-depth", compliant_layer_depth));
 
   // save the joint limits
   node->attribs.insert(XMLAttrib("lower-limits", lolimit));

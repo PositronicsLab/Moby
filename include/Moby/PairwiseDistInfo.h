@@ -11,6 +11,7 @@
 
 namespace Moby {
 
+/// Structure for storing the pairwise distance between pointers to two CollisionGeometry objects 
 struct PairwiseDistInfo
 {
   CollisionGeometryPtr a;  // the first geometry

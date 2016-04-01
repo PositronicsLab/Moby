@@ -60,8 +60,17 @@ class UnilateralConstraint
     /// The joint at which the limit is reached (for limit constraints)
     JointPtr limit_joint;
 
-    // the contact compliance (inverse of stiffness)
-    double contact_compliance;
+    // the contact stiffness (applicable only when contact is in compliant layer)
+    double contact_stiffness;
+
+    // the contact damping  (applicable only when contact is in compliant layer)
+    double contact_damping;
+
+    // the limit stiffness  (applicable only when limit is in compliant layer)
+    double limit_stiffness;
+
+    // the limit damping  (applicable only when limit is in compliant layer)
+    double limit_damping;
 
     /// Signed violation for this constraint
     double signed_violation;

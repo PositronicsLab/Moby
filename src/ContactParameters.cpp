@@ -22,7 +22,8 @@ ContactParameters::ContactParameters()
 {
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
-  compliance = 0.0;
+  stiffness = 0.0;
+  damping = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
 }
@@ -36,7 +37,8 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
   objects = make_sorted_pair(o1, o2);
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
-  compliance = 0.0;
+  stiffness = 0.0;
+  damping = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
 }
@@ -110,10 +112,15 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   if (fv_attr)
     mu_viscous = fv_attr->get_real_value();
 
-  // get the contact compliance
-  XMLAttrib* cc_attr = node->get_attrib("compliance");
+  // get the contact stiffness
+  XMLAttrib* cc_attr = node->get_attrib("stiffness");
   if (cc_attr)
-    compliance = cc_attr->get_real_value();
+    stiffness = cc_attr->get_real_value();
+
+  // get the contact damping 
+  XMLAttrib* cd_attr = node->get_attrib("damping");
+  if (cd_attr)
+    damping = cd_attr->get_real_value();
 
   // get the penalty Kp gain, if any
   XMLAttrib* kp_attr = node->get_attrib("penalty-kp");
@@ -162,8 +169,11 @@ void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
   // write the coefficient of friction for Viscous friction
   node->attribs.insert(XMLAttrib("mu-viscous", mu_viscous));
 
-  // write the contact compliance
-  node->attribs.insert(XMLAttrib("compliance", compliance));
+  // write the contact stiffness
+  node->attribs.insert(XMLAttrib("stiffness", stiffness));
+
+  // write the contact damping 
+  node->attribs.insert(XMLAttrib("damping", damping));
 
   // write the number of friction cone edges
   node->attribs.insert(XMLAttrib("friction-cone-edges", NK));

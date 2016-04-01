@@ -9,7 +9,7 @@
   <MOBY>
     <!-- Primitives -->
     <Sphere id="s1" radius="1.0" mass="1.0"  />
-    <Box id="b3" xlen="10" ylen=".00001" zlen="10" />
+    <Box id="b3" xlen="100" ylen="100" zlen="100" />
     <Plane id="p1" />
     <Plane id="pz-neg" rpy="-1.5707963267949 0 0" />
     <Plane id="pz-pos" rpy="1.5707963267949 0 0" />
@@ -25,33 +25,34 @@
       </RigidBody>
 
       <!-- the ground -->
-      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 0 0" color="0 0 0 0">
+      <RigidBody id="ground" enabled="false" position="0 0 0" color="1 0 0 0">
         <CollisionGeometry primitive-id="p1" />
+        <Visualization visualization-id="b3" visualization-rel-origin="0 -50 0" />
       </RigidBody>
 
       <!-- z-positive wall -->
-      <RigidBody id="wall_pos" enabled="false" position="0 0 -1" color="0 0 0 0">
-        <CollisionGeometry primitive-id="pz-pos" />
+      <RigidBody id="wall_pos" enabled="false" position="0 0 -1.00001" color="0 0 0 0">
+        <CollisionGeometry primitive-id="pz-pos" compliant-layer-depth=".00001" />
       </RigidBody>
 
       <!-- z-negative wall -->
-      <RigidBody id="wall_neg" enabled="false" position="0 0 1" color="0 0 0 0">
-        <CollisionGeometry primitive-id="pz-neg" />
+      <RigidBody id="wall_neg" enabled="false" position="0 0 1.00001" color="0 0 0 0">
+        <CollisionGeometry primitive-id="pz-neg"  compliant-layer-depth=".00001" />
       </RigidBody>
 
     <!-- Setup the collision detection plugin -->
     <CollisionDetectionPlugin id="coldet" plugin="libellipse-plane-coldet-plugin.so" />
 
     <!-- Setup the simulator -->
-    <TimeSteppingSimulator id="simulator" collision-detection-plugin="coldet" constraint-stabilization-max-iterations="50" min-step-size=".0001">
+    <TimeSteppingSimulator id="simulator" collision-detection-plugin="coldet" constraint-stabilization-max-iterations="50">
       <DynamicBody dynamic-body-id="ellipse" />
       <DynamicBody dynamic-body-id="ground" />
       <DynamicBody dynamic-body-id="wall_pos" />
       <DynamicBody dynamic-body-id="wall_neg" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="ellipse" epsilon=".6" mu-coulomb="1.0" mu-viscous="0" friction-cone-edges="16" />
-      <ContactParameters object1-id="wall_pos" object2-id="ellipse" epsilon=".6" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="16" />
-      <ContactParameters object1-id="wall_neg" object2-id="ellipse" epsilon=".6" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="ellipse" epsilon=".6" mu-coulomb="1.0" mu-viscous="0" stiffness="10" friction-cone-edges="16" />
+      <ContactParameters object1-id="wall_pos" object2-id="ellipse" epsilon=".6" mu-coulomb=".0001" mu-viscous="0" stiffness="10" friction-cone-edges="16" />
+      <ContactParameters object1-id="wall_neg" object2-id="ellipse" epsilon=".6" mu-coulomb=".0001" mu-viscous="0" stiffness="10" friction-cone-edges="16" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>

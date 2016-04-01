@@ -20,7 +20,6 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
-#include <Moby/NumericalException.h>
 #include <Moby/LCPSolverException.h>
 #include <Moby/ImpactConstraintHandler.h>
 
@@ -222,6 +221,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
 
   // output reported LCP solution
   FILE_LOG(LOG_CONSTRAINT) << "LCP solution: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "LCP pivots required: " << _lcp.pivots << std::endl;
   #endif
 
   // store zlast
@@ -286,6 +286,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
 
   // get useful constants
   const unsigned N_CONTACTS = epd.N_CONTACTS;
+  const unsigned N_LIMITS = epd.N_LIMITS;
 
   // setup new indices
   const unsigned CN_IDX = 0;
@@ -429,10 +430,34 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (nCt_v = Ct_v).negate();
   L_v = epd.L_v;
 
-  // incorporate contact compliance
-  ColumnIteratord Hiter = H.column_iterator_begin(); 
-  for (unsigned i=0; i< N_CONTACTS; i++, Hiter+=N_VARS+1)
-    *Hiter += epd.contact_constraints[i]->contact_compliance;
+  // incorporate contact stiffness
+  for (unsigned i=0; i< N_CONTACTS; i++)
+    Cn_v[i] += epd.contact_constraints[i]->contact_stiffness * epd.contact_constraints[i]->signed_violation;
+
+  // incorporate joint limit stiffness
+  for (unsigned i=0; i< N_LIMITS; i++)
+    L_v[i] += epd.limit_constraints[i]->limit_stiffness * epd.limit_constraints[i]->signed_violation;
+
+  // incorporate contact damping *if the signed violation is not too great*
+  ColumnIteratord Cn_X_CnT_iter = Cn_X_CnT.column_iterator_begin(); 
+  for (unsigned i=0; i< N_CONTACTS; i++, Cn_X_CnT_iter++)
+  {
+    const UnilateralConstraint& c = *epd.contact_constraints[i];
+    double compliant_layer_depth = c.contact_geom1->compliant_layer_depth +
+                                   c.contact_geom2->compliant_layer_depth;
+    if (c.signed_violation + compliant_layer_depth > 0)
+      *Cn_X_CnT_iter += epd.contact_constraints[i]->contact_damping;
+  }
+
+  // incorporate joint limit damping
+  ColumnIteratord L_X_LT_iter = L_X_LT.column_iterator_begin();
+  for (unsigned i=0; i< N_LIMITS; i++, L_X_LT_iter++)
+  {
+    const UnilateralConstraint& c = *epd.limit_constraints[i];
+    double compliant_layer_depth = c.limit_joint->compliant_layer_depth;
+    if (c.signed_violation + compliant_layer_depth > 0)
+      *L_X_LT_iter += epd.limit_constraints[i]->limit_damping;
+  }
 
   // ------- setup M/q -------
   // setup the Cn*v+ >= 0 constraint

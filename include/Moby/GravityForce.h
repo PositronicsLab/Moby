@@ -11,6 +11,8 @@
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
+
+/// Gravitational force applied to bodies
 class GravityForce : public RecurrentForce
 {
   public:

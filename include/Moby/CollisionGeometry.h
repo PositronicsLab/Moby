@@ -52,6 +52,9 @@ class CollisionGeometry : public virtual Base
     Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     double get_farthest_point_distance() const;
 
+    /// The compliant layer around this geometry
+    double compliant_layer_depth;
+
     /// Gets the shared pointer for this
     CollisionGeometryPtr get_this() { return boost::dynamic_pointer_cast<CollisionGeometry>(shared_from_this()); }
 

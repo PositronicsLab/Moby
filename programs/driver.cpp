@@ -171,12 +171,12 @@ namespace Moby{
     if (ITER >= LOG_START && ITER <= LOG_STOP)
     {
       Moby::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
-      Ravelin::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+      Ravelin::Log<Ravelin::OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
     }
     else
     {
       Moby::Log<OutputToFile>::reporting_level = 0;
-      Ravelin::Log<OutputToFile>::reporting_level = 0;
+      Ravelin::Log<Ravelin::OutputToFile>::reporting_level = 0;
     }
     
     // output the iteration #
@@ -614,7 +614,7 @@ namespace Moby{
       {
         LOG_REPORTING_LEVEL = std::atoi(&argv[i][ONECHAR_ARG]);
         Moby::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
-        Ravelin::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+        Ravelin::Log<Ravelin::OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
       }
       else if (option.find("-lt=") != std::string::npos)
       {

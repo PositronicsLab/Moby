@@ -21,7 +21,6 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
-#include <Moby/NumericalException.h>
 #include <Moby/ImpactConstraintHandler.h>
 #include <Moby/ConstraintSimulator.h>
 #include <Moby/SignedDistDot.h>
@@ -179,7 +178,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   _epd.reset();
 
   // set the simulator
-  _epd.simulator = _simulator;
+  _epd.simulator = boost::static_pointer_cast<Simulator>(_simulator);
 
   // save the constraints
   _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
@@ -2115,6 +2114,16 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   // process all contact constraints
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
     add_contact_to_Jacobian(*q.contact_constraints[i], Cn, Cs, Ct, gc_map, i); 
+
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    Cn.to_dense(tmp); 
+    FILE_LOG(LOG_CONSTRAINT) << "dense N: " << tmp;
+    Cs.to_dense(tmp); 
+    FILE_LOG(LOG_CONSTRAINT) << "dense S: " << tmp;
+    Ct.to_dense(tmp); 
+    FILE_LOG(LOG_CONSTRAINT) << "dense T: " << tmp;
+  }
 
   // compute X_CnT, X_CsT, and X_CtT
   Cn.mult(X, tmp);  MatrixNd::transpose(tmp, q.X_CnT);

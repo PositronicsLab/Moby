@@ -290,7 +290,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    throw NumericalException(); 
+    throw Ravelin::NumericalException(); 
     return target_begin;
   }
 
@@ -811,7 +811,7 @@ TessellatedPolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    throw NumericalException(); 
+    throw Ravelin::NumericalException(); 
     return TessellatedPolyhedronPtr();
   }
 
@@ -2633,7 +2633,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    throw NumericalException(); 
+    throw Ravelin::NumericalException(); 
     return target_begin;
   }
 
@@ -2882,7 +2882,7 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    throw NumericalException(); 
+    throw Ravelin::NumericalException(); 
     return TessellatedPolyhedronPtr();
   }
 
@@ -2901,7 +2901,7 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
       qh_memfreeshort(&curlong, &totlong);
       assert(!curlong && !totlong);
 
-      throw NumericalException();
+      throw Ravelin::NumericalException();
       return TessellatedPolyhedronPtr();
     }
     coordT* point = (coordT*) qh_memalloc(qh normal_size);
@@ -2929,7 +2929,7 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
           qh_memfreeshort(&curlong, &totlong);
           assert(!curlong && !totlong);
 
-          throw NumericalException();
+          throw Ravelin::NumericalException();
           return TessellatedPolyhedronPtr();
         }
       }
@@ -3919,7 +3919,7 @@ double CompGeom::determine_line_param(const T& p0, const U& dir, const T& v)
 {
   double dir_norm = dir.norm();
   if (dir_norm < NEAR_ZERO)
-    throw NumericalException("Attempting to normalize zero length vector");
+    throw Ravelin::NumericalException("Attempting to normalize zero length vector");
   return sgn((v - p0).norm()/dir_norm, (v - p0).dot(dir));
 }
 
