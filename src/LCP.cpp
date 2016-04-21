@@ -37,7 +37,404 @@ LCP::LCP()
 {
 }
 
-/// Fast pivoting algorithm for denerate, monotone LCPs with few nonzero, nonbasic variables 
+/// Fast pivoting algorithm for LCPs with positive semi-definite matrices and lower and upper bounds on variables 
+bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, const VectorNd& u, VectorNd& z, double zero_tol)
+{
+  const unsigned N = q.rows();
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
+  const double INF = std::numeric_limits<double>::max();
+
+  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() entered" << std::endl;
+
+  // look for trivial solution
+  if (N == 0)
+  {
+    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - empty problem" << std::endl;
+    z.set_zero(0);
+    return true;
+  }
+
+  // set zero tolerance if necessary
+  if (zero_tol < 0.0)
+    zero_tol = M.rows() * M.norm_inf() * std::numeric_limits<double>::epsilon();
+
+  // prepare to setup basic and nonbasic variable indices for z
+  _nonbas.clear();
+  _bas.clear();
+  _basl.clear();
+  _basu.clear();
+
+  // see whether to warm-start
+  if (z.size() == q.size())
+  {
+    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - warm starting activated" << std::endl;
+
+    for (unsigned i=0; i< z.size(); i++)
+    {
+      if (std::fabs(z[i]-l[i]) < zero_tol)
+      {
+        _basl.push_back(i);
+        _bas.push_back(i);
+      }
+      else if (std::fabs(u[i]-z[i]) < zero_tol)
+      {
+        _basu.push_back(i);
+        _bas.push_back(i);
+      }
+      else
+        _nonbas.push_back(i);
+    }
+
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream str;
+      str << " -- non-basic indices:";
+      for (unsigned i=0; i< _nonbas.size(); i++)
+        str << " " << _nonbas[i];
+      FILE_LOG(LOG_OPT) << str.str() << std::endl;
+    }
+  }
+  else
+  {
+    // compute M*l + q and compute the minimum element
+    M.mult(l, _w) += q; 
+    unsigned minw = std::min_element(_w.begin(), _w.end()) - _w.begin();
+    if (_w[minw] > -zero_tol)
+    {
+      FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - trivial solution found" << std::endl;
+      z = l;
+      return true;
+    }
+
+    // setup basic and nonbasic variable indices
+    _nonbas.push_back(minw); 
+    _basl.resize(N-1);
+    for (unsigned i=0, j=0; i< N; i++)
+      if (i != minw)
+        _basl[j++] = i;
+    _basu.resize(0);
+    _bas = _basl;
+  }
+
+  // loop for maximum number of pivots
+//  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
+  const unsigned MAX_PIV = 2*N;
+  for (pivots=0; pivots < MAX_PIV; pivots++)
+  {
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream str;
+      str << "non-basic indices:";
+      for (unsigned i=0; i< _nonbas.size(); i++)
+        str << " " << _nonbas[i];
+      str << std::endl;
+      str << "lower basic indices:";
+      for (unsigned i=0; i< _basl.size(); i++)
+        str << " " << _basl[i];
+      str << std::endl;
+      str << "upper basic indices:";
+      for (unsigned i=0; i< _basu.size(); i++)
+        str << " " << _basu[i];
+      str << std::endl;    
+      FILE_LOG(LOG_OPT) << "indices before beginning pivot" << std::endl << str.str();
+    }
+
+    // select nonbasic indices
+    M.select_square(_nonbas.begin(), _nonbas.end(), _Msub);
+    M.select(_bas.begin(), _bas.end(), _nonbas.begin(), _nonbas.end(), _Mmix);
+    q.select(_nonbas.begin(), _nonbas.end(), _z);
+    q.select(_bas.begin(), _bas.end(), _qbas);
+    _z.negate();
+    FILE_LOG(LOG_OPT) << "M sub: " << std::endl << _Msub;
+    FILE_LOG(LOG_OPT) << "rhs: " << _z << std::endl;
+
+    // solve for nonbasic z
+    try
+    {
+      _LA.solve_fast(_Msub, _z);
+    }
+    catch (SingularException e)
+    {
+      FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - linear system solve failed" << std::endl;
+      return false;
+    }
+    FILE_LOG(LOG_OPT) << "sub z: " << _z << std::endl;
+
+    // compute w, which will be the size of the basic indices 
+    _Mmix.mult(_z, _w) += _qbas;
+    FILE_LOG(LOG_OPT) << "sub w: " << _w << std::endl;
+
+    // move _w back to a full vector
+    _wfull.set_zero(N);
+    _wfull.set(_bas.begin(), _bas.end(), _w);
+    FILE_LOG(LOG_OPT) << "full w: " << _wfull << std::endl;
+
+    // elements of w corresponding to z at lower bounds (lower basic indices) 
+    // must be non-negative; elements of w corresponding to z at upper bounds
+    // (upper basic indices) must be non-positive
+
+    // get all elements of w (w+) that correspond to lower basic indices
+    _wfull.select(_basl.begin(), _basl.end(), _wplus);
+    FILE_LOG(LOG_OPT) << "w+: " << _wplus << std::endl;
+
+    // get all elements of w (w-) that correspond to upper basic indices
+    _wfull.select(_basu.begin(), _basu.end(), _wminus);
+    FILE_LOG(LOG_OPT) << "w-: " << _wminus << std::endl;
+
+    // get the most positive element of w-
+    unsigned wminus_max_idx = (_wminus.size() == 0) ? UINF : std::max_element(_wminus.begin(), _wminus.end()) - _wminus.begin();
+    double wminus_max = (wminus_max_idx < UINF) ? _wminus[wminus_max_idx] : INF;
+
+    // get the most negative element of w+
+    unsigned wplus_min_idx = (_wplus.size() == 0) ? UINF : std::min_element(_wplus.begin(), _wplus.end()) - _wplus.begin();
+    double wplus_min = (wplus_min_idx < UINF) ? _wplus[wplus_min_idx] : -INF;
+    FILE_LOG(LOG_OPT) << "element of w- closest to infinity: " << wminus_max << std::endl;
+    FILE_LOG(LOG_OPT) << "element of w+ closest to -infinity: " << wplus_min << std::endl;
+
+    // get the biggest wviolation and setup wvio
+    std::vector<unsigned> wvio;
+    double max_wvio = -1.0;
+    if (-wminus_max > wplus_min)
+    {
+      max_wvio = -wminus_max;
+      if (wminus_max_idx < UINF)
+        wvio.push_back(_basu[wminus_max_idx]);
+    }
+    else
+    {
+      max_wvio = wplus_min;
+      if (wplus_min_idx < UINF)
+        wvio.push_back(_basl[wplus_min_idx]);
+    }  
+
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream str;
+      str << "biggest violating elements of w:";
+      for (unsigned i=0; i< wvio.size(); i++)
+        str << " " << wvio[i];
+      FILE_LOG(LOG_OPT) << str.str() << std::endl;
+    }
+
+    // if w is valid
+    if (max_wvio < zero_tol)
+    {
+      // potential solution found; check whether z is valid by checking 
+      // whether each non-basic z variable is between l and z
+
+      // set z from basic indices and non-basic variables
+      z.resize(N);
+      l.select(_basl.begin(), _basl.end(), _workv);
+      z.set(_basl.begin(), _basl.end(), _workv);
+      u.select(_basu.begin(), _basu.end(), _workv);
+      z.set(_basu.begin(), _basu.end(), _workv);
+      z.set(_nonbas.begin(), _nonbas.end(), _z);
+      FILE_LOG(LOG_OPT) << "full z: " << z << std::endl;
+
+      // get a violated index of z s.t. z < l or z > u, where the index selected
+      // exhibits the biggest constraint violation (if multiple indices
+      // correspond to biggest constraint violation, one is chosen randomly)
+      double max_zvio = -1.0;
+      unsigned max_zvio_idx = UINF;
+      for (unsigned i=0; i< N; i++)
+      {
+        if (z[i] < l[i] - zero_tol)
+        {
+          if (l[i] - z[i] > max_zvio)
+          {
+            max_zvio = l[i] - z[i];
+            max_zvio_idx = i;
+          }
+        }
+        else if (z[i] > u[i] + zero_tol)
+        {
+          if (z[i] - u[i] > max_zvio)
+          {
+            max_zvio = z[i] - u[i];
+            max_zvio_idx = i;
+          }
+        } 
+      }
+
+      // get *all* indices of z that have been violated that much
+      if (max_zvio_idx < UINF)
+      {
+        std::vector<unsigned> zvio;
+        for (unsigned i=0; i< N; i++)
+        {
+          if (i == max_zvio_idx)
+            zvio.push_back(i);
+          else if (l[i] - z[i] + zero_tol > max_zvio)
+            zvio.push_back(i);
+          else if (z[i] - u[i] + zero_tol > max_zvio)
+            zvio.push_back(i);
+        }
+    
+        if (LOGGING(LOG_OPT))
+        {
+          std::ostringstream str;
+          str << "biggest violating elements of z:";
+          for (unsigned i=0; i< zvio.size(); i++)
+            str << " " << zvio[i];
+          FILE_LOG(LOG_OPT) << str.str() << std::endl;
+        }
+
+        // randomly select an index of z to move from the non-basic to the
+        // appropriate basic set
+        assert(!zvio.empty());
+        unsigned to_bas = zvio[rand() % zvio.size()];
+
+        // move the index from the non-basic to the appropriate basic set (z < l
+        // will move to basl, z > u will move to basu)
+        if (l[to_bas] - z[to_bas] > 0.0)
+        {
+          _basl.push_back(to_bas);
+          insertion_sort(_basl.begin(), _basl.end());
+        }
+        else
+        {
+          assert(z[to_bas] - u[to_bas] > 0.0);
+          _basu.push_back(to_bas);
+          insertion_sort(_basu.begin(), _basu.end());
+        }
+        assert(std::binary_search(_nonbas.begin(), _nonbas.end(), to_bas));
+        _nonbas.erase(std::lower_bound(_nonbas.begin(), _nonbas.end(), to_bas));
+
+        // continue looping
+        continue;
+      }
+      else
+        return true;  // solution found
+    }
+
+    // get all of the violated w indices
+    for (unsigned i=0; i< _wminus.size(); i++) 
+      if (_wminus[i] - zero_tol < -max_wvio)
+        wvio.push_back(_basu[i]);
+    for (unsigned i=0; i< _wplus.size(); i++)
+      if (_wplus[i] + zero_tol > max_wvio)
+        wvio.push_back(_basl[i]);
+
+    // pick one of the most violated w indices randomly
+    assert(!wvio.empty());
+    unsigned to_nbasic = wvio[rand() % wvio.size()];
+
+    // set z from basic indices and non-basic variables
+    z.resize(N);
+    l.select(_basl.begin(), _basl.end(), _workv);
+    z.set(_basl.begin(), _basl.end(), _workv);
+    u.select(_basu.begin(), _basu.end(), _workv);
+    z.set(_basu.begin(), _basu.end(), _workv);
+    z.set(_nonbas.begin(), _nonbas.end(), _z);
+
+    // move the violated w index into the basic set, depending on how that
+    // index is violated
+    _nonbas.push_back(to_nbasic);
+    insertion_sort(_nonbas.begin(), _nonbas.end());
+    assert(std::binary_search(_bas.begin(), _bas.end(), to_nbasic));
+    _bas.erase(std::lower_bound(_bas.begin(), _bas.end(), to_nbasic));
+    FILE_LOG(LOG_OPT) << "moving index " << to_nbasic << " to nonbasic set" << std::endl;
+
+    // erase index from basl or basu
+    if (_basl.empty())
+    {
+      FILE_LOG(LOG_OPT) << "-- removing from upper basic set" << std::endl;
+      _basu.erase(std::lower_bound(_basu.begin(), _basu.end(), to_nbasic));
+    }
+    else if (_basu.empty())
+    {
+      FILE_LOG(LOG_OPT) << "-- removing from lower basic set" << std::endl;
+      _basl.erase(std::lower_bound(_basl.begin(), _basl.end(), to_nbasic));
+    }
+    else
+    {
+      std::vector<unsigned>::iterator uiter = std::lower_bound(_basl.begin(), _basl.end(), to_nbasic);
+      if (*uiter == to_nbasic)
+      {
+        FILE_LOG(LOG_OPT) << "-- removing from lower basic set" << std::endl;
+        _basl.erase(uiter);
+      }
+      else
+      {
+        FILE_LOG(LOG_OPT) << "-- removing from upper basic set" << std::endl;
+        uiter = std::lower_bound(_basu.begin(), _basu.end(), to_nbasic);
+        assert(*uiter == to_nbasic);
+        _basu.erase(uiter);
+      }
+    }
+
+    // get a violated index of z s.t. z < l or z > u, where the index selected
+    // exhibits the biggest constraint violation (if multiple indices
+    // correspond to biggest constraint violation, one will be chosen randomly)
+    double max_zvio = -1.0;
+    unsigned max_zvio_idx = UINF;
+    for (unsigned i=0; i< N; i++)
+    {
+      if (z[i] < l[i] - zero_tol)
+      {
+        if (l[i] - z[i] > max_zvio)
+        {
+          max_zvio = l[i] - z[i];
+          max_zvio_idx = i;
+        }
+      }
+      else if (z[i] > u[i] + zero_tol)
+      {
+        if (z[i] - u[i] > max_zvio)
+        {
+          max_zvio = z[i] - u[i];
+          max_zvio_idx = i;
+        }
+      } 
+    }
+
+    // get *all* indices of z that have been violated that much
+    if (max_zvio_idx < UINF)
+    {
+      std::vector<unsigned> zvio;
+      for (unsigned i=0; i< N; i++)
+      {
+        if (i == max_zvio_idx)
+          zvio.push_back(i);
+        else if (l[i] - z[i] + zero_tol > max_zvio)
+          zvio.push_back(i);
+        else if (z[i] - u[i] + zero_tol > max_zvio)
+          zvio.push_back(i);
+      }
+    
+      // randomly select an index of z to move from the non-basic to the
+      // appropriate basic set
+      assert(!zvio.empty());
+      unsigned to_bas = zvio[rand() % zvio.size()];
+
+      // move the index from the non-basic to the appropriate basic set (z < l
+      // will move to basl, z > u will move to basu)
+      if (l[to_bas] - z[to_bas] > 0.0)
+      {
+        FILE_LOG(LOG_OPT) << "adding index " << to_bas << " to lower basic set" << std::endl;
+        _basl.push_back(to_bas);
+        insertion_sort(_basl.begin(), _basl.end());
+      }
+      else
+      {
+        FILE_LOG(LOG_OPT) << "adding index " << to_bas << " to upper basic set" << std::endl;
+        assert(z[to_bas] - u[to_bas] > 0.0);
+        _basu.push_back(to_bas);
+        insertion_sort(_basu.begin(), _basu.end());
+      }
+      FILE_LOG(LOG_OPT) << "removing index " << to_bas << " from non-basic set" << std::endl;
+      assert(std::binary_search(_nonbas.begin(), _nonbas.end(), to_bas));
+      _nonbas.erase(std::lower_bound(_nonbas.begin(), _nonbas.end(), to_bas));
+    }
+  }
+
+  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - maximum allowable pivots exceeded" << std::endl;
+
+  // if we're here, then the maximum number of pivots has been exceeded
+  return false;
+}
+
+/// Fast pivoting algorithm for LCPs with positive semi-definite matrices few nonzero, nonbasic variables 
 bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zero_tol)
 {
   const unsigned N = q.rows();

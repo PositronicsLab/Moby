@@ -22,6 +22,7 @@ class LCP
     bool lcp_lemke_regularized(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
+    bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& z, double zero_tol = -1.0);
     bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double zero_tol = -1.0);
     bool lcp_fast_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
     bool fast_pivoting(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double eps = std::sqrt(std::numeric_limits<double>::epsilon()));
@@ -39,7 +40,7 @@ class LCP
     Ravelin::VectorNd _wx;
 
     // temporaries for fast pivoting solver
-    Ravelin::VectorNd _z, _w, _qbas, _qprime;
+    Ravelin::VectorNd _z, _w, _qbas, _qprime, _wfull, _wplus, _wminus, _workv;
     Ravelin::MatrixNd _Msub, _Mmix, _M;
 
     // temporaries for Lemke solver
@@ -47,6 +48,7 @@ class LCP
     Ravelin::VectorNd _restart_z0;
     Ravelin::MatrixNd _Bl, _Al, _t1, _t2;
     std::vector<unsigned> _all, _tlist, _bas, _nonbas, _j, _max_elm;
+    std::vector<unsigned> _basl, _basu; 
 
     // temporary for sparse Lemke solver
     Ravelin::SparseMatrixNd _sBl;
