@@ -25,6 +25,12 @@ using namespace Moby;
  */
 Joint::Joint() : Jointd()
 {
+  // initialize boolean for determining to use inverse dynamics
+  qd_des_set = false;
+
+  // initialize spring joint bool to false
+  spring_joint = false;
+
   // initialize friction coefficients
   mu_fc = mu_fv = (double) 0.0;
 
@@ -49,6 +55,13 @@ Joint::Joint() : Jointd()
  */
 Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard) : Jointd()
 {
+
+  // initialize boolean for determining to use inverse dynamics
+  qd_des_set = false;
+
+  // initialize spring joint bool to false
+  spring_joint = false;
+
   // initialize friction coefficients
   mu_fc = mu_fv = (double) 0.0;
 
@@ -141,12 +154,28 @@ void Joint::set_outboard_link(RigidBodyPtr outboard, bool update_pose)
  *       actuator forces to zero, and actuator limit to infinity.
  */
 void Joint::init_data()
-{
+{ 
   // call parent method first
   Jointd::init_data();
 
   const unsigned NDOF = num_dof();
   const unsigned NEQ = num_constraint_eqns();
+
+  // initialize desired state
+  qd_des.set_zero(num_dof());
+
+  // initialize max torque to infinity
+  max_torque.set_one(num_dof());
+  max_torque *= std::numeric_limits<double>::max();
+
+  // initialize set point of spring
+  set_point.set_zero(num_dof());
+
+  // initialize stiffness of the spring
+  stiffness.set_zero(num_dof());
+
+  // initialize the damping of the spring
+  damping.set_zero(num_dof());
 
   lolimit.set_one(NDOF) *= -std::numeric_limits<double>::max();
   hilimit.set_one(NDOF) *= std::numeric_limits<double>::max();

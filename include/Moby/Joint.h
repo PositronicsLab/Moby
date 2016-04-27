@@ -39,6 +39,24 @@ class Joint : public Visualizable, public virtual Ravelin::Jointd
     enum ConstraintType { eUnknown, eExplicit, eImplicit };
     enum DOFs { DOF_1=0, DOF_2=1, DOF_3=2, DOF_4=3, DOF_5=4, DOF_6=5 };
 
+    /// if set, use qd_des for inverse dynamics
+    bool qd_des_set;  
+
+    /// max torque soon initialized to infinity
+    Ravelin::VectorNd max_torque;
+
+    /// the set point of the spring
+    Ravelin::VectorNd set_point;
+
+    /// does this joint use spring and damper
+    bool spring_joint;
+
+    /// vectors for the stiffness and damping of joints
+    Ravelin::VectorNd stiffness, damping;
+
+    /// desired joint velocity (only used if qd_des_set is true)
+    Ravelin::VectorNd qd_des;
+
     Joint();
     Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard);
     virtual ~Joint() {}
