@@ -12,7 +12,10 @@
 #include <map>
 #ifdef USE_QLCPD
 #include <Moby/QLCPD.h>
+#elif USE_QPOASES
+#include <Moby/QPOASES.h>
 #endif
+
 #ifdef HAVE_IPOPT
 #include <coin/IpTNLP.hpp>
 #include <coin/IpIpoptApplication.hpp>
@@ -149,6 +152,8 @@ class ImpactConstraintHandler
     // QLCPD solver
     #ifdef USE_QLCPD
     QLCPD _qp;
+    #elif USE_QPOASES
+    QPOASES _qp;
     #endif
 
 /*
