@@ -256,7 +256,7 @@ target_link_libraries(contact-constrained-pendulum-init Moby)
 if (QP_OASES_FOUND)
   add_executable(qp-example example/qp/qp.cpp)
   target_link_libraries(qp-example Moby)
-endif (QPOASES_FOUND)
+endif (QP_OASES_FOUND)
 
 #sims-in-code examples
 add_executable(sim-in-code-block example/sims-in-code/block.cpp)

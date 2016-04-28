@@ -13,7 +13,7 @@
 #ifdef USE_QLCPD
 #include <Moby/QLCPD.h>
 #elif USE_QPOASES
-#include <Moby/QPOASES.h>
+#include <Moby/qpOASES.h>
 #endif
 
 #ifdef HAVE_IPOPT
