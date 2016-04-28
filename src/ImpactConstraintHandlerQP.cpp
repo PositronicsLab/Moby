@@ -162,7 +162,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
     z = _zlast;
 
   // solve the LCP using Lemke's algorithm
-  #ifdef USE_QLCPD
+  #if defined(USE_QLCPD) or defined(USE_QPOASES)
   VectorNd lb(c.size()), ub(c.size());
   lb.set_zero();
   ub.set_one() *= 1e+29;
@@ -170,6 +170,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   {
     FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
 
+    #if defined(USE_QLCPD)
     // QP solver not successful by default; attempt to find the closest
     // feasible point
     if (!_qp.find_closest_feasible(lb, ub, M, q, A, b, z))
@@ -181,6 +182,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
     }
     else
     {
+    #else
       FILE_LOG(LOG_CONSTRAINT) << "updating q; q=" << q << std::endl;
 
       // found closest feasible point; compute M*z - q
@@ -198,10 +200,13 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
         if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
           throw LCPSolverException();
       }
+    #endif
+    #if defined (USE_QLCPD)
     }
+    #endif
   }
 
-  FILE_LOG(LOG_CONSTRAINT) << "QLCPD solution: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "QP solution: " << z << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
   FILE_LOG(LOG_CONSTRAINT) << "q: " << q << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "M*z - q: " << (M.mult(z.get_sub_vec(0,M.columns(),_workv2), _workv) -= q) << std::endl;

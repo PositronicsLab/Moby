@@ -18,6 +18,7 @@ option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
 option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 option (USE_QLCPD "Build against QLCPD library?" OFF)
+option (USE_QPOASES "Build against QPOASES library?" OFF)
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
 option (USE_SIGNED_DIST_CONSTRAINT "Use signed distance constraint? (experimental)" OFF)
@@ -30,6 +31,13 @@ if (USE_QLCPD AND QLCPD_FOUND)
   set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
   set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
+
+find_package (QPOASES)
+if (QPOASES_FOUND)
+    set (EXTRA_LIBS qpOASES)
+    set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QPOASES)
+    set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QPOASES)
+endif (QPOASES_FOUND)
 
 # modify C++ flags
 add_definitions (-DSAFESTATIC=static)
@@ -243,6 +251,12 @@ add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact-co
 add_library(contact-constrained-pendulum-init MODULE example/contact-constrained-pendulum/contact-constrained-pendulum-init.cpp)
 target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby)
 target_link_libraries(contact-constrained-pendulum-init Moby)
+
+# qp solver examples
+if (QP_OASES_FOUND)
+  add_executable(qp-example example/qp/qp.cpp)
+  target_link_libraries(qp-example Moby)
+endif (QPOASES_FOUND)
 
 #sims-in-code examples
 add_executable(sim-in-code-block example/sims-in-code/block.cpp)
