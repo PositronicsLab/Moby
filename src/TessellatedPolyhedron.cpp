@@ -266,10 +266,12 @@ void TessellatedPolyhedron::to_polyhedron(Polyhedron& p) const
         Vector3d cand_normal = cand_tri.calc_normal();
         double cand_offset = cand_tri.calc_offset(cand_normal);
 
+/*
         // if the triangles are coplanar, add to the queue
         if (std::fabs(cand_offset - offset) < NEAR_ZERO &&
             std::fabs(cand_normal.dot(normal) - 1.0) < NEAR_ZERO)
           q.push(k);
+*/
       }
     }
 

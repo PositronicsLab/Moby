@@ -345,6 +345,7 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   dv += q.X_CsT.mult(q.cs, tmpv);
   dv += q.X_CtT.mult(q.ct, tmpv);
   dv += q.X_LT.mult(ls, tmpv);
+  FILE_LOG(LOG_CONSTRAINT) << "change in velocity after incorporating contact constraints: " << dv << std::endl;
 
   // compute lambda here using
   // | M  J' | | dv     | = | 0 | 
@@ -353,10 +354,12 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   // dv = -inv(M)*J'*lambda
   // -J*inv(M)*J'*lambda = -J*v
   q.lambda = q.Jx_v;
-  FILE_LOG(LOG_CONSTRAINT) << "J*dv (constraint velocities): " << dv << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint forces: " << q.lambda << std::endl;
-MatrixNd tmp;
-  FILE_LOG(LOG_CONSTRAINT) << "Jx " << std::endl << q.Jfull.to_dense(tmp);
+  FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint velocities (before solving for constraint forces): " << q.Jx_v << std::endl;
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    MatrixNd tmp;
+    FILE_LOG(LOG_CONSTRAINT) << "Jx " << std::endl << q.Jfull.to_dense(tmp);
+  }
   FILE_LOG(LOG_CONSTRAINT) << "inv(M)*Jx' " << std::endl << q.iM_JxT;
   FILE_LOG(LOG_CONSTRAINT) << "J*inv(M)*Jx' " << std::endl << q.Jx_iM_JxT;
 
@@ -367,8 +370,8 @@ MatrixNd tmp;
 
   // update dv
   dv -= q.iM_JxT.mult(q.lambda, tmpv);
-  FILE_LOG(LOG_CONSTRAINT) << "inv(M)*J'*lambda: " << tmpv << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "change in velocity after incorporating joint constraints: " << dv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "inv(M)*J'*lambda (negation of change in velocity): " << tmpv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "new velocity after incorporating joint constraints: " << dv << std::endl;
 
   // compute J*dv
   if (LOGGING(LOG_CONSTRAINT))
@@ -958,6 +961,8 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
 /// Solves the viscous friction LCP
 void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProblemData& q)
 {
+  throw std::runtime_error("Need to update to work with inverse dynamics and joint spring model");
+
   // compute the (Coulomb) frictionless LCP
   VectorNd z;
   solve_frictionless_lcp(q, z);
@@ -2029,7 +2034,8 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   q.NCS_IDX = q.CT_IDX + q.N_CONTACTS;
   q.NCT_IDX = q.NCS_IDX + q.N_LIN_CONE;
   q.L_IDX = q.NCT_IDX + q.N_LIN_CONE;
-  q.N_VARS = q.L_IDX + q.N_LIMITS;
+  q.B_IDX = q.L_IDX + q.N_LIMITS;
+  q.N_VARS = q.B_IDX + q.N_FL_BILAT_CONSTRAINTS;
 
   // get generalized velocity
   get_generalized_velocity(q, v);
@@ -2162,10 +2168,5 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   Cs.mult(v, q.Cs_v);
   Ct.mult(v, q.Ct_v);
   q.J.mult(v, q.Jx_v);
-
-  // compute signed distance Jacobians
-  #ifdef USE_SIGNED_DIST_CONSTRAINT
-  SignedDistDot::compute_signed_dist_dot_Jacobians(q, q.Cdot_iM_CnT, q.Cdot_iM_CsT, q.Cdot_iM_CtT, q.Cdot_iM_LT, q.Cdot_v);
-  #endif
 }
 

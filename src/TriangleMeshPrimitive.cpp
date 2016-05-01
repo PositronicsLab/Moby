@@ -813,7 +813,7 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
   // transform the vertices into Point3d objects
   vector<Point3d> vertices(verts.size());
   for (unsigned i=0; i< verts.size(); i++)
-    vertices[i] = Point3d(verts[i], GLOBAL);
+    vertices[i] = Point3d(verts[i], get_pose(geom));
 
   // build an BV around all vertices 
   BVPtr root = BVPtr(new OBB(vertices.begin(), vertices.end()));
@@ -847,11 +847,10 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
     // split the bounding box across each of the three axes
     for (unsigned i=0; i< 3; i++)
     {
-      Vector3d axis(GLOBAL);
-
       // get the i'th column of R
       OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
       assert(obb);
+      Vector3d axis(obb->get_relative_pose());
       obb->R.get_column(i, axis);
 
       // split the bounding box across the axis

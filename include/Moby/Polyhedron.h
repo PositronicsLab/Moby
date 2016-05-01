@@ -10,6 +10,7 @@
 #include <vector>
 #include <Moby/Constants.h>
 #include <Moby/Plane.h>
+#include <Moby/IndexedTriArray.h>
 #include <Moby/Log.h>
 
 // needed for qhull
@@ -93,6 +94,7 @@ class Polyhedron
     boost::shared_ptr<Polyhedron::Feature> find_closest_feature(const Ravelin::Origin3d& p, unsigned closest_facet) const;
     Polyhedron& operator=(const Polyhedron& p);
     Polyhedron shallow_copy() const;
+    IndexedTriArray get_mesh() const;
     std::vector<boost::shared_ptr<Vertex> >& get_vertices() { return _vertices; }
     const std::vector<boost::shared_ptr<Vertex> >& get_vertices() const { return _vertices; }
     const std::vector<boost::shared_ptr<Edge> >& get_edges() const { return _edges; }

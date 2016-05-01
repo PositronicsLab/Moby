@@ -1003,6 +1003,11 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   // create a new RigidBody object
   boost::shared_ptr<RigidBody> rb(new RigidBody());
 
+  // set default inertial properties (according to SDF 1.5)
+  SpatialRBInertiad J;
+  J.m = 1.0;
+  J.J.set_identity();
+
   // get the link name
   XMLAttrib* name_attr = node->get_attrib("name");
   if (name_attr)
@@ -1011,39 +1016,53 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
     rb->body_id = rb->id;
   }
 
-  // set default inertial properties (according to SDF 1.5)
-  SpatialRBInertiad J;
-  J.m = 1.0;
-  J.J.set_identity();
-  rb->set_inertia(J);
+  // get the pose attribute for the body, if specified
+  shared_ptr<Pose3d> origin(new Pose3d);
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  if (pose_node)
+    *origin = read_pose(node);
 
   // get the inertial properties for the body, if specified
+  shared_ptr<Pose3d> inertial_pose(new Pose3d);
   shared_ptr<const XMLTree> inertial_node = find_one_tag("inertial", node);
   if (inertial_node)
-    rb->set_inertia(read_inertial(inertial_node, rb));
+    J = read_inertial(inertial_node, rb, inertial_pose);
 
   // read Visual tags
   std::list<shared_ptr<const XMLTree> > visual_nodes = find_tag("visual", node);
   BOOST_FOREACH(shared_ptr<const XMLTree> visual_node, visual_nodes)
-    read_visual_node(visual_node, rb);
+    read_visual_node(visual_node, rb, origin);
 
   // read collision tags
   std::list<shared_ptr<const XMLTree> > collision_nodes = find_tag("collision", node);
+  std::map<CollisionGeometryPtr, shared_ptr<Pose3d> > collision_poses;
   BOOST_FOREACH( shared_ptr<const XMLTree> collision_node, collision_nodes)
-    read_collision_node(collision_node, rb, sd);
+    read_collision_node(collision_node, rb, collision_poses, sd);
 
-  // get the pose attribute for the body, if specified
-  // NOTE: we do this last to avoid warnings from Moby
-  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
-  if (pose_node)
-    rb->set_pose(read_pose(node));
+  // setup the inertial pose
+  inertial_pose->rpose = origin;
+  inertial_pose->update_relative_pose(rb->get_pose()->rpose);
+  rb->set_pose(*origin);
+
+  // setup the poses to point to the origin, and then update
+  for (map<shared_ptr<CollisionGeometry>, shared_ptr<Pose3d> >::iterator i = collision_poses.begin(); i != collision_poses.end(); i++)
+  {
+    i->second->rpose = origin;
+    i->second->update_relative_pose(rb->get_pose());
+    i->first->set_relative_pose(*i->second);
+  }
+
+  // set inertia
+  J.pose = rb->get_pose();
+  rb->set_inertia(J);
 
   return rb;
 }
 
 /// Reads a visual node
-void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
+void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb, shared_ptr<Pose3d> origin)
 {
+  // setup the pose
   Pose3d P;
 
   // read the pose of the visualization
@@ -1066,10 +1085,12 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     tg->addChild(geom);
 
     // set the transform
+    P.update_relative_pose(GLOBAL);
     osg::Matrix m;
     to_osg_matrix(P, m);
     tg->setMatrix(m);
   }
+
   shared_ptr<const XMLTree> material_node = find_one_tag("material", node);
 
   if(material_node){
@@ -1094,7 +1115,7 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
 }
 
 /// Reads a collision node
-void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb, shared_ptr<SDFReader::SurfaceData>& sd)
+void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb, std::map<CollisionGeometryPtr, shared_ptr<Pose3d> >& collision_poses, shared_ptr<SDFReader::SurfaceData>& sd)
 {
   // setup a collision geometry
   CollisionGeometryPtr cg(new CollisionGeometry);
@@ -1112,9 +1133,8 @@ void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
   {
-    Pose3d P(read_pose(node));
-    P.update_relative_pose(rb->get_pose());
-    cg->set_relative_pose(P);
+    shared_ptr<Pose3d> P(new Pose3d(read_pose(node)));
+    collision_poses[cg] = P;
   }
 
   // read the geometry type
@@ -1285,7 +1305,7 @@ Pose3d SDFReader::read_pose(shared_ptr<const XMLTree> node)
 }
 
 /// Reads the inertia from the inertial node
-SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
+SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, RigidBodyPtr rb, shared_ptr<Pose3d>& inertial_pose)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -1301,11 +1321,7 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
   // reference frame
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
-  {
-    shared_ptr<Pose3d> P(new Pose3d(read_pose(node)));
-    P->rpose = rb->get_pose();
-    J.pose = P; 
-  }
+    *inertial_pose = read_pose(node);
 
   // find the inertia
   shared_ptr<const XMLTree> inertia_node = find_one_tag("inertia", node);
@@ -1341,6 +1357,9 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
     if (izz_node)
       J.J(Z,Z) = read_double(izz_node);
   }
+
+  // transform the inertia to the rigid body frame
+  J = Pose3d::transform(rb->get_pose(), J);
 
   return J;
 }

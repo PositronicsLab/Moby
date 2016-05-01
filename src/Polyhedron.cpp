@@ -69,6 +69,56 @@ else \
 } \
 }
 
+/// Gets the polyhedron as a triangle mesh
+IndexedTriArray Polyhedron::get_mesh() const
+{
+  const unsigned TRI_EDGES = 3, QUAD_EDGES = 4;
+
+  // first make sure that all faces are triangles
+  #ifndef NDEBUG
+  for (unsigned i=0; i< _faces.size(); i++)
+    assert(_faces[i]->e.size() == TRI_EDGES || 
+           _faces[i]->e.size() == QUAD_EDGES);
+  #endif
+
+  // setup vertices and mapping to vertices
+  std::map<shared_ptr<Vertex>, unsigned> vertex_mapping;
+  std::vector<Origin3d> vertices;
+  for (unsigned i=0; i< _vertices.size(); i++)
+  {
+    vertices.push_back(_vertices[i]->o);
+    vertex_mapping[_vertices[i]] = i;
+  }
+
+  // iterate over all faces
+  std::vector<IndexedTri> faces;
+  for (unsigned i=0; i< _faces.size(); i++)
+  {
+    // iterate over all vertices in the face
+    VertexFaceIterator vfi(_faces[i], true);
+    IndexedTri it;
+    it.a = vertex_mapping[*vfi];
+    assert(vfi.has_next());
+    vfi.advance();
+    it.b = vertex_mapping[*vfi];
+    assert(vfi.has_next());
+    vfi.advance();
+    it.c = vertex_mapping[*vfi];
+    faces.push_back(it);
+    if (vfi.has_next())
+    {
+      IndexedTri it2;
+      it2.a = it.c; 
+      vfi.advance();
+      it2.b = vertex_mapping[*vfi];
+      it2.c = it.a;
+      faces.push_back(it2);
+    }
+  }
+
+  return IndexedTriArray(vertices.begin(), vertices.end(), faces.begin(), faces.end()); 
+}
+
 /// Determines whether the polyhedron is convex
 void Polyhedron::determine_convexity()
 {
@@ -130,10 +180,35 @@ Plane Polyhedron::Face::get_plane() const
   while (vfi.has_next());
 
   // verify that the normal norm is ok
-  if (normal.norm() < NEAR_ZERO)
-    throw std::runtime_error("Tried to get plane containing degenerate face!");
-  else
+  if (normal.norm() > NEAR_ZERO)
     normal.normalize();
+  {
+    // redetermine the normal, now using the biggest norm
+    double biggest_nrm = 0.0;
+    normal = Origin3d(0.0, 0.0, 0.0);
+    vfi = Polyhedron::VertexFaceIterator(fthis, true);
+    do 
+    {
+      // make sure that there is another vertex
+      assert(vfi.has_next());
+
+      // get the next vertex
+      vfi.advance();
+      shared_ptr<Polyhedron::Vertex> v3 = *vfi;
+  
+      // see whether the three make a non-zero cross product
+      Origin3d cand_normal = Origin3d::cross(v2->o - v1->o, v3->o - v2->o);
+      if (cand_normal.norm() > biggest_nrm)
+      {
+        normal = cand_normal;
+        biggest_nrm = normal.norm();
+      }
+    }
+    while (vfi.has_next());
+
+    // normalize the normal
+    normal /= biggest_nrm;
+  }
 
   // compute d
   double d = normal.dot(v1->o);

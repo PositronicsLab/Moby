@@ -114,7 +114,7 @@ double ConstraintStabilization::evaluate_unilateral_constraints(shared_ptr<Const
       const std::vector<shared_ptr<Jointd> >& joints = rcab->get_joints();
       for (unsigned j=0; j< joints.size(); j++)
       {
-        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[i]);
+        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[j]);
         const VectorNd& tare = joint->get_q_tare(); 
         for (unsigned k=0; k< joint->num_dof(); k++)
         {
@@ -635,7 +635,8 @@ void ConstraintStabilization::set_bilateral_only_constraint_data(UnilateralConst
   q.NCS_IDX = q.CT_IDX;
   q.NCT_IDX = q.NCS_IDX;
   q.L_IDX = q.NCT_IDX;
-  q.N_VARS = q.L_IDX + q.N_LIMITS;
+  q.B_IDX = q.L_IDX + q.N_LIMITS;
+  q.N_VARS = q.B_IDX + q.N_FL_BILAT_CONSTRAINTS;
 
   // get generalized velocity
   ImpactConstraintHandler::get_generalized_velocity(q, v);
@@ -809,7 +810,8 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   q.NCS_IDX = q.CT_IDX;
   q.NCT_IDX = q.NCS_IDX;
   q.L_IDX = q.NCT_IDX;
-  q.N_VARS = q.L_IDX + q.N_LIMITS;
+  q.B_IDX = q.L_IDX + q.N_LIMITS;
+  q.N_VARS = q.B_IDX + q.N_FL_BILAT_CONSTRAINTS;
 
   // get generalized velocity
   ImpactConstraintHandler::get_generalized_velocity(q, v);

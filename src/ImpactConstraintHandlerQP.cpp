@@ -58,13 +58,14 @@ void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemD
 /// Computes the kinetic energy of the system using the current impulse set
 double ImpactConstraintHandler::calc_ke(UnilateralConstraintProblemData& q, const VectorNd& z)
 {
-  static VectorNd cn, cs, ct, l;
+  static VectorNd cn, cs, ct, l, tau;
 
   // save the current impulses
   cn = q.cn;
   cs = q.cs;
   ct = q.ct;
   l = q.l;
+  tau = q.tau;
 
   // update impulses
   q.update_from_stacked_qp(z);
@@ -80,6 +81,7 @@ double ImpactConstraintHandler::calc_ke(UnilateralConstraintProblemData& q, cons
   q.cs = cs;
   q.ct = ct;
   q.l = l;
+  q.tau = tau;
 
   return KE;
 }
@@ -118,12 +120,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   const unsigned N_VARS = xL_IDX + epd.N_LIMITS;
 
   // init the QP matrix and vector
-  #ifdef USE_SIGNED_DIST_CONSTRAINT
-  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS
-                             + epd.Cdot_v.size();
-  #else
   const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS;
-  #endif
 
   _MM.set_zero(N_VARS + N_INEQUAL, N_VARS + N_INEQUAL);
   _qq.resize(_MM.rows());
@@ -279,10 +276,6 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << epd.Cs_v << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << epd.Ct_v << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << epd.L_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cdot * inv(M) * Cn': " << std::endl << epd.Cdot_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cdot * inv(M) * Cs': " << std::endl << epd.Cdot_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cdot * inv(M) * Ct': " << std::endl << epd.Cdot_iM_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cdot(v): " << epd.Cdot_v << std::endl;
 
   // get useful constants
   const unsigned N_CONTACTS = epd.N_CONTACTS;
@@ -295,17 +288,13 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   const unsigned NCS_IDX = CT_IDX + N_CONTACTS;
   const unsigned NCT_IDX = NCS_IDX + N_CONTACTS;
   const unsigned xL_IDX = NCT_IDX + N_CONTACTS;
-  const unsigned N_VARS = xL_IDX + epd.N_LIMITS;
+  const unsigned B_IDX = xL_IDX + epd.N_LIMITS;
+  const unsigned N_VARS = B_IDX + epd.N_FL_BILAT_CONSTRAINTS;
 
   // init the QP matrix and vector
-  #ifdef USE_SIGNED_DIST_CONSTRAINT
-  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS
-                             + epd.Cn_v.size();
-  #else
   const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS;
-  #endif
 
-  // setup row (block) 1 -- Cn * iM * [Cn' Cs Ct' -Cs' -Ct' L' ]
+  // setup row (block) 1 -- Cn * iM * [Cn' Cs Ct' -Cs' -Ct' L' B']
   unsigned col_start = 0, col_end = epd.N_CONTACTS;
   unsigned row_start = 0, row_end = epd.N_CONTACTS;
   SharedMatrixNd Cn_X_CnT = H.block(row_start, row_end, col_start, col_end);
@@ -319,8 +308,10 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   SharedMatrixNd Cn_X_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += epd.N_LIMITS;
   SharedMatrixNd Cn_X_LT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
+  SharedMatrixNd Cn_X_BT = H.block(row_start, row_end, col_start, col_end);
 
-  // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
   row_start = row_end; row_end += epd.N_CONTACTS;
   col_start = 0; col_end = epd.N_CONTACTS;
   SharedMatrixNd Cs_X_CnT = H.block(row_start, row_end, col_start, col_end);
@@ -334,9 +325,11 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   SharedMatrixNd Cs_X_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += epd.N_LIMITS;
   SharedMatrixNd Cs_X_LT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
+  SharedMatrixNd Cs_X_BT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd Cs_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 3 -- Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  // setup row (block) 3 -- Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
   row_start = row_end; row_end += epd.N_CONTACTS;
   col_start = 0; col_end = epd.N_CONTACTS;
   SharedMatrixNd Ct_X_CnT = H.block(row_start, row_end, col_start, col_end);
@@ -350,17 +343,19 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   SharedMatrixNd Ct_X_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += epd.N_LIMITS;
   SharedMatrixNd Ct_X_LT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
+  SharedMatrixNd Ct_X_BT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd Ct_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 4 -- -Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  // setup row (block) 4 -- -Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
   row_start = row_end; row_end += epd.N_CONTACTS;
   SharedMatrixNd NCs_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 5 -- -Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  // setup row (block) 5 -- -Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
   row_start = row_end; row_end += epd.N_CONTACTS;
   SharedMatrixNd NCt_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block 6) -- L * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  // setup row (block 6) -- L * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' B']
   row_start = row_end; row_end += epd.N_LIMITS;
   col_start = 0; col_end = epd.N_CONTACTS;
   SharedMatrixNd L_X_CnT = H.block(row_start, row_end, col_start, col_end);
@@ -374,6 +369,8 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   SharedMatrixNd L_X_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += epd.N_LIMITS;
   SharedMatrixNd L_X_LT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
+  SharedMatrixNd L_X_BT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
   // copy to row block 1 (contact normals)
@@ -383,6 +380,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (Cn_X_NCsT = Cn_X_CsT).negate();
   (Cn_X_NCtT = Cn_X_CtT).negate();
   epd.Cn_X_LT.get_sub_mat(0, N_CONTACTS, 0, epd.N_LIMITS, Cn_X_LT);
+  epd.Cn_X_BT.get_sub_mat(0, N_CONTACTS, 0, epd.N_FL_BILAT_CONSTRAINTS, Cn_X_BT);
 
   // copy to row block 2 (first tangents)
   MatrixNd::transpose(Cn_X_CsT, Cs_X_CnT);
@@ -391,6 +389,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (Cs_X_NCsT = Cs_X_CsT).negate();
   (Cs_X_NCtT = Cs_X_CtT).negate();
   epd.Cs_X_LT.get_sub_mat(0, N_CONTACTS, 0, epd.N_LIMITS, Cs_X_LT);
+  epd.Cs_X_BT.get_sub_mat(0, N_CONTACTS, 0, epd.N_FL_BILAT_CONSTRAINTS, Cs_X_BT);
 
   // copy to row block 3 (second tangents)
   MatrixNd::transpose(Cn_X_CtT, Ct_X_CnT);
@@ -399,6 +398,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (Ct_X_NCsT = Ct_X_CsT).negate();
   (Ct_X_NCtT = Ct_X_CtT).negate();
   epd.Ct_X_LT.get_sub_mat(0, N_CONTACTS, 0, epd.N_LIMITS, Ct_X_LT);
+  epd.Ct_X_BT.get_sub_mat(0, N_CONTACTS, 0, epd.N_FL_BILAT_CONSTRAINTS, Ct_X_BT);
 
   // copy to row block 4 (negative first contact tangents)
   (NCs_block = Cs_block).negate();
@@ -413,6 +413,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (L_X_NCsT = L_X_CsT).negate();
   (L_X_NCtT = L_X_CtT).negate();
   epd.L_X_LT.get_sub_mat(0, epd.N_LIMITS, 0, epd.N_LIMITS, L_X_LT);
+  epd.L_X_BT.get_sub_mat(0, epd.N_LIMITS, 0, epd.N_FL_BILAT_CONSTRAINTS, L_X_BT);
 
   // get shared vectors to components of c
   SharedVectorNd Cn_v = c.segment(CN_IDX, CS_IDX);
@@ -420,7 +421,8 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   SharedVectorNd Ct_v = c.segment(CT_IDX, NCS_IDX);
   SharedVectorNd nCs_v = c.segment(NCS_IDX, NCT_IDX);
   SharedVectorNd nCt_v = c.segment(NCT_IDX, xL_IDX);
-  SharedVectorNd L_v = c.segment(xL_IDX, N_VARS);
+  SharedVectorNd L_v = c.segment(xL_IDX, B_IDX);
+  SharedVectorNd B_v = c.segment(B_IDX, N_VARS);
 
   // setup c
   epd.Cn_v.get_sub_vec(0, N_CONTACTS, Cn_v);
@@ -429,6 +431,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (nCs_v = Cs_v).negate();
   (nCt_v = Ct_v).negate();
   L_v = epd.L_v;
+  B_v = epd.B_v;
 
   // incorporate contact stiffness
   for (unsigned i=0; i< N_CONTACTS; i++)
@@ -497,20 +500,6 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
       row_start++;
     }
   }
-
-  // setup the Cdot*inv(M)*x + Cdot \geq 0 constraint
-  #ifdef USE_SIGNED_DIST_CONSTRAINT
-  M.block(row_start, row_start+epd.Cdot_v.size(), CN_IDX, CS_IDX) = epd.Cdot_iM_CnT;
-  M.block(row_start, row_start+epd.Cdot_v.size(), CS_IDX, CT_IDX) = epd.Cdot_iM_CsT;
-  M.block(row_start, row_start+epd.Cdot_v.size(), NCS_IDX, NCT_IDX) = epd.Cdot_iM_CsT;
-  M.block(row_start, row_start+epd.Cdot_v.size(), NCS_IDX, NCT_IDX).negate();
-  M.block(row_start, row_start+epd.Cdot_v.size(), CT_IDX, NCS_IDX) = epd.Cdot_iM_CtT;
-  M.block(row_start, row_start+epd.Cdot_v.size(), NCT_IDX, M.columns()) = epd.Cdot_iM_CtT;
-  M.block(row_start, row_start+epd.Cdot_v.size(), NCT_IDX, M.columns()).negate();
-  q.segment(row_start, row_start+epd.Cdot_v.size()) = epd.Cdot_v;
-  q.segment(row_start, row_start+epd.Cdot_v.size()).negate();
-  row_start += epd.Cdot_v.size();
-  #endif
 
   // negate q
   q.negate();

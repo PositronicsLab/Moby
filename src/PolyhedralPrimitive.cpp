@@ -14,6 +14,8 @@
 #include <Moby/PlanePrimitive.h>
 #include <Moby/GJK.h>
 #include <Moby/XMLTree.h>
+#include <Moby/CollisionGeometry.h>
+#include <Moby/AABB.h>
 #include <Moby/PolyhedralPrimitive.h>
 
 using std::cerr;
@@ -186,8 +188,14 @@ osg::Node* PolyhedralPrimitive::create_visualization()
 
 BVPtr PolyhedralPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
-  throw std::runtime_error("Implement me!");
-  return BVPtr();
+  // first get the vertices for the polyhedron
+  shared_ptr<const Pose3d> geom_pose = get_pose(geom);
+  vector<Point3d> vertices;
+  get_vertices(geom_pose, vertices);
+
+  // create the bounding box
+  shared_ptr<AABB> bb(new AABB(vertices.begin(), vertices.end()));
+  return bb;
 }
 
 void PolyhedralPrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<Point3d>& vertices) const
@@ -206,8 +214,7 @@ void PolyhedralPrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<P
 
 shared_ptr<const IndexedTriArray> PolyhedralPrimitive::get_mesh(boost::shared_ptr<const Pose3d> P)
 {
-  throw std::runtime_error("Implement me!");
-  return shared_ptr<const IndexedTriArray>();
+  return _mesh; 
 }
 
 /// Sets the pose of this primitive
@@ -242,6 +249,9 @@ void PolyhedralPrimitive::set_polyhedron(const Polyhedron& p)
 
   // set the polyhedron
   _poly = p;
+
+  // get the mesh
+  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_poly.get_mesh()));
 
   // calculate mass properties
   calc_mass_properties();

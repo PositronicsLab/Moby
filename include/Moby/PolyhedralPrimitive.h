@@ -63,6 +63,7 @@ class PolyhedralPrimitive : public Primitive
   static OutputIterator get_halfspaces(const Polyhedron& poly, boost::shared_ptr<const Ravelin::Pose3d> pose, const Ravelin::Transform3d& wTpose, OutputIterator output_begin);
 
   protected:
+    boost::shared_ptr<const IndexedTriArray> _mesh;
     void calc_mass_properties();
     double calc_signed_dist(boost::shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const;
     Polyhedron _poly;

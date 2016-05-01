@@ -819,6 +819,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
     P.update_relative_pose(GLOBAL);
     o << "contact point / normal pose: " << P << std::endl;
     o << "contact point: " << e.contact_point << std::endl;
+    o << "contact normal: " << e.contact_normal << std::endl;
     shared_ptr<SingleBodyd> sba = e.contact_geom1->get_single_body();
     shared_ptr<SingleBodyd> sbb = e.contact_geom2->get_single_body();
     assert(sba && sbb);

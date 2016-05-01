@@ -37,6 +37,7 @@ struct UnilateralConstraintProblemData
     N_LIN_CONE = q.N_LIN_CONE;
     N_TRUE_CONE = q.N_TRUE_CONE;
     N_CONTACTS = q.N_CONTACTS;
+    N_FL_BILAT_CONSTRAINTS = q.N_FL_BILAT_CONSTRAINTS;
     N_CONSTRAINTS = q.N_CONSTRAINTS;
     N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
     N_GC = q.N_GC;
@@ -48,6 +49,7 @@ struct UnilateralConstraintProblemData
     NCS_IDX = q.NCS_IDX;
     NCT_IDX = q.NCT_IDX;
     L_IDX = q.L_IDX;
+    B_IDX = q.B_IDX;
     N_VARS = q.N_VARS;  
 
     // copy constraint velocities
@@ -56,6 +58,7 @@ struct UnilateralConstraintProblemData
     Ct_v = q.Ct_v;
     L_v = q.L_v;
     Jx_v = q.Jx_v;
+    B_v = q.B_v;
 
     // copy the signed distances
     signed_distances = q.signed_distances;
@@ -74,25 +77,22 @@ struct UnilateralConstraintProblemData
     Cn_X_CtT = q.Cn_X_CtT;
     Cn_X_LT = q.Cn_X_LT;
     Cn_X_JxT = q.Cn_X_JxT;
+    Cn_X_BT = q.Cn_X_BT;
     Cs_X_CsT = q.Cs_X_CsT;
     Cs_X_CtT = q.Cs_X_CtT;
     Cs_X_LT = q.Cs_X_LT;
     Cs_X_JxT = q.Cs_X_JxT;
+    Cs_X_BT = q.Cs_X_BT;
     Ct_X_CtT = q.Ct_X_CtT;
     Ct_X_LT = q.Ct_X_LT;
     Ct_X_JxT = q.Ct_X_JxT;
+    Ct_X_BT = q.Ct_X_BT;
     L_X_LT = q.L_X_LT;
     L_X_JxT = q.L_X_JxT;
+    L_X_BT = q.L_X_BT;
     Jx_X_JxT = q.Jx_X_JxT;
-
-    // copy Cdot_v
-    Cdot_v = q.Cdot_v;
-
-    // copy Cdot Jacobians
-    Cdot_iM_CnT = q.Cdot_iM_CnT; 
-    Cdot_iM_CsT = q.Cdot_iM_CsT; 
-    Cdot_iM_CtT = q.Cdot_iM_CtT; 
-    Cdot_iM_LT = q.Cdot_iM_LT; 
+    Jx_X_BT = q.Jx_X_BT;
+    B_X_BT = q.B_X_BT;
 
     // copy implicit constraints, Jacobian, and related terms
     island_ijoints = q.island_ijoints;
@@ -111,6 +111,7 @@ struct UnilateralConstraintProblemData
     ct = q.ct;
     l = q.l;
     lambda = q.lambda;
+    tau = q.tau;
 
     return *this;
   }
@@ -121,12 +122,13 @@ struct UnilateralConstraintProblemData
     simulator.reset();
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_EQNS_IMP = 0;
+    N_FL_BILAT_CONSTRAINTS = 0;
     N_GC = 0;
 
     // clear all indices
     N_VARS = 0;
     CS_IDX = CT_IDX = NCS_IDX = NCT_IDX = 0;
-    L_IDX = 0;
+    L_IDX = B_IDX = 0;
 
     // clear all vectors
     super_bodies.clear();
@@ -152,11 +154,13 @@ struct UnilateralConstraintProblemData
     Ct_v.resize(0);
     L_v.resize(0);
     Jx_v.resize(0);
+    B_v.resize(0);
     cn.resize(0);
     cs.resize(0);
     ct.resize(0);
     l.resize(0);
     lambda.resize(0);
+    tau.resize(0);
 
     // reset all MatrixN sizes
     Cn_X_CnT.resize(0,0);
@@ -164,21 +168,22 @@ struct UnilateralConstraintProblemData
     Cn_X_CtT.resize(0,0);
     Cn_X_LT.resize(0,0);
     Cn_X_JxT.resize(0,0);
+    Cn_X_BT.resize(0,0);
     Cs_X_CsT.resize(0,0);
     Cs_X_CtT.resize(0,0);
     Cs_X_LT.resize(0,0);
     Cs_X_JxT.resize(0,0);
+    Cs_X_BT.resize(0,0);
     Ct_X_CtT.resize(0,0);
     Ct_X_LT.resize(0,0);
     Ct_X_JxT.resize(0,0);
+    Ct_X_BT.resize(0,0);
     L_X_LT.resize(0,0);
     L_X_JxT.resize(0,0);
+    L_X_BT.resize(0,0);
     Jx_X_JxT.resize(0,0);
-    Cdot_v.resize(0);
-    Cdot_iM_CnT.resize(0,0);
-    Cdot_iM_CsT.resize(0,0);
-    Cdot_iM_CtT.resize(0,0);
-    Cdot_iM_LT.resize(0,0);
+    Jx_X_BT.resize(0,0);
+    B_X_BT.resize(0,0);
   }
 
   // sets up indices for a QP
@@ -190,7 +195,8 @@ struct UnilateralConstraintProblemData
     NCS_IDX = CT_IDX + N_CONTACTS;
     NCT_IDX = NCS_IDX + N_CONTACTS;
     L_IDX = NCT_IDX + N_CONTACTS;
-    N_VARS = L_IDX + N_LIMITS;
+    B_IDX = L_IDX + N_LIMITS;
+    N_VARS = B_IDX + N_FL_BILAT_CONSTRAINTS;
   }
 
   // sets up indices for a nonlinear QP
@@ -202,7 +208,8 @@ struct UnilateralConstraintProblemData
     NCS_IDX = CT_IDX + N_CONTACTS;
     NCT_IDX = NCS_IDX + 0;
     L_IDX = NCT_IDX + 0;
-    N_VARS = L_IDX + N_LIMITS;
+    B_IDX = L_IDX + N_LIMITS;
+    N_VARS = B_IDX + N_FL_BILAT_CONSTRAINTS;
   }
 
   // sets cn, cs, etc. from stacked vector (NQP version)
@@ -211,14 +218,16 @@ struct UnilateralConstraintProblemData
     cn = z.segment(CN_IDX, CS_IDX);
     cs = z.segment(CS_IDX, CT_IDX);
     ct = z.segment(CT_IDX, L_IDX);
-    l = z.segment(L_IDX, N_VARS);
+    l = z.segment(L_IDX, B_IDX);
+    tau = z.segment(B_IDX, N_VARS);
   }
 
   // sets cn, cs, etc. from stacked vector (QP version)
   void update_from_stacked_qp(const Ravelin::VectorNd& z)
   {
     cn = z.segment(CN_IDX, CS_IDX);
-    l = z.segment(L_IDX, N_VARS);
+    l = z.segment(L_IDX, B_IDX);
+    tau = z.segment(B_IDX, N_VARS);
 
     // setup cs/ct -- first determine linearized friction cone forces
     cs.segment(0, N_LIN_CONE) = z.segment(CS_IDX, CT_IDX);
@@ -290,6 +299,7 @@ struct UnilateralConstraintProblemData
         z[j] = 0.0;
     }
     z.set_sub_vec(L_IDX, l);
+    z.set_sub_vec(B_IDX, tau);
     return z;
   }
 
@@ -310,6 +320,9 @@ struct UnilateralConstraintProblemData
 
   // starting index of l in the stacked vector
   unsigned L_IDX;
+
+  // starting index of tau in the stacked vector
+  unsigned B_IDX;
 
   // total number of variables
   unsigned N_VARS;
@@ -338,6 +351,9 @@ struct UnilateralConstraintProblemData
   // the number of implicit joint constraint equations (total)
   unsigned N_CONSTRAINT_EQNS_IMP;
 
+  // the total number of force-limited bilateral constraints 
+  unsigned N_FL_BILAT_CONSTRAINTS;
+
   // pairwise distances between rigid bodies
   std::vector<PairwiseDistInfo> signed_distances;
 
@@ -349,29 +365,24 @@ struct UnilateralConstraintProblemData
 
   // the vector indicating which contact constraints are in the linear constraint set 
   // cross-constraint terms
-  Ravelin::MatrixNd Cn_X_CnT, Cn_X_CsT, Cn_X_CtT, Cn_X_LT,    Cn_X_JxT;
-  Ravelin::MatrixNd            Cs_X_CsT, Cs_X_CtT, Cs_X_LT,   Cs_X_JxT;
-  Ravelin::MatrixNd                       Ct_X_CtT, Ct_X_LT,  Ct_X_JxT;
-  Ravelin::MatrixNd                                   L_X_LT, L_X_JxT;
-  Ravelin::MatrixNd                                           Jx_X_JxT;
+  Ravelin::MatrixNd Cn_X_CnT, Cn_X_CsT, Cn_X_CtT, Cn_X_LT, Cn_X_JxT, Cn_X_BT;
+  Ravelin::MatrixNd           Cs_X_CsT, Cs_X_CtT, Cs_X_LT, Cs_X_JxT, Cs_X_BT;
+  Ravelin::MatrixNd                     Ct_X_CtT, Ct_X_LT, Ct_X_JxT, Ct_X_BT;
+  Ravelin::MatrixNd                                L_X_LT, L_X_JxT,  L_X_BT;
+  Ravelin::MatrixNd                                        Jx_X_JxT, Jx_X_BT;
+  Ravelin::MatrixNd                                                   B_X_BT;
 
   // bilateral constraint inertia terms 
   Ravelin::MatrixNd iM_JxT, Jx_iM_JxT;
 
   // X times Jacobian transposes
-  Ravelin::MatrixNd X_CnT, X_CsT, X_CtT, X_LT, X_JxT;
-
-  // Cdot Jacobians
-  Ravelin::MatrixNd Cdot_iM_CnT, Cdot_iM_CsT, Cdot_iM_CtT, Cdot_iM_LT;
-
-  // Cdot(v)
-  Ravelin::VectorNd Cdot_v;
+  Ravelin::MatrixNd X_CnT, X_CsT, X_CtT, X_LT, X_JxT, X_BT;
 
   // vector-based terms
-  Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v;
+  Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v, B_v;
 
   // impulse magnitudes determined by solve_qp()
-  Ravelin::VectorNd cn, cs, ct, l;
+  Ravelin::VectorNd cn, cs, ct, l, tau;
 
   // bilateral constraint impulses
   Ravelin::VectorNd lambda;

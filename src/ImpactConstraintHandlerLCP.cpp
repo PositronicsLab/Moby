@@ -168,13 +168,24 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   const unsigned N_CONTACTS = q.contact_constraints.size();
   ColumnIteratord Cn_X_CnT_iter = Cn_X_CnT.column_iterator_begin(); 
   for (unsigned i=0; i< N_CONTACTS; i++, Cn_X_CnT_iter++)
-    *Cn_X_CnT_iter += q.contact_constraints[i]->contact_damping;
+  {
+    const UnilateralConstraint& c = *q.contact_constraints[i];
+    double compliant_layer_depth = c.contact_geom1->compliant_layer_depth +
+                                   c.contact_geom2->compliant_layer_depth;
+    if (c.signed_violation + compliant_layer_depth > 0)
+      *Cn_X_CnT_iter += q.contact_constraints[i]->contact_damping;
+  }
 
   // setup limit damping
   const unsigned N_LIMITS = q.limit_constraints.size();
   ColumnIteratord L_X_LT_iter = L_X_LT.column_iterator_begin(); 
   for (unsigned i=0; i< N_LIMITS; i++, L_X_LT_iter++)
-    *L_X_LT_iter += q.limit_constraints[i]->limit_damping;
+  {
+    const UnilateralConstraint& c = *q.limit_constraints[i];
+    double compliant_layer_depth = c.limit_joint->compliant_layer_depth;
+    if (c.signed_violation + compliant_layer_depth > 0)
+      *L_X_LT_iter += q.limit_constraints[i]->limit_damping;
+  }
 
   // Set positive submatrices
   /*
