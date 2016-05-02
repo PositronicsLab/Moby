@@ -101,11 +101,12 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
     o.l[Y] = o.l[Z] = (double) 0.0;
     o.center = lowest + d1*o.l[X];
 
+/*
     #ifndef NDEBUG
     for (ForwardIterator i = begin; i != end; i++)
       assert(!OBB::outside(o, *i, NEAR_ZERO));
     #endif
-
+*/
     return o;
   }
   
