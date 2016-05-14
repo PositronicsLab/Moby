@@ -33,13 +33,6 @@ RCArticulatedBody::RCArticulatedBody()
 {
 }
 
-/// Applies a generalized impulse to the rigid body (calls the simulator)
-void RCArticulatedBody::apply_generalized_impulse(const SharedVectorNd& gj)
-{
-  shared_ptr<Simulator> s(simulator);
-  s->apply_impulse(RCArticulatedBodyd::get_this(), gj);
-}
-
 /// Clones this
 RCArticulatedBodyPtr RCArticulatedBody::clone() const 
 {

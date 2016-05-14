@@ -2,7 +2,7 @@
      a gear train -->
 
 <XML>
-  <DRIVER>
+  <DRIVER step-size="0.01">
     <camera position="0 0 3.5" target="0 -0.75 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>

@@ -14,7 +14,7 @@
 #include <stack>
 #include <queue>
 #include <boost/tuple/tuple.hpp>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
@@ -147,18 +147,18 @@ double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
     return calc_CA_Euler_step_generic(pdi);
 
   // if the relative velocity at the point of contact is zero, return infinity
-  std::vector<UnilateralConstraint> contacts;
+  std::vector<Constraint> contacts;
   find_contacts(pdi.a, pdi.b, std::back_inserter(contacts), NEAR_ZERO);
   if ((contacts.size() == 1 && 
-      std::fabs(contacts.front().calc_constraint_vel()) < NEAR_ZERO*10))
+      std::fabs(contacts.front().calc_constraint_vel(0)) < NEAR_ZERO*10))
   {
-    FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << "; reporting infinite conservative advancement time" << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel(0) << "; reporting infinite conservative advancement time" << std::endl;
     return std::numeric_limits<double>::max();
   }
   else
   {
     if (contacts.size() >= 1)
-      FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel(0) << std::endl;
   }
  
   // otherwise, use standard conservative advancement 
@@ -242,7 +242,7 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   const double ZERO_VEL = NEAR_ZERO;
 
   // get the contacts
-  vector<UnilateralConstraint> contacts;
+  vector<Constraint> contacts;
   find_contacts(pdi.a, pdi.b, contacts);
 
   // ensure that at least one contact was found
@@ -253,7 +253,7 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   }
 
   // get the contact offset <n, x> = d
-  const UnilateralConstraint& c = contacts.front();
+  const Constraint& c = contacts.front();
   double d = c.contact_normal.dot(c.contact_point);
 
   // get the contact points

@@ -18,9 +18,9 @@ Moby::RCArticulatedBodyPtr robot;
 boost::shared_ptr<TimeSteppingSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
-void check_constraint_num(std::vector<UnilateralConstraint>& constraints, boost::shared_ptr<void> data)
+void check_constraint_num(std::vector<Constraint>& constraints, boost::shared_ptr<void> data)
 {
-  std::vector<UnilateralConstraint> c_constraints = sim->get_rigid_constraints();
+  std::vector<Constraint> c_constraints = sim->get_rigid_constraints();
   //std::cout<<"callback implement";
   assert (c_constraints.size() >= 3);
   return;

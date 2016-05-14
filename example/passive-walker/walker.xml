@@ -8,10 +8,6 @@
 
   <MOBY>
 
-  <RungeKuttaIntegrator id="rk4" />
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-4" rel-err-tol="1e-4" />
-  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-6" rel-err-tol="1e+6" />
-
   <CollisionDetectionPlugin id="toroid" plugin="libpassive-walker-coldet-plugin.so" />
 
 <!--  downhill at alpha = 0.0702 -->
@@ -19,11 +15,10 @@
 <GravityForce id="gravity" accel="0.07014235613 0 -0.99753699173" />
 <!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->
 
-  <TimeSteppingSimulator id="sim" integrator-id="rkf" Euler-step="1e-2" collision-detection-plugin="toroid" >
+  <TimeSteppingSimulator id="sim" collision-detection-plugin="toroid" >
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WALKER" />
-<!--    <DynamicBody dynamic-body-id="BOX" />-->
     <DisabledPair object1-id="WALKER" object2-id="WALKER"/>
     <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="99.9" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
@@ -36,7 +31,7 @@
    <Plane id="ground-primitive" rpy="1.570796326949 0 0" />
    <Box id="box" rpy="0 0 0"  xlen="0.1" ylen="0.1" zlen="0.1" mass="1"/>
 
-  <RigidBody id="GROUND" color="0.6 0.6 0.6 0" enabled="false" position="0 0 -0.0"
+  <RigidBody id="GROUND" color="0.6 0.6 0.6 0" enabled="false" position="0 0 10"
   visualization-id="ground-primitive-viz" compliant="false">
     <CollisionGeometry primitive-id="ground-primitive" />
   </RigidBody>

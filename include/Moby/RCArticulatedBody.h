@@ -53,7 +53,6 @@ class RCArticulatedBody : public virtual ArticulatedBody, public virtual Ravelin
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
-    virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gj);
 
   protected:
      virtual void compile();

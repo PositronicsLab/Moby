@@ -12,7 +12,7 @@
 #include <Ravelin/RigidBodyd.h>
 #include <Moby/Base.h>
 #include <Moby/LCP.h>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 
 namespace Moby {
 
@@ -26,8 +26,8 @@ class RCArticulatedBodyInvDynData
     /// Desired inner joint accelerations
     Ravelin::VectorNd qdd_des;
 
-    /// Unilateral constraints applied to the body
-    std::vector<UnilateralConstraint> constraints;
+    /// Constraints applied to the body
+    std::vector<Constraint> constraints;
 };
   
 /// Class for performing inverse dynamics computation on a reduced-coordinate articulated body
@@ -47,7 +47,7 @@ class RCArticulatedBodyInvDyn : public virtual Base
     void calc_inv_dyn(boost::shared_ptr<RCArticulatedBody> body, const RCArticulatedBodyInvDynData& inv_dyn_data, double dt, Ravelin::VectorNd& u);
 
   private:
-    void calc_contact_jacobians(const std::vector<UnilateralConstraint>& c, Ravelin::MatrixNd& N, Ravelin::MatrixNd& S, Ravelin::MatrixNd& T, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& index_start, unsigned NDOFS);
+    void calc_contact_jacobians(const std::vector<Constraint>& c, Ravelin::MatrixNd& N, Ravelin::MatrixNd& S, Ravelin::MatrixNd& T, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& index_start, unsigned NDOFS);
     void jacobian_ST_to_D(const Ravelin::MatrixNd& S, const Ravelin::MatrixNd& T, Ravelin::MatrixNd& D);
     bool inverse_dynamics_comp(RCArticulatedBodyPtr body, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& start_indices, const Ravelin::VectorNd& vel, const Ravelin::VectorNd& qdd, const std::vector<Ravelin::MatrixNd>& M,const  Ravelin::MatrixNd& NT, const Ravelin::MatrixNd& D_, const Ravelin::VectorNd& fext, double dt, const std::vector<double>& mu, Ravelin::VectorNd& x, Ravelin::VectorNd& cf);
     bool inverse_dynamics_two_stage_simple_no_slip(const Ravelin::VectorNd& v, const Ravelin::VectorNd& qdd, const Ravelin::MatrixNd& M,const  Ravelin::MatrixNd& N, const Ravelin::MatrixNd& ST, const Ravelin::VectorNd& fext, double h, Ravelin::VectorNd& x, Ravelin::VectorNd& cf_final,double damping);
@@ -61,7 +61,7 @@ class RCArticulatedBodyInvDyn : public virtual Base
     bool solve_qp(const Ravelin::MatrixNd& Q, const Ravelin::VectorNd& c, const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     bool solve_qp_pos(const Ravelin::MatrixNd& Q, const Ravelin::VectorNd& c, const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, Ravelin::VectorNd& x, Ravelin::VectorNd& v, bool warm_start = false, bool regularize = true);
     bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const std::vector<unsigned>& indices, Ravelin::VectorNd& z, double zero_tol);
-    static unsigned get_body_indices(const std::vector<UnilateralConstraint>& c, std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& index_start);
+    static unsigned get_body_indices(const std::vector<Constraint>& c, std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& index_start);
     static bool factor_chols(const std::vector<Ravelin::MatrixNd>& M, std::vector<Ravelin::MatrixNd>& M_chols);
     static void solve_chol_fast(const std::vector<Ravelin::MatrixNd>& M_chols, Ravelin::MatrixNd& M);
     static void solve_chol_fast(const std::vector<Ravelin::MatrixNd>& M_chols, Ravelin::VectorNd& v);

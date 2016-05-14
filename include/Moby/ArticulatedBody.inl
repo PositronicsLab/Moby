@@ -18,8 +18,8 @@ OutputIterator ArticulatedBody::find_limit_constraints(OutputIterator output_beg
       double q = joint->q[j] + joint->_q_tare[j];
 
       // setup an constraint for this joint/dof in case we need it
-      UnilateralConstraint e;
-      e.constraint_type = UnilateralConstraint::eLimit;
+      Constraint e;
+      e.constraint_type = Constraint::eLimit;
       e.limit_joint = joint;
       e.limit_dof = j;
       e.limit_epsilon = joint->limit_restitution;

@@ -15,7 +15,7 @@
 #include <Moby/Base.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 #include <Moby/RigidBody.h>
 
 namespace Moby {
@@ -43,7 +43,7 @@ class CollisionDetection : public virtual Base
     virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim) {}
     virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
-    virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO) = 0;
+    virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<Constraint>& contacts, double TOL = NEAR_ZERO) = 0;
 
     /// Calculates the signed distance between two geometries
     virtual double calc_signed_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, Point3d& p1, Point3d& p2)
@@ -56,7 +56,7 @@ class CollisionDetection : public virtual Base
 
   protected:
     virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
-    static UnilateralConstraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
+    static Constraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
 
   friend class ConstraintStabilization;
 }; // end class

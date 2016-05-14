@@ -20,30 +20,16 @@ shared_ptr<RigidBodyd> ground;
 CollisionGeometryPtr lfoot_geom, rfoot_geom;
 boost::shared_ptr<GravityForce> grav;
 
+enum TouchdownEvent { eLeftFoot, eRightFoot };
+
+TouchdownEvent touchdown_stop; 
+
 const double ALPHA = 0.0702;
-
-Ravelin::Origin3d quat2rpy(const Ravelin::Quatd& q_){
-
-  Ravelin::Origin3d rpy;
-  Ravelin::VectorNd q(4);
-  q[0] = q_.w;
-  q[1] = q_.x;
-  q[2] = q_.y;
-  q[3] = q_.z;
-
-  // Singularity Condition 2(q1q3 + q0q2) == +/- 1
-  assert(fabs(2*(q[1]*q[3] + q[0]*q[2])) < (1.0 - NEAR_ZERO) || fabs(2*(q[1]*q[3] + q[0]*q[2])) > (1.0 + NEAR_ZERO));
-
-  // (3-2-1) z-y-x Tait-Bryan rotation
-  rpy[0] = atan2((q[2]*q[3] + q[0]*q[1]),0.5-(q[1]*q[1] + q[2]*q[2]));
-  rpy[1] = asin(2.0*(-q[1]*q[3] + q[0]*q[2]));
-  rpy[2] = atan2((q[1]*q[2] + q[0]*q[3]),0.5-(q[2]*q[2] + q[3]*q[3]));
-  return rpy;
-}
 
 // setup simulator callback
 void post_step_callback(Simulator* s)
 {
+/*
   const unsigned Z = 2;
   std::ofstream out("energy.dat", std::ostream::app);
   double KE = walker->calc_kinetic_energy();
@@ -72,60 +58,53 @@ void post_step_callback(Simulator* s)
     base->set_pose(P);
     walker->update_link_poses();
   }
-}
-
-Ravelin::Quatd rpy2quat(const Ravelin::Origin3d& rpy){
-
-  const double PHI = rpy[0] * (double) 0.5;
-  const double THE = rpy[1] * (double) 0.5;
-  const double PSI = rpy[2] * (double) 0.5;
-
-  // precompute trig fns
-  const double CPHI = std::cos(PHI);
-  const double SPHI = std::sin(PHI);
-  const double CPSI = std::cos(PSI);
-  const double SPSI = std::sin(PSI);
-  const double CTHE = std::cos(THE);
-  const double STHE = std::sin(THE);
-
-  // construct Quaternion
-  Ravelin::Quatd q;
-  q.w = (CPHI * CTHE * CPSI + SPHI * STHE * SPSI);
-  q.x = (SPHI * CTHE * CPSI - CPHI * STHE * SPSI);
-  q.y = (CPHI * STHE * CPSI + SPHI * CTHE * SPSI);
-  q.z = (CPHI * CTHE * SPSI - SPHI * STHE * CPSI);
-  return q;
+*/
 }
 
 // called when the simulator completes a step
-
-void post_event_callback_fn(const std::vector<UnilateralConstraint>& e,
+void post_event_callback_fn(const std::vector<Constraint>& e,
                             boost::shared_ptr<void> empty)
 {
+  VectorNd q, qd;
   std::cout << "> > start post_event_callback_fn(.)" << std::endl;
 
   // PROCESS CONTACTS
   for(unsigned i=0;i<e.size();i++){
-    if (e[i].constraint_type == UnilateralConstraint::eContact)
+    if (e[i].constraint_type == Constraint::eContact)
     {
       shared_ptr<SingleBodyd> sb1 = e[i].contact_geom1->get_single_body();
       shared_ptr<SingleBodyd> sb2 = e[i].contact_geom2->get_single_body();
 
-      std::cout << "contact: " << sb1->body_id << " and " << sb2->body_id << std::endl;
-      std::cout << "i = " << e[i].contact_impulse.get_linear() << std::endl;
-      std::cout << "p = " << e[i].contact_point << std::endl;
-      std::cout << "n = " << e[i].contact_normal << std::endl;
-//      std::cout << "s = " << e[i].contact_tan1 << std::endl;
-//      std::cout << "t = " << e[i].contact_tan2 << std::endl;
-//      std::cout << "muC = " << e[i].contact_mu_coulomb << std::endl;
-//      std::cout << "muV = " << e[i].contact_mu_viscous << std::endl;
+      // look for contacting foot matching the stop
+      if ((touchdown_stop == eRightFoot && 
+          (e[i].contact_geom1 == rfoot_geom || e[i].contact_geom2 == rfoot_geom)) || (touchdown_stop == eLeftFoot &&
+          (e[i].contact_geom1 == lfoot_geom || e[i].contact_geom2 == lfoot_geom)))
+      {
+        // get the generalized coordinates and velocity
+        walker->get_generalized_coordinates_euler(q);
+        walker->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
+
+        // write out the generalized coordinates and velocity
+        std::ofstream output("output.dat");
+        output << q[0];
+        for (unsigned i=1; i< q.size(); i++) 
+          output << " " << q[i]; 
+        for (unsigned i=0; i< qd.size(); i++) 
+          output << " " << qd[i]; 
+        output << std::endl;
+        output.close();
+
+        // exit with no error message
+        exit(0);
+      }
     }
   }
   std::cout << "<< end post_event_callback_fn(.)" << std::endl;
 }
 
-void controller_callback(ControlledBodyPtr dbp, double t, void*)
+VectorNd& controller_callback(ControlledBodyPtr dbp, VectorNd& gf, double t, void*)
 {
+/*
   std::cout << "> > start controller_callback(.)" << std::endl;
   RCArticulatedBodyPtr
       walker = boost::dynamic_pointer_cast<RCArticulatedBody>(dbp);
@@ -166,6 +145,7 @@ void controller_callback(ControlledBodyPtr dbp, double t, void*)
 //            << dRPY[2] << "\n\t"
 //            << xd[0] << "\n\t";
   std::cout << "<< end controller_callback(.)" << std::endl;
+*/
 }
 
 // ============================================================================
@@ -211,121 +191,29 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
   // setup the callback
   sim->post_step_callback_fn = &post_step_callback;
 
+  // read in the initial configuration
+  std::ifstream in("input.dat");
+  VectorNd q, qd;
+  q.resize(walker->num_generalized_coordinates(DynamicBodyd::eEuler));
+  qd.resize(walker->num_generalized_coordinates(DynamicBodyd::eSpatial));
+  for (unsigned i=0; i< q.size(); i++)
+    in >> q[i]; assert(!in.eof());
+  for (unsigned i=0; i< qd.size(); i++)
+    in >> qd[i]; assert(!in.eof());
 
-//  walker->controller                  = &controller_callback;
-//  sim->constraint_post_callback_fn  = &post_event_callback_fn;
+  // set the generalized coordinates and velocity
+  walker->set_generalized_coordinates_euler(q);
+  walker->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
 
-  // Set initial conditions from ruina paper
-  Ravelin::VectorNd x,xd;
-  walker->get_generalized_coordinates_euler(x);
-  walker->get_generalized_velocity( DynamicBodyd::eSpatial,xd);
+  // indicate that we stop on right foot touchdown
+  touchdown_stop = eRightFoot;
 
-  x[1] = 0; // x
-  x[2] = 0; // y
-// x[2] = 0.6969; // y
-  x[3] = 0.1236; // z
+  // setup callbacks
+  walker->controller                  = &controller_callback;
+  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
-//     9.866765986740000e-002
-//    -9.248610676160000e-003
-//    -1.601658349552200e-001
-//     3.435833890385830e+000
-//    -1.322096551035500e-001
-//    -1.990961987794000e-002
-//     4.712423746697700e-001
-//    -3.925591686648300e-001
-
-  double  PHI = 9.866765986740000e-002,  // yaw
-          THE = -1.601658349552200e-001, // pitch + alpha
-          PSI = -9.248610676160000e-003; // roll
-
-/*
-  Ravelin::Matrix3d Rz;
-  Rz(0,0) = std::cos(PHI);  Rz(0,1) = std::sin(PHI);  Rz(0,2) = 0.0;
-  Rz(1,0) = -std::sin(PHI); Rz(1,1) = std::cos(PHI);  Rz(1,2) = 0.0;
-  Rz(2,0) = 0.0;            Rz(2,1) = 0.0;            Rz(2,2) = 1.0;
-
-  Ravelin::Matrix3d Rx;
-  Rx(0,0) = 1.0;    Rx(0,1) = 0.0;            Rx(0,2) = 0.0;
-  Rx(1,0) = 0.0;    Rx(1,1) = std::cos(PSI);  Rx(1,2) = std::sin(PSI);
-  Rx(2,0) = 0.0;    Rx(2,1) = -std::sin(PSI); Rx(2,2) = std::cos(PSI);
-
-  Ravelin::Matrix3d Ry;
-  Ry(0,0) = std::cos(THE);  Ry(0,1) = 0.0;   Ry(0,2) = -std::sin(THE);
-  Ry(1,0) = 0.0;            Ry(1,1) = 1.0;   Ry(1,2) = 0.0;
-  Ry(2,0) = std::sin(THE);  Ry(1,2) = 0.0;   Ry(2,2) = std::cos(THE);
-  Ravelin::Matrix3d Rzxy = Ry * Rx * Rz;
-*/
-
-  // Note: each rotation matrix defined in Michael Coleman's Matlab code
-  // is a rotation about the negative axis
-  Ravelin::Matrix3d Rz = Ravelin::Matrix3d::rot_Z(-PHI),
-                    Ry = Ravelin::Matrix3d::rot_Y(-THE),
-                    Rx = Ravelin::Matrix3d::rot_X(-PSI),
-                    Rzxy = Ry.mult(Rx).mult(Rz);
-  Quatd q = Quatd(Rzxy);
-   
-  // output the rotation
-  Matrix3d R = q;
-  std::cout << "initial rotation: " << std::endl << R;
-  const double THETA_OFFSET = M_PI;
-  //printf ("q0:%5.5f q1:%5.5f q2:%5.5f q3:%5.5f\n",q[0],q[1],q[2],q[3]);
-
-  //x[4] = q[0];
-  //x[5] = q[1];
-  //x[6] = q[2];
-  //x[7] = q[3];
-  x[4] = 0;
-  x[5] = 0;
-  x[6] = 0.0871557427476582;
-  x[7] = 0.9961946980917456;
-  x[0] =  M_PI + THETA_OFFSET; // Theta_sw
-  //x[4]=0;
-  //x[5]=0;
-  //x[6]=0;
-  //x[7]=1;
-  //x[0]=0;    
-
-  // Convert Time derivative of RPY to angular velocity (w)
-  double  dPHI = -1.322096551035500e-001, // d yaw / dt
-          dPSI = -1.990961987794000e-002, // d roll / dt
-          dTHE =  4.712423746697700e-001; // d pitch / dt
-  //  a_dot is time derivative of RPY
-  // Numerically derive skew symmetric
-  // angular velocity tensor matrix W
-  // can do this analytically also
-  double h = 1e-6;
-  Matrix3d
-      Rz2 = Ravelin::Matrix3d::rot_Z(-PHI - h*dPHI),
-      Rx2 = Ravelin::Matrix3d::rot_X(-PSI - h*dPSI),
-      Ry2 = Ravelin::Matrix3d::rot_Y(-THE - h*dTHE);
-   Matrix3d
-      Rzxy2 = Ry2.mult(Rx2).mult(Rz2);
-   Matrix3d
-      W = ((Rzxy2-Rzxy)/h).mult_transpose(Rzxy);
-
-  // w is angular velocity
-  //Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
-  printf ("w1:%5.5f w2:%5.5f w3:%5.5f\n",(W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
-  Vector3d w(0,0,0);
-  w[0] = 0;
-  w[1] = 0;
-  w[2] = 0;
-  //w[0]=0;
-  //w[1]=0;
-  //w[2]=0;
-  xd.set_zero();
-  xd.set_sub_vec(4,w);
-  xd[0] = 0; // -Theta_sw
-  //xd[0]=0;
   // get the collision geometries for the feet
   lfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("LLEG"))->geometries.front();
   rfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("RLEG"))->geometries.front();
-
-  walker->set_generalized_coordinates_euler(x);
-  walker->set_generalized_velocity( DynamicBodyd::eSpatial,xd);
-
-  walker->set_floating_base(false);
-//  walker->get_base_link()->set_enabled(false);
-
 }
 } // end extern C

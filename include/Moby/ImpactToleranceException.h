@@ -9,7 +9,7 @@
 
 #include <list>
 #include <stdexcept>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 
 namespace Moby {
 
@@ -17,11 +17,11 @@ namespace Moby {
 class ImpactToleranceException : public std::runtime_error
 {
   public:
-    ImpactToleranceException(const std::list<UnilateralConstraint*>& impacting_constraints, double max_vio) : std::runtime_error("Constraint velocity is below tolerance after treatment!") { constraints = impacting_constraints; violation = max_vio; }
+    ImpactToleranceException(const std::list<Constraint*>& impacting_constraints, double max_vio) : std::runtime_error("Constraint velocity is below tolerance after treatment!") { constraints = impacting_constraints; violation = max_vio; }
 
     virtual ~ImpactToleranceException() throw() { }
 
-  std::list<UnilateralConstraint*> constraints;
+  std::list<Constraint*> constraints;
   double violation;  // the amount of constraint violation
 }; // end class
 

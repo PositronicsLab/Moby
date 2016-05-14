@@ -54,12 +54,12 @@ void CollisionDetection::broad_phase(double dt, const std::vector<ControlledBody
 }
 
 /// Creates a contact constraint given the bare-minimum info
-UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
+Constraint CollisionDetection::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
 {
   const double TOL = 1e-6;
 
-  UnilateralConstraint e;
-  e.constraint_type = UnilateralConstraint::eContact;
+  Constraint e;
+  e.constraint_type = Constraint::eContact;
   e.contact_point = point;
   e.contact_normal = normal;
   e.contact_geom1 = a;

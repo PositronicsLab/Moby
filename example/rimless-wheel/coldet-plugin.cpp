@@ -208,7 +208,7 @@ class BladePlanePlugin : public CCD
     }
 
     /// Finds contacts between the wheel and a plane
-    virtual void find_contacts_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
+    virtual void find_contacts_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg, std::vector<Constraint>& contacts)
     {
       const unsigned Y = 1;
       const double TOL = 0.0; 
@@ -314,7 +314,7 @@ class BladePlanePlugin : public CCD
     }
 
     /// Finds contacts between two collision geometries
-    virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
+    virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<Constraint>& contacts, double TOL = NEAR_ZERO)
     {
       if (cgA == wheel_cg && cgB == ground_cg)
         find_contacts_wheel_plane(cgA, cgB, contacts);

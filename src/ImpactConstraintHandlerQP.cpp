@@ -14,7 +14,7 @@
 #include <numeric>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/Constants.h>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
@@ -22,6 +22,11 @@
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/LCPSolverException.h>
 #include <Moby/ImpactConstraintHandler.h>
+
+#ifdef USE_QPOASES
+#include <Moby/qpOASES.h>
+#endif
+
 
 using namespace Ravelin;
 using namespace Moby;
@@ -35,55 +40,571 @@ using std::pair;
 using std::min_element;
 using boost::dynamic_pointer_cast;
 
-/// Solves the quadratic program (potentially solves two QPs, actually)
-void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemData& q)
+/// Get the total number of variables
+unsigned ImpactConstraintHandler::num_variables(const vector<Constraint*>& constraints)
 {
-  const unsigned N_TOTAL = q.N_VARS + q.N_CONTACTS + q.N_LIMITS + q.N_K_TOTAL + 1;
-
-  // mark starting time
-  tms cstart;
-  clock_t start = times(&cstart);
-
-  // solve the QP
-  solve_qp_work(q, z);
-
-  // get the elapsed time
-  const long TPS = sysconf(_SC_CLK_TCK);
-  tms cstop;
-  clock_t stop = times(&cstop);
-  double elapsed = (double) (stop - start)/TPS;
-  FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl;
+  unsigned n_vars = 0;
+  for (unsigned m=0; m< constraints.size(); m++)
+    n_vars += constraints[m]->num_variables(); 
+  return n_vars;
 }
 
-/// Computes the kinetic energy of the system using the current impulse set
-double ImpactConstraintHandler::calc_ke(UnilateralConstraintProblemData& q, const VectorNd& z)
+/// Gets the number of inequality constraints
+unsigned ImpactConstraintHandler::num_inequality_constraints(const vector<Constraint*>& constraints)
 {
-  static VectorNd cn, cs, ct, l, tau;
+  unsigned n = 0; 
 
-  // save the current impulses
-  cn = q.cn;
-  cs = q.cs;
-  ct = q.ct;
-  l = q.l;
-  tau = q.tau;
+  for (unsigned i=0; i< constraints.size(); i++)
+    for (unsigned j=0; j< constraints[i]->num_constraint_equations(); j++)
+      if (constraints[i]->get_constraint_equation_type(j) == Constraint::eInequality)
+        n++;
 
-  // update impulses
-  q.update_from_stacked_qp(z);
+  return n;
+}
 
-  // calculate KE
-  double KE = (double) 0.0;
-  apply_impulses(q);
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-    KE += q.super_bodies[i]->calc_kinetic_energy();
+/// Gets the number of equality constraints
+unsigned ImpactConstraintHandler::num_equality_constraints(const vector<Constraint*>& constraints)
+{
+  unsigned n = 0; 
 
-  // reset impulses
-  q.cn = cn;
-  q.cs = cs;
-  q.ct = ct;
-  q.l = l;
-  q.tau = tau;
+  for (unsigned i=0; i< constraints.size(); i++)
+    for (unsigned j=0; j< constraints[i]->num_constraint_equations(); j++)
+      if (constraints[i]->get_constraint_equation_type(j) == Constraint::eEquality)
+        n++;
 
-  return KE;
+  return n;
+}
+
+/**
+ * TODO: 
+ * 4. Fix LHS
+ **/
+
+/// Computes restitution for each constraint 
+bool ImpactConstraintHandler::apply_restitution(const vector<Constraint*>& constraints, VectorNd& x)
+{
+  bool applied = false; 
+
+  // setup a work vector
+  VectorNd workv;
+
+  // setup a mapping
+  map<shared_ptr<DynamicBodyd>, VectorNd> gj;
+
+  // loop through all constraints
+  for (unsigned i=0, j=0; i< constraints.size(); i++)
+  {
+    // get the total number of variables and impulsive variables
+    unsigned nvars = constraints[i]->num_variables();
+
+    // get the variables out
+    x.get_sub_vec(j, j+nvars, workv);
+
+    // apply restitution 
+    constraints[i]->apply_restitution(workv);
+    if (workv.norm() > NEAR_ZERO)
+      applied = true;
+
+    // update x
+    x.set_sub_vec(j, workv);
+
+    // update j 
+    j += nvars;
+  }
+
+  return applied;
+}
+
+
+/// Applies impulses using the output of the QP 
+void ImpactConstraintHandler::apply_impulses(const vector<Constraint*>& constraints, const VectorNd& x)
+{
+  // setup a work vector
+  VectorNd workv;
+
+  // setup a mapping
+  map<shared_ptr<DynamicBodyd>, VectorNd> gj;
+
+  // loop through all constraints
+  for (unsigned i=0, j=0; i< constraints.size(); i++)
+  {
+    // get the total number of variables and impulsive variables
+    unsigned nvars = constraints[i]->num_variables();
+    unsigned nimp = constraints[i]->num_impulsive_variables();
+
+    // get the variables out
+    x.get_sub_vec(j, j+nimp, workv);
+
+    // apply the impulses
+    constraints[i]->apply_impulses(workv, gj);
+
+    // update j 
+    j += nvars;
+  }
+
+  // apply the impulses
+  for (map<shared_ptr<DynamicBodyd>, VectorNd>::const_iterator i=gj.begin(); i != gj.end(); i++)
+    i->first->apply_generalized_impulse(i->second);
+}
+
+/// Gets the maximum constraint violation
+double ImpactConstraintHandler::calc_max_constraint_violation(const vector<Constraint*>& constraints)
+{
+  double violation = 0.0;
+
+  for (unsigned i=0; i< constraints.size(); i++)
+    for (unsigned j=0; j< constraints[i]->num_constraint_equations(); j++)
+    {
+      double rhs = constraints[i]->get_constraint_rhs(j, 0.0);
+      if (constraints[i]->get_constraint_equation_type(j) == Constraint::eEquality)
+        violation = std::max(violation, std::fabs(rhs));
+      else
+        violation = std::max(violation, -rhs);
+    }
+
+  return violation;
+}
+
+/// Computes the quadratic term of a matrix
+void ImpactConstraintHandler::compute_quadratic_matrix(const vector<Constraint*>& constraints, unsigned N_VARS, MatrixNd& H)
+{
+  // get all super bodies
+  vector<shared_ptr<DynamicBodyd> > supers;
+  get_super_bodies(constraints.begin(), constraints.end(), std::back_inserter(supers));
+  
+  // store current velocities
+  vector<VectorNd> qd(supers.size());
+  for (unsigned i=0; i< supers.size(); i++)
+    supers[i]->get_generalized_velocity(DynamicBodyd::eSpatial, qd[i]);
+
+  // compute the quadratic term matrix
+  H.resize(N_VARS,N_VARS);
+  for (unsigned m=0, o=0; m< constraints.size(); m++)
+  {
+    for (unsigned n=0; n< constraints[m]->num_impulsive_variables(); n++)
+    {
+      // get the column of H
+      SharedVectorNd Hcol = H.column(o);
+
+      // measure constraint velocities before applying the impulse
+      for (unsigned i=0, j=0; i< constraints.size(); i++)
+        for (unsigned k=0; k< constraints[i]->num_variables(); k++)
+          Hcol[j++] = -constraints[i]->calc_projected_vel(k);
+
+      // apply a test impulse at the constraint
+      constraints[m]->apply_test_impulse(n); 
+
+      // measure constraint velocities after applying the impulse
+      for (unsigned i=0, j=0; i< constraints.size(); i++)
+        for (unsigned k=0; k< constraints[i]->num_variables(); k++)
+          Hcol[j++] += constraints[i]->calc_projected_vel(k);
+
+      // update o
+      o++;
+    }
+
+    // update o to bypass slack variables
+    o += (constraints[m]->num_variables() - constraints[m]->num_impulsive_variables());
+  }
+
+  // restore velocities
+  for (unsigned i=0; i< supers.size(); i++)
+    supers[i]->set_generalized_velocity(DynamicBodyd::eSpatial, qd[i]);
+}
+
+/// Calculates inequality constraint terms for the QP (M*x >= q)
+void ImpactConstraintHandler::compute_inequality_terms(const vector<Constraint*>& constraints, const MatrixNd& H, unsigned N_INEQ_CONSTRAINTS, double inv_dt, MatrixNd& M, VectorNd& q)
+{
+  // get the number of variables
+  const unsigned N_VARS = H.rows();
+
+  // resize M and q
+  M.resize(N_INEQ_CONSTRAINTS, N_VARS);
+  q.resize(N_INEQ_CONSTRAINTS);
+
+  for (unsigned i=0, k=0, m=0; i< constraints.size(); i++)
+  {
+    for (unsigned j=0; j< constraints[i]->num_constraint_equations(); j++)
+    {
+      if (constraints[i]->get_constraint_equation_type(j) == Constraint::eInequality)
+      {
+        // get the row of M
+        SharedVectorNd Mrow = M.row(k);
+        SharedVectorNd Msub = Mrow.segment(m, m+constraints[i]->num_variables());
+
+        // setup the entry of q
+        q[k] = constraints[i]->get_constraint_rhs(j, inv_dt);
+
+        // get the constraint index
+        if (constraints[i]->get_constraint_coeff_type(j) == Constraint::eVelocityConstraint)
+          Mrow = H.row(constraints[i]->get_velocity_constraint_index(j)+m);
+        else
+        {
+          Mrow.set_zero();
+          constraints[i]->get_impulse_constraint_coeffs(j, Msub);
+        }
+
+        // update the matrix row 
+        k++;
+      }
+    }
+
+    // update m
+    m += constraints[i]->num_variables();
+  }
+}
+
+/// Calculates equality constraint terms for the QP (A*x = b)
+void ImpactConstraintHandler::compute_equality_terms(const vector<Constraint*>& constraints, const MatrixNd& H, unsigned N_EQ_CONSTRAINTS, double inv_dt, MatrixNd& A, VectorNd& b)
+{
+  // get the number of variables
+  const unsigned N_VARS = H.rows();
+
+  // resize the matrix and vector
+  A.resize(N_EQ_CONSTRAINTS, N_VARS);
+  b.resize(N_EQ_CONSTRAINTS);
+
+  // populate
+  for (unsigned i=0, k=0, m=0; i< constraints.size(); i++)
+  {
+    for (unsigned j=0; j< constraints[i]->num_constraint_equations(); j++)
+    {
+      if (constraints[i]->get_constraint_equation_type(j) == Constraint::eEquality)
+      {
+        // get the row of A 
+        SharedVectorNd Arow = A.row(k);
+        SharedVectorNd Asub = Arow.segment(m, m+constraints[i]->num_variables());
+
+        // setup the entry of b 
+        b[k] = constraints[i]->get_constraint_rhs(j, inv_dt);
+
+        // get the constraint index
+        if (constraints[i]->get_constraint_coeff_type(j) == Constraint::eVelocityConstraint)
+          Arow = H.row(constraints[i]->get_velocity_constraint_index(j)+m);
+        else
+          constraints[i]->get_impulse_constraint_coeffs(j, Asub);
+
+        // update the matrix row 
+        k++;
+      }
+    }
+
+    // update m
+    m += constraints[i]->num_variables();
+  }
+}
+
+/// Computes the linear term of a QP/LCP 
+void ImpactConstraintHandler::compute_linear_term(const vector<Constraint*>& constraints, unsigned N_VARS, VectorNd& c)
+{
+  c.resize(N_VARS);
+  for (unsigned i=0, j=0; i< constraints.size(); i++)
+    for (unsigned k=0; k< constraints[i]->num_variables(); k++)
+      c[j++] = constraints[i]->calc_projected_vel(k);
+}
+
+/// Forms and solves the impact problem
+void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, MatrixNd& H, VectorNd& z)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // determine number of inequality and equality constraints 
+  const unsigned N_INEQ_CONSTRAINTS = num_inequality_constraints(constraints);
+  const unsigned N_EQ_CONSTRAINTS = num_equality_constraints(constraints);
+
+  // compute the quadratic matrix if necessary
+  if (H.rows() == 0)
+  {
+    compute_quadratic_matrix(constraints, N_VARS, _H);
+
+    // add in damping terms
+    for (unsigned m=0, o=0; m< constraints.size(); m++)
+    {
+      for (unsigned n=0; n< constraints[m]->num_impulsive_variables(); n++, o++)
+      {
+        // get the damping term (if any)
+        double damping = constraints[m]->get_damping(n);
+        if (damping <= 0.0)
+          continue;
+
+        // update H
+        H(o,o) += damping;
+      }
+
+      // update o to bypass slack variables
+      o += (constraints[m]->num_variables() - constraints[m]->num_impulsive_variables());
+    }
+  }
+
+  // compute the linear term vector
+  compute_linear_term(constraints, N_VARS, _c);
+
+  // setup the inequality constraints matrix and vector
+  compute_inequality_terms(constraints, H, N_INEQ_CONSTRAINTS, inv_dt, _M, _q);
+
+  // setup the equality constraints matrix and vector
+  compute_equality_terms(constraints, H, N_EQ_CONSTRAINTS, inv_dt, _A, _b);
+
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::form_and_solve()" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "H: " << std::endl  << H;
+  FILE_LOG(LOG_CONSTRAINT) << "c: " << _c << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl  << _M;
+  FILE_LOG(LOG_CONSTRAINT) << "q: " << _q << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "A: " << std::endl << _A;
+  FILE_LOG(LOG_CONSTRAINT) << "b: " << _b << std::endl;
+
+  // see whether we can solve using an LCP formulation
+  if (N_EQ_CONSTRAINTS == 0)
+  {
+    // solve using an LCP formulation
+    _MM.set_zero(N_VARS + N_INEQ_CONSTRAINTS, N_VARS + N_INEQ_CONSTRAINTS);
+    _qq.resize(_MM.rows());
+
+    // setup MM and qq
+    _MM.block(0, N_VARS, 0, N_VARS) = _H;
+    _MM.block(N_VARS, _MM.rows(), 0, N_VARS) = _M;
+    SharedMatrixNd MT = _MM.block(0, N_VARS, N_VARS, _MM.rows());
+    MatrixNd::transpose(_M, MT);
+    MT.negate();
+    _qq.segment(0, N_VARS) = _c;
+    _qq.segment(N_VARS, _qq.size()) = _q;
+    _qq.segment(N_VARS, _qq.size()).negate();
+
+    // solve using the fast regularized solver first, then fall back to the
+    // Lemke solver
+    if (!_lcp.lcp_fast_regularized(_MM, _qq, z, -20, 4, -8))
+    {
+      // Lemke does not like warm starting
+      z.set_zero();
+
+      FILE_LOG(LOG_CONSTRAINT) << "-- fast LCP solver failed; dropping back to Lemke" << std::endl;
+      if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
+        throw LCPSolverException();
+    }
+    FILE_LOG(LOG_CONSTRAINT) << "LCP solution z: " << z << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "LCP pivots: " << _lcp.pivots << std::endl;
+  }
+  else
+  {
+    #ifdef USE_QPOASES
+    // setup the lower and upper bounds variables
+    _lb.resize(N_VARS);
+    _ub.resize(N_VARS);
+    for (unsigned i=0, j=0; i< constraints.size(); i++)
+      for (unsigned k=0; k< constraints[i]->num_variables(); k++)
+      {
+        _lb[j] = constraints[i]->get_lower_variable_limit(k);
+        _ub[j] = constraints[i]->get_upper_variable_limit(k);
+        j++;
+      } 
+
+// TODO: fix this
+unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
+    if (N_SLACKABLE_EQ_CONSTRAINTS == 0)
+    {
+      // add tolerance to inequality constraints
+      double TOL = (inequality_tolerance >= 0.0) ? inequality_tolerance : (_H.rows() + _q.rows()) * (_H.norm_inf() + _M.norm_inf()) * std::numeric_limits<double>::epsilon();
+      for (ColumnIteratord iter = _q.begin(); iter != _q.end(); iter++)
+        *iter -= TOL;
+
+      // add tolerance to lower bounds (if necessary)
+      for (ColumnIteratord iter = _lb.begin(); iter != _lb.end(); iter++)
+        if (*iter > -INF)
+          *iter -= TOL;
+
+      // add tolerance to upper bounds (if necessary)
+      for (ColumnIteratord iter = _ub.begin(); iter != _ub.end(); iter++)
+        if (*iter < INF)
+          *iter += TOL;
+
+// TODO: rearrange A/b so that slackable equality constraints are on the
+// bottom
+
+      // no slackable equality constraints; try solving QP first w/o any
+      // tolerance in the constraints
+      bool result = qpOASES::qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
+      if (!result)
+      {
+        FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution failed without tolerance in the constraints" << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << " -- solving LP to find feasible solution" << std::endl;
+
+        // determine new number of variables (one for inequality constraints,
+        // one for each equality constraint)
+        unsigned NEW_VARS = N_VARS + 1 + N_EQ_CONSTRAINTS*2;
+
+        // augment M
+        _Maug.resize(_M.rows(), NEW_VARS);
+        _Maug.block(0, _M.rows(), 0, N_VARS) = _M;
+        _Maug.block(0, _M.rows(), N_VARS, NEW_VARS).set_zero();
+        _Maug.column(N_VARS).set_one();
+
+        // augment A
+        _Aaug.resize(_A.rows(), NEW_VARS);
+        _Aaug.block(0, _A.rows(), 0, N_VARS) = _A;
+        _Aaug.block(0, _A.rows(), N_VARS, NEW_VARS).set_zero();
+        for (unsigned i=0, j=N_VARS+1; i< _A.rows(); i++)
+        {
+          _Aaug(i,j++) = 1.0;
+          _Aaug(i,j++) = -1.0;
+        }
+
+        // augment lb
+        _lbaug.resize(NEW_VARS);
+        _lbaug.segment(0, _lb.size()) = _lb;
+        _lbaug.segment(_lb.size(), NEW_VARS).set_zero();
+
+        // augment ub
+        _ubaug.resize(NEW_VARS);
+        _ubaug.segment(0, _ub.size()) = _ub;
+        _ubaug.segment(_ub.size(), NEW_VARS).set_one() *= INF;
+
+        // create a H for the QP
+        _Haug.set_zero(NEW_VARS, NEW_VARS); 
+        _Haug.block(N_VARS, NEW_VARS, N_VARS, NEW_VARS).set_identity();
+
+        // create a c for the QP
+        _caug.resize(NEW_VARS);
+        _caug.segment(0, N_VARS).set_zero();
+        _caug.segment(N_VARS, NEW_VARS).set_one();
+
+        FILE_LOG(LOG_CONSTRAINT) << "H (augmented): " << std::endl  << _Haug;
+        FILE_LOG(LOG_CONSTRAINT) << "c (augmented): " << _caug << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "M (augmented): " << std::endl  << _Maug;
+        FILE_LOG(LOG_CONSTRAINT) << "q (augmented): " << _q << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "A (augmented): " << std::endl << _Aaug;
+        FILE_LOG(LOG_CONSTRAINT) << "b (augmented): " << _b << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "lb (augmented): " << _lbaug << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "ub (augmented): " << _ubaug << std::endl;
+
+        // solve the QP, using zero for z
+        z.set_zero(NEW_VARS);
+        result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+        assert(result);
+        FILE_LOG(LOG_CONSTRAINT) << " -- LP solution: " << z << std::endl;
+
+        // modify c for re-solving the QP
+        _caug.segment(0, N_VARS) = _c;
+        _caug.segment(N_VARS, NEW_VARS).set_zero();
+
+        // modify H for re-solving the QP
+        _Haug.block(0, N_VARS, 0, N_VARS) = _H;
+        _Haug.block(N_VARS, NEW_VARS, 0, N_VARS).set_zero();
+        _Haug.block(0, N_VARS, N_VARS, NEW_VARS).set_zero();
+        _Haug.block(N_VARS, NEW_VARS, N_VARS, NEW_VARS).set_zero();
+
+        // modify lb and ub for the new variables
+        for (unsigned i=N_VARS; i< NEW_VARS; i++)
+          _lbaug[i] = _ubaug[i] = z[i];
+
+        // resolve the QP
+        result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+        FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
+      }
+      else
+        FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution found" << std::endl;
+    } 
+    else
+    {
+      // there are slackable equality constraints; find a feasible solution
+      // to the problem without minimizing slack on the slackable equality 
+      // constraints  
+
+      // determine new number of variables (one for inequality constraints,
+      // two for unslackable equality constraints, two for each slackable
+      // equality constraint)
+      unsigned NEW_VARS = N_VARS + 1 + N_EQ_CONSTRAINTS*2;
+
+      // augment M
+      _Maug.resize(_M.rows(), NEW_VARS);
+      _Maug.block(0, _M.rows(), 0, N_VARS) = _M;
+      _Maug.block(0, _M.rows(), N_VARS, NEW_VARS).set_zero();
+      _Maug.column(N_VARS).set_one();
+
+      // augment A
+      unsigned N_NON_SLACKABLE_EQ_CONSTRAINTS = N_EQ_CONSTRAINTS - N_SLACKABLE_EQ_CONSTRAINTS;
+      _Aaug.resize(_A.rows(), NEW_VARS);
+      _Aaug.block(0, _A.rows(), 0, N_VARS) = _A;
+      _Aaug.block(0, _A.rows(), N_VARS, NEW_VARS).set_zero();
+      for (unsigned i=0, j=N_VARS+1; i< _A.rows(); i++)
+      {
+        _Aaug(i,j++) = 1.0;
+        _Aaug(i,j++) = -1.0;
+      }
+
+      // augment lb
+      _lbaug.resize(NEW_VARS);
+      _lbaug.segment(0, _lb.size()) = _lb;
+      _lbaug.segment(_lb.size(), NEW_VARS).set_zero();
+
+      // augment ub
+      _ubaug.resize(NEW_VARS);
+      _ubaug.segment(0, _ub.size()) = _ub;
+      _ubaug.segment(_ub.size(), NEW_VARS).set_one() *= INF;
+
+      // create a H for the QP
+      _Haug.set_zero(NEW_VARS, NEW_VARS); 
+      _Haug.block(N_VARS, N_VARS+3, N_VARS, N_VARS+3).set_identity();
+
+      // create a c for the QP
+      _caug.resize(NEW_VARS);
+      _caug.segment(0, N_VARS).set_zero();
+      _caug.segment(N_VARS, N_VARS+3).set_one();
+      _caug.segment(N_VARS+3, NEW_VARS).set_zero(); // don't penalize slack
+                                                    // on slackable equality
+                                                    // constraints... yet.
+
+      // solve the QP, using zero for z
+      z.set_zero(NEW_VARS);
+      bool result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      assert(result);
+      FILE_LOG(LOG_CONSTRAINT) << " -- LP solution (1): " << z << std::endl;
+
+      // hold the slack variables for the inequality constraints and 
+      // unslackable equality constraints at their present values and now
+      // minimize slack on slackable equality constraints
+
+      // create a H for the QP, penalizing only slackable equality constraints
+      _Haug.set_zero(NEW_VARS, NEW_VARS); 
+      _Haug.block(N_VARS+3, NEW_VARS, N_VARS+3, NEW_VARS).set_identity();
+
+      // create a c for the QP, penalizing only slackable equality constraints
+      _caug.segment(N_VARS, N_VARS+3).set_zero();
+      _caug.segment(N_VARS+3, NEW_VARS).set_one();
+
+      // modify lb and ub for the subset of new variables 
+      for (unsigned i=N_VARS; i< N_VARS+3; i++)
+        _lbaug[i] = _ubaug[i] = z[i];
+
+      // resolve the QP
+      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      assert(result);
+      FILE_LOG(LOG_CONSTRAINT) << " -- LP solution (2): " << z << std::endl;
+
+      // modify c for re-solving the QP - no longer penalize slackness
+      _caug.segment(0, N_VARS) = _c;
+      _caug.segment(N_VARS, NEW_VARS).set_zero();
+
+      // modify H for re-solving the QP - no longer penalize slackness
+      _Haug.block(0, N_VARS, 0, N_VARS) = _H;
+      _Haug.block(N_VARS, NEW_VARS, 0, N_VARS).set_zero();
+      _Haug.block(0, N_VARS, N_VARS, NEW_VARS).set_zero();
+      _Haug.block(N_VARS, NEW_VARS, N_VARS, NEW_VARS).set_zero();
+
+      // modify lb and ub for the new variables
+      for (unsigned i=N_VARS; i< NEW_VARS; i++)
+        _lbaug[i] = _ubaug[i] = z[i];
+
+      // resolve the QP
+      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      assert(result);
+      FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
+    }
+    #else
+    std::cerr << "Moby not built with qpOASES support; unable to solve QP" << std::endl;
+    #endif
+  }
 }
 
 /// Solves the quadratic program (does all of the work) as an LCP
@@ -92,417 +613,68 @@ double ImpactConstraintHandler::calc_ke(UnilateralConstraintProblemData& q, cons
  * \param z the solution is returned here; zeros are returned at appropriate
  *        places for inactive contacts
  */
-void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd, VectorNd& z)
+void ImpactConstraintHandler::apply_model_to_connected_constraints(const vector<Constraint*>& constraints, double inv_dt)
 {
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_X_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_X_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * L': " << std::endl << epd.Cn_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Cs': " << std::endl << epd.Cs_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Ct': " << std::endl << epd.Cs_X_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * L': " << std::endl << epd.Cs_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Ct': " << std::endl << epd.Ct_X_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * L': " << std::endl << epd.Ct_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * L': " << std::endl << epd.L_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << epd.Cn_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << epd.Cs_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << epd.Ct_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << epd.L_v << std::endl;
+  // mark starting time
+  tms cstart;
+  clock_t start = times(&cstart);
 
-  // setup new indices
-  const unsigned N_CONTACTS = epd.N_CONTACTS;
-  const unsigned CN_IDX = 0;
-  const unsigned CS_IDX = CN_IDX + N_CONTACTS;
-  const unsigned CT_IDX = CS_IDX + N_CONTACTS;
-  const unsigned NCS_IDX = CT_IDX + N_CONTACTS;
-  const unsigned NCT_IDX = NCS_IDX + N_CONTACTS;
-  const unsigned xL_IDX = NCT_IDX + N_CONTACTS;
-  const unsigned N_VARS = xL_IDX + epd.N_LIMITS;
+  // determine the total number of variables
+  const unsigned N_VARS = num_variables(constraints);
 
-  // init the QP matrix and vector
-  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS;
+  // init H to indicate that H must be constructed
+  _H.resize(0,0);
 
-  _MM.set_zero(N_VARS + N_INEQUAL, N_VARS + N_INEQUAL);
-  _qq.resize(_MM.rows());
-
-  // get the necessary matrices for setting up the LCP
-  SharedMatrixNd M = _MM.block(N_VARS, _MM.rows(), 0, N_VARS);
-  SharedMatrixNd H = _MM.block(0, N_VARS, 0, N_VARS);
-  SharedVectorNd c = _qq.segment(0, N_VARS);
-  SharedVectorNd q = _qq.segment(N_VARS, _qq.size()).set_zero();
-
-  // setup the QP
-  MatrixNd J(0, N_VARS);
-  VectorNd Jv(0);
-  SharedMatrixNd A = J.block(0, J.rows(), 0, J.columns());
-  SharedVectorNd b = Jv.segment(0, Jv.rows());
-  setup_QP(epd, H, c, M, q, A, b);
-
-  // set M = -M'
-  SharedMatrixNd MT = _MM.block(0, N_VARS, N_VARS, _MM.rows());
-  MatrixNd::transpose(M, MT);
-  MT.negate();
-
-  FILE_LOG(LOG_CONSTRAINT) << "H matrix: " << std::endl << H;
-  FILE_LOG(LOG_CONSTRAINT) << "c vector: " << c << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "M matrix: " << std::endl << M;
-  FILE_LOG(LOG_CONSTRAINT) << "q vector: " << q << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "LCP matrix: " << std::endl << _MM;
-  FILE_LOG(LOG_CONSTRAINT) << "LCP vector: " << _qq << std::endl;
-
-  // init z 
-  z.resize(_qq.rows());
-
-  // try warmstarting if possible
-  if (z.size() == _zlast.size())
+  // prepare to solve the problem using warmstarting if possible
+  VectorNd z;
+  if (N_VARS == _zlast.size())
     z = _zlast;
 
-  // solve the LCP using Lemke's algorithm
-  #ifdef USE_QLCPD
-  VectorNd lb(c.size()), ub(c.size());
-  lb.set_zero();
-  ub.set_one() *= 1e+29;
-  if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
+  // form and solve the problem
+  form_and_solve(constraints, inv_dt, N_VARS, _H, z);
+
+  // apply impulses
+  apply_impulses(constraints, z);
+
+  // get the constraint violation resulting from solving the QP 
+  double max_vio_pre = calc_max_constraint_violation(constraints);
+  
+  // apply restitution
+  VectorNd zplus = z;
+  if (apply_restitution(constraints, zplus))
   {
-    FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
+    apply_impulses(constraints, zplus);
 
-    // QP solver not successful by default; attempt to find the closest
-    // feasible point
-    if (!_qp.find_closest_feasible(lb, ub, M, q, A, b, z))
+    // update z
+    z += zplus;
+    FILE_LOG(LOG_CONSTRAINT) << "z (after restitution): " << z << std::endl;
+
+    // see whether we need to solve another impact problem
+    // -- if the constraint violation is negative and the constraint violation
+    //    is larger than after solving the inelastic impact QP, another impact 
+    //    problem must be solved 
+    double max_vio_post = calc_max_constraint_violation(constraints);
+    if (max_vio_post > max_vio_pre + NEAR_ZERO)
     {
-      // QP solver failed completely; use Lemke's Algorithm as backup
-      q.negate();
-      if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
-        throw LCPSolverException();
-    }
-    else
-    {
-      FILE_LOG(LOG_CONSTRAINT) << "updating q; q=" << q << std::endl;
+      // form and solve the problem
+      form_and_solve(constraints, inv_dt, N_VARS, _H, z);
 
-      // found closest feasible point; compute M*z - q
-      M.mult(z, _workv) -= q;
-      for (unsigned i=0; i< _workv.size(); i++)
-        if (_workv[i] < 0.0)
-          q[i] += _workv[i] - NEAR_ZERO;
-      FILE_LOG(LOG_CONSTRAINT) << "            q'=" << q << std::endl;
-
-      // now attempt to solve the QP again
-      if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
-      {
-        // QP solver failed on second attempt; use Lemke's Algorithm as backup
-        q.negate();
-        if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
-          throw LCPSolverException();
-      }
+      // apply impulses
+      apply_impulses(constraints, z);
+      FILE_LOG(LOG_CONSTRAINT) << "z (from second impact phase): " << z << std::endl;
     }
   }
 
-  FILE_LOG(LOG_CONSTRAINT) << "QLCPD solution: " << z << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
-  FILE_LOG(LOG_CONSTRAINT) << "q: " << q << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "M*z - q: " << (M.mult(z.get_sub_vec(0,M.columns(),_workv2), _workv) -= q) << std::endl;
-
-  #else
-  // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
-  q.negate();
-
-  // attempt fast lcp solve
-  if (!_lcp.lcp_fast_regularized(_MM, _qq, z, -20, 4, -8))
-  {
-    // Lemke does not like warm starting
-    z.set_zero();
-
-    if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
-      throw LCPSolverException();
-  }
-
-  // output reported LCP solution
-  FILE_LOG(LOG_CONSTRAINT) << "LCP solution: " << z << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "LCP pivots required: " << _lcp.pivots << std::endl;
-  #endif
-
-  // store zlast
+  // save the last solution
   _zlast = z;
 
-  // get relevant forces
-  SharedVectorNd cn = _zlast.segment(0, N_CONTACTS);
-  SharedVectorNd cs = _zlast.segment(N_CONTACTS, N_CONTACTS*2);
-  SharedVectorNd ct = _zlast.segment(N_CONTACTS*2, N_CONTACTS*3);
-  SharedVectorNd ncs = _zlast.segment(N_CONTACTS*3, N_CONTACTS*4);
-  SharedVectorNd nct = _zlast.segment(N_CONTACTS*4, N_CONTACTS*5);
-  SharedVectorNd l = _zlast.segment(N_CONTACTS*5, N_CONTACTS*5+epd.N_LIMITS);
-
-  // put z in the expected format (full contact forces)
-  z.set_zero(epd.N_VARS);
-  z.set_sub_vec(epd.CN_IDX, cn);
-  z.set_sub_vec(epd.CS_IDX, cs);
-  z.set_sub_vec(epd.CT_IDX, ct);
-  z.set_sub_vec(epd.NCS_IDX, ncs);
-  z.set_sub_vec(epd.NCT_IDX, nct);
-  z.set_sub_vec(epd.L_IDX, l);
-
-  FILE_LOG(LOG_CONSTRAINT) << "QP solution: " << z << std::endl;
-
-  if (LOGGING(LOG_CONSTRAINT))
-  {
-    VectorNd workv;
-    SharedVectorNd zsub = _zlast.segment(0, c.rows());
-    H.mult(zsub, workv) *= 0.5;
-    workv += c;
-    FILE_LOG(LOG_CONSTRAINT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;
-  }
+  // get the elapsed time
+  const long TPS = sysconf(_SC_CLK_TCK);
+  tms cstop;
+  clock_t stop = times(&cstop);
+  double elapsed = (double) (stop - start)/TPS;
+  FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_qp_work() exited" << std::endl;
-}
-
-/// Solves the quadratic program (does all of the work)
-/**
- * \note this is the version without joint friction forces
- * \param z the solution is returned here; zeros are returned at appropriate
- *        places for inactive contacts
- */
-void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, SharedMatrixNd& H, SharedVectorNd& c, SharedMatrixNd& M, SharedVectorNd& q, SharedMatrixNd& A, SharedVectorNd& b)
-{
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_X_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_X_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * L': " << std::endl << epd.Cn_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Cs': " << std::endl << epd.Cs_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Ct': " << std::endl << epd.Cs_X_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * L': " << std::endl << epd.Cs_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Ct': " << std::endl << epd.Ct_X_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * L': " << std::endl << epd.Ct_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * L': " << std::endl << epd.L_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << epd.Cn_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << epd.Cs_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << epd.Ct_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << epd.L_v << std::endl;
-
-  // get useful constants
-  const unsigned N_CONTACTS = epd.N_CONTACTS;
-  const unsigned N_LIMITS = epd.N_LIMITS;
-
-  // setup new indices
-  const unsigned CN_IDX = 0;
-  const unsigned CS_IDX = CN_IDX + N_CONTACTS;
-  const unsigned CT_IDX = CS_IDX + N_CONTACTS;
-  const unsigned NCS_IDX = CT_IDX + N_CONTACTS;
-  const unsigned NCT_IDX = NCS_IDX + N_CONTACTS;
-  const unsigned xL_IDX = NCT_IDX + N_CONTACTS;
-  const unsigned B_IDX = xL_IDX + epd.N_LIMITS;
-  const unsigned N_VARS = B_IDX + epd.N_FL_BILAT_CONSTRAINTS;
-
-  // init the QP matrix and vector
-  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS;
-
-  // setup row (block) 1 -- Cn * iM * [Cn' Cs Ct' -Cs' -Ct' L' B']
-  unsigned col_start = 0, col_end = epd.N_CONTACTS;
-  unsigned row_start = 0, row_end = epd.N_CONTACTS;
-  SharedMatrixNd Cn_X_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cn_X_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cn_X_CtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cn_X_NCsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cn_X_NCtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_LIMITS;
-  SharedMatrixNd Cn_X_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
-  SharedMatrixNd Cn_X_BT = H.block(row_start, row_end, col_start, col_end);
-
-  // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
-  row_start = row_end; row_end += epd.N_CONTACTS;
-  col_start = 0; col_end = epd.N_CONTACTS;
-  SharedMatrixNd Cs_X_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cs_X_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cs_X_CtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cs_X_NCsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Cs_X_NCtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_LIMITS;
-  SharedMatrixNd Cs_X_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
-  SharedMatrixNd Cs_X_BT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Cs_block = H.block(row_start, row_end, 0, col_end);
-
-  // setup row (block) 3 -- Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
-  row_start = row_end; row_end += epd.N_CONTACTS;
-  col_start = 0; col_end = epd.N_CONTACTS;
-  SharedMatrixNd Ct_X_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Ct_X_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Ct_X_CtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Ct_X_NCsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd Ct_X_NCtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_LIMITS;
-  SharedMatrixNd Ct_X_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
-  SharedMatrixNd Ct_X_BT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Ct_block = H.block(row_start, row_end, 0, col_end);
-
-  // setup row (block) 4 -- -Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
-  row_start = row_end; row_end += epd.N_CONTACTS;
-  SharedMatrixNd NCs_block = H.block(row_start, row_end, 0, col_end);
-
-  // setup row (block) 5 -- -Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' B']
-  row_start = row_end; row_end += epd.N_CONTACTS;
-  SharedMatrixNd NCt_block = H.block(row_start, row_end, 0, col_end);
-
-  // setup row (block 6) -- L * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' B']
-  row_start = row_end; row_end += epd.N_LIMITS;
-  col_start = 0; col_end = epd.N_CONTACTS;
-  SharedMatrixNd L_X_CnT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd L_X_CsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd L_X_CtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd L_X_NCsT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_CONTACTS;
-  SharedMatrixNd L_X_NCtT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_LIMITS;
-  SharedMatrixNd L_X_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += epd.N_FL_BILAT_CONSTRAINTS;
-  SharedMatrixNd L_X_BT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
-
-  // copy to row block 1 (contact normals)
-  epd.Cn_X_CnT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cn_X_CnT);
-  epd.Cn_X_CsT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cn_X_CsT);
-  epd.Cn_X_CtT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cn_X_CtT);
-  (Cn_X_NCsT = Cn_X_CsT).negate();
-  (Cn_X_NCtT = Cn_X_CtT).negate();
-  epd.Cn_X_LT.get_sub_mat(0, N_CONTACTS, 0, epd.N_LIMITS, Cn_X_LT);
-  epd.Cn_X_BT.get_sub_mat(0, N_CONTACTS, 0, epd.N_FL_BILAT_CONSTRAINTS, Cn_X_BT);
-
-  // copy to row block 2 (first tangents)
-  MatrixNd::transpose(Cn_X_CsT, Cs_X_CnT);
-  epd.Cs_X_CsT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cs_X_CsT);
-  epd.Cs_X_CtT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Cs_X_CtT);
-  (Cs_X_NCsT = Cs_X_CsT).negate();
-  (Cs_X_NCtT = Cs_X_CtT).negate();
-  epd.Cs_X_LT.get_sub_mat(0, N_CONTACTS, 0, epd.N_LIMITS, Cs_X_LT);
-  epd.Cs_X_BT.get_sub_mat(0, N_CONTACTS, 0, epd.N_FL_BILAT_CONSTRAINTS, Cs_X_BT);
-
-  // copy to row block 3 (second tangents)
-  MatrixNd::transpose(Cn_X_CtT, Ct_X_CnT);
-  MatrixNd::transpose(Cs_X_CtT, Ct_X_CsT);
-  epd.Ct_X_CtT.get_sub_mat(0, N_CONTACTS, 0, N_CONTACTS, Ct_X_CtT);
-  (Ct_X_NCsT = Ct_X_CsT).negate();
-  (Ct_X_NCtT = Ct_X_CtT).negate();
-  epd.Ct_X_LT.get_sub_mat(0, N_CONTACTS, 0, epd.N_LIMITS, Ct_X_LT);
-  epd.Ct_X_BT.get_sub_mat(0, N_CONTACTS, 0, epd.N_FL_BILAT_CONSTRAINTS, Ct_X_BT);
-
-  // copy to row block 4 (negative first contact tangents)
-  (NCs_block = Cs_block).negate();
-
-  // copy to row block 5 (negative second contact tangents)
-  (NCt_block = Ct_block).negate();
-
-  // copy to row block 6 (limits)
-  MatrixNd::transpose(Cn_X_LT, L_X_CnT);
-  MatrixNd::transpose(Cs_X_LT, L_X_CsT);
-  MatrixNd::transpose(Ct_X_LT, L_X_CtT);
-  (L_X_NCsT = L_X_CsT).negate();
-  (L_X_NCtT = L_X_CtT).negate();
-  epd.L_X_LT.get_sub_mat(0, epd.N_LIMITS, 0, epd.N_LIMITS, L_X_LT);
-  epd.L_X_BT.get_sub_mat(0, epd.N_LIMITS, 0, epd.N_FL_BILAT_CONSTRAINTS, L_X_BT);
-
-  // get shared vectors to components of c
-  SharedVectorNd Cn_v = c.segment(CN_IDX, CS_IDX);
-  SharedVectorNd Cs_v = c.segment(CS_IDX, CT_IDX);
-  SharedVectorNd Ct_v = c.segment(CT_IDX, NCS_IDX);
-  SharedVectorNd nCs_v = c.segment(NCS_IDX, NCT_IDX);
-  SharedVectorNd nCt_v = c.segment(NCT_IDX, xL_IDX);
-  SharedVectorNd L_v = c.segment(xL_IDX, B_IDX);
-  SharedVectorNd B_v = c.segment(B_IDX, N_VARS);
-
-  // setup c
-  epd.Cn_v.get_sub_vec(0, N_CONTACTS, Cn_v);
-  epd.Cs_v.get_sub_vec(0, N_CONTACTS, Cs_v);
-  epd.Ct_v.get_sub_vec(0, N_CONTACTS, Ct_v);
-  (nCs_v = Cs_v).negate();
-  (nCt_v = Ct_v).negate();
-  L_v = epd.L_v;
-  B_v = epd.B_v;
-
-  // incorporate contact stiffness
-  for (unsigned i=0; i< N_CONTACTS; i++)
-    Cn_v[i] += epd.contact_constraints[i]->contact_stiffness * epd.contact_constraints[i]->signed_violation;
-
-  // incorporate joint limit stiffness
-  for (unsigned i=0; i< N_LIMITS; i++)
-    L_v[i] += epd.limit_constraints[i]->limit_stiffness * epd.limit_constraints[i]->signed_violation;
-
-  // incorporate contact damping *if the signed violation is not too great*
-  ColumnIteratord Cn_X_CnT_iter = Cn_X_CnT.column_iterator_begin(); 
-  for (unsigned i=0; i< N_CONTACTS; i++, Cn_X_CnT_iter++)
-  {
-    const UnilateralConstraint& c = *epd.contact_constraints[i];
-    double compliant_layer_depth = c.contact_geom1->compliant_layer_depth +
-                                   c.contact_geom2->compliant_layer_depth;
-    if (c.signed_violation + compliant_layer_depth > 0)
-      *Cn_X_CnT_iter += epd.contact_constraints[i]->contact_damping;
-  }
-
-  // incorporate joint limit damping
-  ColumnIteratord L_X_LT_iter = L_X_LT.column_iterator_begin();
-  for (unsigned i=0; i< N_LIMITS; i++, L_X_LT_iter++)
-  {
-    const UnilateralConstraint& c = *epd.limit_constraints[i];
-    double compliant_layer_depth = c.limit_joint->compliant_layer_depth;
-    if (c.signed_violation + compliant_layer_depth > 0)
-      *L_X_LT_iter += epd.limit_constraints[i]->limit_damping;
-  }
-
-  // ------- setup M/q -------
-  // setup the Cn*v+ >= 0 constraint
-  // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
-  row_start = 0; row_end = N_CONTACTS;
-  M.block(row_start, row_end, 0, M.columns()) = H.block(0, N_CONTACTS, 0, H.columns());
-  q.set_sub_vec(row_start, epd.Cn_v);
-  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
-  row_start = row_end; row_end += epd.N_LIMITS;
-
-  // setup the L*v+ >= 0 constraint
-  M.block(row_start, row_end, CN_IDX, N_VARS) = L_block;
-  q.set_sub_vec(row_start, epd.L_v);
-  row_start = row_end; row_end += epd.N_CONTACTS;
-
-  // setup the contact friction constraints
-  // mu_c*cn + mu_v*cvel >= beta
-  for (unsigned i=0; i< epd.N_CONTACTS; i++)
-  {
-    // initialize the contact velocity
-    double vel = std::sqrt(sqr(epd.Cs_v[i]) + sqr(epd.Ct_v[i]));
-
-    // setup the Coulomb friction inequality constraints for this contact
-    for (unsigned j=0; j< epd.contact_constraints[i]->contact_NK/2; j++)
-    {
-      double theta = (double) j/(epd.contact_constraints[i]->contact_NK/2-1) * M_PI_2;
-      const double ct = std::cos(theta);
-      const double st = std::sin(theta);
-      M(row_start, CN_IDX+i) = epd.contact_constraints[i]->contact_mu_coulomb;
-      M(row_start, CS_IDX+i) = -ct;
-      M(row_start, NCS_IDX+i) = -ct;
-      M(row_start, CT_IDX+i) = -st;
-      M(row_start, NCT_IDX+i) = -st;
-
-      // setup the viscous friction component
-      q[row_start] = epd.contact_constraints[i]->contact_mu_viscous * vel;
-      row_start++;
-    }
-  }
-
-  // negate q
-  q.negate();
 }
 
 

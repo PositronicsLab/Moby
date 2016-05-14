@@ -53,9 +53,9 @@
       <DynamicBody dynamic-body-id="box3" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity" />
-      <ContactParameters object1-id="ground" object2-id="box1" mu-coulomb="100" />
-      <ContactParameters object1-id="box1" object2-id="box2" mu-coulomb="100" />
-      <ContactParameters object1-id="box2" object2-id="box3" mu-coulomb="100" />
+      <ContactParameters object1-id="ground" object2-id="box1" mu-coulomb="0" />
+      <ContactParameters object1-id="box1" object2-id="box2" mu-coulomb="0" />
+      <ContactParameters object1-id="box2" object2-id="box3" mu-coulomb="0" />
     </TimeSteppingSimulator> 
   </MOBY>
 </XML>

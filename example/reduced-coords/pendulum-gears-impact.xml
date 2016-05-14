@@ -1,7 +1,7 @@
 <!-- A pendulum subject to gears, falling and hitting the platform -->
 
 <XML>
-  <DRIVER>
+  <DRIVER step-size="0.01">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
@@ -10,7 +10,8 @@
     <Sphere id="sphere" radius="1.5811" mass="1" />
     <Sphere id="sph2" radius=".1" mass="1" />
     <Cylinder id="cyl" radius=".01" height="1" mass="1" rpy="0 1.5708 0" position="0 .5 0"/>
-    <Plane id="ground-plane" position="0 -.8 0" />
+    <Plane id="ground-plane" position="0 0 0" />
+    <Box id="plane-viz" xlen="10" ylen="100" zlen="10" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
@@ -18,10 +19,10 @@
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="platform" />
-    <ContactParameters object1-id="l1" object2-id="platform" />
+    <ContactParameters object1-id="l1" object2-id="platform" epsilon=".7" />
   </TimeSteppingSimulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false" translate="0 .8 0">
 
       <RigidBody id="base" position="0 0 0">
         <InertiaFromPrimitive primitive-id="sphere" />
@@ -45,6 +46,7 @@
 
     <RigidBody id="platform" enabled="false">
         <CollisionGeometry primitive-id="ground-plane" />
+        <Visualization visualization-id="plane-viz" visualization-rel-origin="0 -50 0" />
     </RigidBody>
 
   </MOBY>

@@ -24,9 +24,9 @@ class TorusPlanePlugin : public CCD
   public:
     TorusPlanePlugin() {}
 
-    virtual void set_simulator(boost::shared_ptr<TimeSteppingSimulator> sim)
+    virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim)
     {
-      this->sim = sim;
+      this->sim = dynamic_pointer_cast<TimeSteppingSimulator>(sim);
 
       // find the necessary objects
       for (unsigned i=0; i< sim->get_dynamic_bodies().size(); i++)
@@ -85,9 +85,6 @@ class TorusPlanePlugin : public CCD
           remainder.pop_back();
           break;
         }
-
-      // call CCD on the remainder
-      CCD::broad_phase(dt, remainder, to_check);
 
       // now add in collision geometries for the plane and the walker
       to_check.push_back(std::make_pair(ground_cg, left_foot_cg));
@@ -280,7 +277,7 @@ class TorusPlanePlugin : public CCD
     }
 
     /// Finds contacts between a torus and a plane
-    virtual void find_contacts_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
+    virtual void find_contacts_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg, std::vector<Constraint>& contacts)
     {
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
@@ -318,7 +315,7 @@ class TorusPlanePlugin : public CCD
     }
 
     /// Finds contacts between two collision geometries
-    virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
+    virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<Constraint>& contacts, double TOL = NEAR_ZERO)
     {
       if (cgA == left_foot_cg && cgB == ground_cg)
         find_contacts_torus_plane(cgA, cgB, contacts);

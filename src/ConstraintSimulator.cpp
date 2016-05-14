@@ -153,7 +153,7 @@ shared_ptr<ContactParameters> ConstraintSimulator::get_contact_parameters(Collis
 }
 
 /// Draws a ray directed from a contact point along the contact normal
-void ConstraintSimulator::visualize_contact( UnilateralConstraint& constraint ) 
+void ConstraintSimulator::visualize_contact( Constraint& constraint ) 
 {
   #ifdef USE_OSG
 
@@ -310,7 +310,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   // look for the case where there are no impacting constraints
   bool none_impacting = true;
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
-    if (_rigid_constraints[i].determine_constraint_class() == UnilateralConstraint::eNegative)
+    if (_rigid_constraints[i].determine_constraint_velocity_class() == Constraint::eNegative)
     {
       none_impacting = false;
       break;
@@ -322,9 +322,9 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
 
   // if the setting is enabled, draw all contact constraints
   if( render_contact_points ) {
-    for ( std::vector<UnilateralConstraint>::iterator it = _rigid_constraints.begin(); it < _rigid_constraints.end(); it++ ) {
-      UnilateralConstraint& constraint = *it;
-      if( constraint.constraint_type != UnilateralConstraint::eContact ) continue;
+    for ( std::vector<Constraint>::iterator it = _rigid_constraints.begin(); it < _rigid_constraints.end(); it++ ) {
+      Constraint& constraint = *it;
+      if( constraint.constraint_type != Constraint::eContact ) continue;
       visualize_contact( constraint );
     }
   }
@@ -332,10 +332,46 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   // set simulator pointer
   _impact_constraint_handler._simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
 
+  // add all implicit joint constraints from bodies
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    // try to get the body as an articulated body
+    shared_ptr<ArticulatedBodyd> ab = dynamic_pointer_cast<ArticulatedBodyd>(_bodies[i]);
+    if (!ab)
+      continue;  
+
+    // get the joints
+    const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
+
+    // look for implicit constraints
+    for (unsigned j=0; j< joints.size(); j++)
+    {
+      if (joints[j]->get_constraint_type() == Jointd::eImplicit)
+      {
+        Constraint c;
+        c.constraint_type = Constraint::eImplicitJoint;
+        c.implicit_joint = dynamic_pointer_cast<Joint>(joints[j]);
+        assert(c.implicit_joint);
+        _rigid_constraints.push_back(c);
+      }
+    }
+  }
+
+  // add all implicit joint constraints from the simulator
+  for (unsigned i=0; i< implicit_joints.size(); i++)
+  {
+    Constraint c;
+    c.constraint_type = Constraint::eImplicitJoint;
+    c.implicit_joint = implicit_joints[i];
+    assert(c.implicit_joint);
+    _rigid_constraints.push_back(c);
+  }
+
   // compute impulses here...
   try
   {
-    _impact_constraint_handler.process_constraints(_rigid_constraints);
+    double inv_dt = (dt < NEAR_ZERO) ? 0.0 : 1.0/dt;
+    _impact_constraint_handler.process_constraints(_rigid_constraints, inv_dt);
   }
   catch (ImpactToleranceException e)
   {
@@ -357,51 +393,19 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
     (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
 }
 
-/// Computes compliant contact forces 
-void ConstraintSimulator::calc_compliant_unilateral_constraint_forces()
-{
-  // if there are no compliant constraints, quit now
-  if (_compliant_constraints.empty())
-    return;
-
-  // call the callback function, if any
-  if (constraint_callback_fn)
-    (*constraint_callback_fn)(_compliant_constraints, constraint_callback_data);
-
-  // preprocess constraints
-  for (unsigned i=0; i< _compliant_constraints.size(); i++)
-    preprocess_constraint(_compliant_constraints[i]);
-
-  // if the setting is enabled, draw all contact constraints
-  if( render_contact_points ) {
-    for ( std::vector<UnilateralConstraint>::iterator it = _compliant_constraints.begin(); it < _compliant_constraints.end(); it++ ) {
-      UnilateralConstraint& constraint = *it;
-      if( constraint.constraint_type != UnilateralConstraint::eContact ) continue;
-      visualize_contact( constraint );
-    }
-  }
-
-  // compute contact constraint penalty forces here...
-  _penalty_constraint_handler.process_constraints(_compliant_constraints);
-
-  // call the post application callback, if any 
-  if (constraint_post_callback_fn)
-    (*constraint_post_callback_fn)(_compliant_constraints, constraint_post_callback_data);
-}
-
 /// Performs necessary preprocessing on an constraint
-void ConstraintSimulator::preprocess_constraint(UnilateralConstraint& e)
+void ConstraintSimulator::preprocess_constraint(Constraint& e)
 {
   // no pre-processing for limit constraints currently...
-  if (e.constraint_type == UnilateralConstraint::eLimit)
+  if (e.constraint_type == Constraint::eLimit)
     return;
 
   // no pre-processing for (none) constraints
-  if (e.constraint_type == UnilateralConstraint::eNone)
+  if (e.constraint_type == Constraint::eNone)
     return;
 
   // get the contact parameters
-  assert(e.constraint_type == UnilateralConstraint::eContact);
+  assert(e.constraint_type == Constraint::eContact);
   shared_ptr<ContactParameters> cparams = get_contact_parameters(e.contact_geom1, e.contact_geom2);
   if (cparams)
     e.set_contact_parameters(*cparams);
@@ -494,7 +498,6 @@ void ConstraintSimulator::find_unilateral_constraints()
 
   // clear the vectors of constraints
   _rigid_constraints.clear();
-  _compliant_constraints.clear();
 
   // process each articulated body, getting joint constraints
   for (unsigned i=0; i< _bodies.size(); i++)
@@ -542,17 +545,9 @@ void ConstraintSimulator::find_unilateral_constraints()
     _rigid_constraints[i].signed_violation -= depth;
   }
 
-  // set constraints to proper type
-  for (unsigned i=0; i< _rigid_constraints.size(); i++)
-    _rigid_constraints[i].compliance = UnilateralConstraint::eRigid;
-
   if (LOGGING(LOG_SIMULATOR))
-  {
     for (unsigned i=0; i< _rigid_constraints.size(); i++)
     FILE_LOG(LOG_SIMULATOR) << _rigid_constraints[i] << std::endl;
-    for (unsigned i=0; i< _compliant_constraints.size(); i++)
-    FILE_LOG(LOG_SIMULATOR) << _compliant_constraints[i] << std::endl;
-  }
 
   FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::find_unilateral_constraints() exited" << std::endl;
 }

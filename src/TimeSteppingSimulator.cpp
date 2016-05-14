@@ -175,9 +175,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     // prepare to calculate forward dynamics
     precalc_fwd_dyn();
 
-    // apply compliant unilateral constraint forces
-    calc_compliant_unilateral_constraint_forces();
-
     // compute forward dynamics
     calc_fwd_dyn(h);
 
@@ -213,7 +210,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   find_unilateral_constraints();
 
   // handle any impacts
-  calc_impacting_unilateral_constraint_forces(-1.0);
+  calc_impacting_unilateral_constraint_forces(h);
 
   // update the time
   current_time += h;
@@ -409,7 +406,7 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
   find_unilateral_constraints(contact_dist_thresh);
 
   // handle any impacts
-  calc_impacting_unilateral_constraint_forces(-1.0);
+  calc_impacting_unilateral_constraint_forces(dt);
 
   // update the time
   current_time += dt;

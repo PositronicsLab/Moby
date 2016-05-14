@@ -12,10 +12,9 @@
 #include <Moby/ConstraintSimulator.h>
 #include <Moby/ImpactConstraintHandler.h>
 #include <Moby/PenaltyConstraintHandler.h>
-#include <Moby/SustainedUnilateralConstraintHandler.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/CCD.h>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 
 namespace Moby {
 

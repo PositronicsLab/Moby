@@ -11,11 +11,9 @@
 #include <Ravelin/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactConstraintHandler.h>
-#include <Moby/PenaltyConstraintHandler.h>
-#include <Moby/SustainedUnilateralConstraintHandler.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/CCD.h>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 #include <Moby/ConstraintStabilization.h>
 
 namespace Moby {
@@ -59,10 +57,10 @@ class ConstraintSimulator : public Simulator
      * their processing (however, doing so may prevent the simulation from
      * making progress, as the simulator attempts to disallow violations.
      */
-    void (*constraint_callback_fn)(std::vector<UnilateralConstraint>&, boost::shared_ptr<void>);
+    void (*constraint_callback_fn)(std::vector<Constraint>&, boost::shared_ptr<void>);
 
     /// The callback function (called after forces/impulses are applied)
-    void (*constraint_post_callback_fn)(const std::vector<UnilateralConstraint>&, boost::shared_ptr<void>);
+    void (*constraint_post_callback_fn)(const std::vector<Constraint>&, boost::shared_ptr<void>);
 
     /// Data passed to unilateral constraint callback
     boost::shared_ptr<void> constraint_callback_data;
@@ -70,11 +68,8 @@ class ConstraintSimulator : public Simulator
     /// Data passed to post-constraint callback
     boost::shared_ptr<void> constraint_post_callback_data;
  
-    /// Gets the (sorted) compliant constraint data
-    std::vector<UnilateralConstraint>& get_compliant_constraints() { return _compliant_constraints; }
-
     /// Gets the (sorted) rigid constraint data
-    std::vector<UnilateralConstraint>& get_rigid_constraints() { return _rigid_constraints; }
+    std::vector<Constraint>& get_rigid_constraints() { return _rigid_constraints; }
 
     /// Mapping from objects to contact parameters
     std::map<Ravelin::sorted_pair<BasePtr>, boost::shared_ptr<ContactParameters> > contact_params;
@@ -88,24 +83,17 @@ class ConstraintSimulator : public Simulator
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
     void find_unilateral_constraints();
-    void calc_compliant_unilateral_constraint_forces();
-    void preprocess_constraint(UnilateralConstraint& e);
+    void preprocess_constraint(Constraint& e);
     void determine_geometries();
     void broad_phase(double dt);
     void calc_pairwise_distances();
-    void visualize_contact( UnilateralConstraint& constraint );
+    void visualize_contact( Constraint& constraint );
 
     /// Object for handling impact constraints
     ImpactConstraintHandler _impact_constraint_handler;
 
-    /// Object for handling penalty constraints
-    PenaltyConstraintHandler _penalty_constraint_handler;
-    
     /// The vector of rigid constraints
-    std::vector<UnilateralConstraint> _rigid_constraints;
-
-    /// The vector of compliant constraints
-    std::vector<UnilateralConstraint> _compliant_constraints;
+    std::vector<Constraint> _rigid_constraints;
 
   protected:
 

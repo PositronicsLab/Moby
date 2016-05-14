@@ -19,7 +19,7 @@ using namespace Ravelin;
 using namespace Moby;
 
 /// Gets the body indices and the total number of degrees of freedom
-unsigned RCArticulatedBodyInvDyn::get_body_indices(const std::vector<Moby::UnilateralConstraint>& c, map<shared_ptr<DynamicBodyd>, unsigned>& index_start)
+unsigned RCArticulatedBodyInvDyn::get_body_indices(const std::vector<Moby::Constraint>& c, map<shared_ptr<DynamicBodyd>, unsigned>& index_start)
 {
   unsigned NDOFS = 0;
 
@@ -30,7 +30,7 @@ unsigned RCArticulatedBodyInvDyn::get_body_indices(const std::vector<Moby::Unila
   for (unsigned i=0; i< c.size(); i++)
   {
     // verify that this is a contact constraint
-    assert(c[i].constraint_type == UnilateralConstraint::eContact);
+    assert(c[i].constraint_type == Constraint::eContact);
 
     // get the two bodies involved
     shared_ptr<SingleBodyd> b1 = c[i].contact_geom1->get_single_body(); 
@@ -59,7 +59,7 @@ unsigned RCArticulatedBodyInvDyn::get_body_indices(const std::vector<Moby::Unila
 }
 
 /// Computes contact Jacobians from the unilateral contact constraints
-void RCArticulatedBodyInvDyn::calc_contact_jacobians(const std::vector<Moby::UnilateralConstraint>& c, Ravelin::MatrixNd& N,Ravelin::MatrixNd& S, Ravelin::MatrixNd& T, const map<shared_ptr<DynamicBodyd>, unsigned>& index_start, unsigned NDOFS)
+void RCArticulatedBodyInvDyn::calc_contact_jacobians(const std::vector<Moby::Constraint>& c, Ravelin::MatrixNd& N,Ravelin::MatrixNd& S, Ravelin::MatrixNd& T, const map<shared_ptr<DynamicBodyd>, unsigned>& index_start, unsigned NDOFS)
 {
   // get the number of contact constraints
   unsigned NC = c.size();

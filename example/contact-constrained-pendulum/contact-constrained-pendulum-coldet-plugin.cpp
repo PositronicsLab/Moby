@@ -92,7 +92,7 @@ class PendulumColdetPlugin : public CCD
     }
 
     /// Finds contacts between the l1 and a plane
-    virtual void find_contacts_l1_world(CollisionGeometryPtr l1_cg, CollisionGeometryPtr world_cg, std::vector<UnilateralConstraint>& contacts)
+    virtual void find_contacts_l1_world(CollisionGeometryPtr l1_cg, CollisionGeometryPtr world_cg, std::vector<Constraint>& contacts)
     {
       const unsigned X = 0, Y = 1, Z = 2;
 
@@ -125,7 +125,7 @@ point = (p + point)*0.5;
     }
 
     /// Finds contacts between two collision geometries
-    virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
+    virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<Constraint>& contacts, double TOL = NEAR_ZERO)
     {
       if (cgA == l1_cg && cgB == world_cg)
         find_contacts_l1_world(cgA, cgB, contacts);

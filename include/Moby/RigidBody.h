@@ -66,7 +66,6 @@ class RigidBody : public virtual Ravelin::RigidBodyd, public virtual ControlledB
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void set_articulated_body(boost::shared_ptr<ArticulatedBody> body);
     virtual void set_inertia(const Ravelin::SpatialRBInertiad& J);
-    virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gj);
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;

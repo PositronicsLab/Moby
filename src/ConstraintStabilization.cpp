@@ -29,12 +29,17 @@
 
 #include <map>
 #include <algorithm>
+#include <utility>
+#include <boost/algorithm/minmax_element.hpp>
 #include <Moby/Types.h>
 #include <Moby/ConstraintSimulator.h>
+#include <Moby/LCPSolverException.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/ConstraintStabilization.h>
-#include <boost/algorithm/minmax_element.hpp>
-#include <utility>
+
+#ifdef USE_QPOASES
+#include <Moby/qpOASES.h>
+#endif
 
 using namespace Ravelin;
 using namespace Moby;
@@ -60,6 +65,9 @@ ConstraintStabilization::ConstraintStabilization()
 
   // set bilateral tolerance
   bilateral_eps = 1e-6;
+
+  // set the inequality tolerance
+  inequality_tolerance = -1.0;
 }
 
 /// Saves the velocities before constraint stabilization
@@ -127,6 +135,24 @@ double ConstraintStabilization::evaluate_unilateral_constraints(shared_ptr<Const
     }
   }
 
+  // also look at joint violations for all joints in the simulator
+  if (!sim->implicit_joints.empty())
+  {
+    const std::vector<JointPtr>& joints = sim->implicit_joints;
+    for (unsigned j=0; j< joints.size(); j++)
+    {
+      shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[j]);
+      const VectorNd& tare = joint->get_q_tare(); 
+      for (unsigned k=0; k< joint->num_dof(); k++)
+      {
+        uC.push_back(joint->hilimit[k] - joint->q[k] - tare[k]);
+        vio = std::min(vio, uC.back());
+        uC.push_back(joint->q[k] + tare[k] - joint->lolimit[k]);
+        vio = std::min(vio, uC.back());
+      }
+    }
+  }
+
   return vio;
 }
 
@@ -168,7 +194,6 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
 {
   FILE_LOG(LOG_SIMULATOR)<< "======constraint stabilization start======"<<std::endl;
   VectorNd dq, q, v;
-  std::vector<UnilateralConstraintProblemData> pd;
   std::vector<VectorNd> qd_save;
   std::vector<double> C, uC;
   std::map<shared_ptr<DynamicBodyd>, unsigned> body_index_map;
@@ -217,14 +242,18 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
       db->set_generalized_velocity(DynamicBodyd::eSpatial, v);
     }
 
-    // compute problem data (get M, N, alpha, etc.) 
-    compute_problem_data(pd, sim);
+    // determine islands and super bodies in the islands
+    vector<vector<Constraint*> > pd;
+    vector<vector<shared_ptr<DynamicBodyd> > > super_bodies;
+    compute_problem_data(pd, super_bodies, sim);
 
     // determine dq's
     dq.set_zero(q.size());
     for (unsigned i=0; i< pd.size(); i++)
-      determine_dq(pd[i], dq, body_index_map);
+      determine_dq(pd[i], super_bodies[i], dq, body_index_map);
     FILE_LOG(LOG_SIMULATOR) << "dq: " << dq << std::endl;
+
+    // TODO: compute maximum step size for each island
 
     // determine s and update q; NOTE: update q computes the pairwise distances 
     if (!update_q(dq, q, sim))
@@ -263,8 +292,47 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   FILE_LOG(LOG_SIMULATOR) <<"=====constraint stabilization end ======" << std::endl;
 }
 
+/// Adds constraints for bilateral joints
+void ConstraintStabilization::add_joint_constraints(const vector<ControlledBodyPtr>& bodies, std::vector<Constraint>& constraints, shared_ptr<ConstraintSimulator> sim)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // loop through all bodies looking for constraints
+  for (unsigned i=0; i< bodies.size(); i++)
+  {
+    shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(bodies[i]);
+    if (rcab)
+    {
+      const std::vector<shared_ptr<Jointd> >& joints = rcab->get_joints();
+      for (unsigned j=0; j< joints.size(); j++)
+      {
+        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[j]); 
+        if (joint->get_constraint_type() == Jointd::eImplicit)
+        {
+          Constraint e;
+          e.constraint_type = Constraint::eImplicitJoint;
+          e.implicit_joint = joint;
+          constraints.push_back(e);
+        }
+      }
+    }
+  }
+
+  // also look at joint violations for all implicit joints in the simulator
+  const std::vector<JointPtr>& joints = sim->implicit_joints;
+  for (unsigned j=0; j< joints.size(); j++)
+  {
+    shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[j]);
+    Constraint e;
+    e.constraint_type = Constraint::eImplicitJoint;
+    e.implicit_joint = joint;
+    constraints.push_back(e);
+  }
+}
+
+
 /// Adds unilateral constraints for joint limits in an articulated body
-void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyPtr>& bodies, std::vector<UnilateralConstraint>& constraints)
+void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyPtr>& bodies, std::vector<Constraint>& constraints, shared_ptr<ConstraintSimulator> sim)
 {
   const double INF = std::numeric_limits<double>::max();
 
@@ -285,12 +353,13 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
           // only add an upper limit constraint if the upper limit < inf
           if (joint->hilimit[k] < INF)
           {
-            UnilateralConstraint e;
-            e.constraint_type = UnilateralConstraint::eLimit;
+            Constraint e;
+            e.constraint_type = Constraint::eLimit;
             e.limit_joint = joint;
             e.limit_dof = k;
             e.limit_epsilon = 0.0;
             e.limit_upper = true;
+            e.limit_stiffness = 1.0;
             e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
             constraints.push_back(e);
           }
@@ -298,12 +367,13 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
           // only add a lower limit constraint if the lower limit > -inf
           if (joint->lolimit[k] > -INF)
           {
-            UnilateralConstraint e;
-            e.constraint_type = UnilateralConstraint::eLimit;
+            Constraint e;
+            e.constraint_type = Constraint::eLimit;
             e.limit_joint = joint;
             e.limit_dof = k;
             e.limit_epsilon = 0.0;
             e.limit_upper = false;
+            e.limit_stiffness = 1.0;
             e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
             constraints.push_back(e);
           }
@@ -311,10 +381,51 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
       }
     }
   }
+
+  // also look at joint violations for all implicit joints in the simulator
+  if (!sim->implicit_joints.empty())
+  {
+    const std::vector<JointPtr>& joints = sim->implicit_joints;
+    for (unsigned j=0; j< joints.size(); j++)
+    {
+      shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[j]);
+      const VectorNd& tare = joint->get_q_tare(); 
+      for (unsigned k=0; k< joint->num_dof(); k++)
+      {
+        // only add an upper limit constraint if the upper limit < inf
+        if (joint->hilimit[k] < INF)
+        {
+          Constraint e;
+          e.constraint_type = Constraint::eLimit;
+          e.limit_joint = joint;
+          e.limit_dof = k;
+          e.limit_epsilon = 0.0;
+          e.limit_upper = true;
+          e.limit_stiffness = 1.0;
+          e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
+          constraints.push_back(e);
+        }
+
+        // only add a lower limit constraint if the lower limit > -inf
+        if (joint->lolimit[k] > -INF)
+        {
+          Constraint e;
+          e.constraint_type = Constraint::eLimit;
+          e.limit_joint = joint;
+          e.limit_dof = k;
+          e.limit_epsilon = 0.0;
+          e.limit_upper = false;
+          e.limit_stiffness = 1.0;
+          e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
+          constraints.push_back(e);
+        }
+      }
+    }
+  }
 }
 
 /// Adds contact constraints from a pair of bodies
-void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralConstraint>& constraints, CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::add_contact_constraints(std::vector<Constraint>& constraints, CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, shared_ptr<ConstraintSimulator> sim)
 {
   boost::shared_ptr<const Pose3d> GLOBAL;
   Point3d p1, p2;
@@ -334,7 +445,14 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     Point3d p1_g = _1TG.transform_point(p1);
     Ravelin::Vector3d normal = p2-p1_2;
     normal.normalize();
-    UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
+    Constraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
+
+    // make the contact frictionless
+    uc.contact_mu_coulomb = 0.0;
+
+    // maximize the contact stiffness 
+    uc.contact_stiffness = 1.0;
+
     FILE_LOG(LOG_CONSTRAINT) << "creating contact between separated bodies: " << cg1->get_single_body()->body_id << " and " << cg2->get_single_body()->body_id << std::endl;
     FILE_LOG(LOG_CONSTRAINT) << uc << std::endl;
     constraints.insert(constraints.end(), uc); 
@@ -345,16 +463,19 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     FILE_LOG(LOG_CONSTRAINT) << "creating contacts between interpenetrating/contacting bodies: " << cg1->get_single_body()->body_id << " and " << cg2->get_single_body()->body_id << std::endl;
     const unsigned OLD_CONSTRAINTS_SZ = constraints.size();
     sim->_coldet->find_contacts(cg1,cg2, constraints);
-    if (LOGGING(LOG_CONSTRAINT))
+
+    // make the contacts frictionless and rigid
+    for (unsigned i=OLD_CONSTRAINTS_SZ; i< constraints.size(); i++)
     {
-      for (unsigned i=OLD_CONSTRAINTS_SZ; i< constraints.size(); i++)
-        FILE_LOG(LOG_CONSTRAINT) << constraints[i] << std::endl;
+      constraints[i].contact_mu_coulomb = 0.0;
+      constraints[i].contact_stiffness = 1.0;
+      FILE_LOG(LOG_CONSTRAINT) << constraints[i] << std::endl;
     }
   }
 }
 
 /// Computes the constraint data
-void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd_vector, shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::compute_problem_data(vector<vector<Constraint*> >& pd, vector<vector<shared_ptr<DynamicBodyd> > >& super_bodies, shared_ptr<ConstraintSimulator> sim)
 {
   VectorNd tmpv;
 
@@ -362,7 +483,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   constraints.clear();
 
   // clear the problem data vector 
-  pd_vector.clear();
+  pd.clear();
 
   // get all bodies
   const std::vector<shared_ptr<ControlledBody> >& bodies = sim->_bodies;
@@ -389,7 +510,10 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     add_contact_constraints(constraints, to_check.first, to_check.second, sim);
 
   // add limit constraints
-  add_limit_constraints(bodies, constraints);
+  add_limit_constraints(bodies, constraints, sim);
+
+  // add joint constraints
+  add_joint_constraints(bodies, constraints, sim);
 
   //FILE_LOG(LOG_SIMULATOR) << "constraints added" << std::endl;
   // 2) for each articulated body, add as many UnilateralConstraint objects as
@@ -402,102 +526,19 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
 
   // find islands
   list<vector<shared_ptr<DynamicBodyd> > > remaining_islands;
-  list<pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > > islands;
-  UnilateralConstraint::determine_connected_constraints(constraints, sim->implicit_joints, islands, remaining_islands);
+  list<pair<list<Constraint*>, list<shared_ptr<SingleBodyd> > > > islands;
+  Constraint::determine_connected_constraints(constraints, islands, remaining_islands);
 
-  // process unilateral constraint islands
-  typedef pair<list<UnilateralConstraint*>, list<shared_ptr<SingleBodyd> > > IslandType;
-  BOOST_FOREACH(IslandType& island, islands)
+  // construct problem data
+  for (list<pair<list<Constraint*>, list<shared_ptr<SingleBodyd> > > >::const_iterator island_iter = islands.begin(); island_iter != islands.end(); island_iter++)
+    pd.push_back(vector<Constraint*>(island_iter->first.begin(), island_iter->first.end())); 
+
+  // get super bodies in the islands
+  super_bodies.resize(pd.size());
+  for (unsigned i=0; i< pd.size(); i++)
   {
-    // setup a UnilateralConstraintProblemData object
-    pd_vector.push_back(UnilateralConstraintProblemData());
-    UnilateralConstraintProblemData& pd = pd_vector.back();
-
-    // set a pointer to the simulator
-    pd.simulator = sim;
-
-    // put the constraint into the appropriate place
-    BOOST_FOREACH(UnilateralConstraint* c, island.first)
-    { 
-      if (c->constraint_type == UnilateralConstraint::eContact)
-        pd.contact_constraints.push_back(c);
-      else
-        pd.limit_constraints.push_back(c);
-    }
-
-    // set number of contact and limit constraints
-    pd.N_CONTACTS = pd.contact_constraints.size();
-    pd.N_LIMITS = pd.limit_constraints.size(); 
-    pd.N_K_TOTAL = 0;
-    pd.N_TRUE_CONE = 0;
-
-    // now set the unilateral constraint data
-    set_unilateral_constraint_data(pd, island.second);
-    
-    // set the elements of Cn_v 
-    // Cn_v is set to the signed distance between the two bodies
-    Point3d pa,pb;
-    for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
-      pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation - std::fabs(eps) - NEAR_ZERO;
-
-    // set the elements of L_v 
-    for (unsigned i=0; i< pd.limit_constraints.size(); i++)
-    {
-      JointPtr j = pd.limit_constraints[i]->limit_joint;
-      UnilateralConstraint* u = pd.limit_constraints[i];
-      unsigned dof = u->limit_dof;
-      pd.L_v[i] = u->signed_violation - std::fabs(eps) - NEAR_ZERO;
-    } 
-
-    // set Jx_v
-    double C[6];
-    tmpv.resize(pd.N_CONSTRAINT_EQNS_IMP);
-    for (unsigned i=0, j=0; i< pd.island_ijoints.size(); i++)
-    {
-      pd.island_ijoints[i]->evaluate_constraints(C);
-      for (unsigned k=0; k< pd.island_ijoints[i]->num_constraint_eqns(); k++)
-        tmpv[j++] = C[k];
-    }
-
-    // select proper constraints
-    tmpv.select(pd.active, pd.Jx_v);    
-
-    // clear all impulses
-    for (unsigned i=0; i< pd.N_CONTACTS; i++)
-      pd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
-    for (unsigned i=0; i< pd.N_LIMITS; i++)
-      pd.limit_constraints[i]->limit_impulse = 0;
-  }
-
-  // process islands composed completely of bilateral constraints
-  BOOST_FOREACH(vector<shared_ptr<DynamicBodyd> >& island, remaining_islands)
-  {
-    // setup a UnilateralConstraintProblemData object
-    pd_vector.push_back(UnilateralConstraintProblemData());
-    UnilateralConstraintProblemData& pd = pd_vector.back();
-
-    // set a pointer to the simulator
-    pd.simulator = sim;
-
-    // now set the unilateral constraint data
-    set_bilateral_only_constraint_data(pd, island);
-    
-    // set Jx_v
-    double C[6];
-    tmpv.resize(pd.N_CONSTRAINT_EQNS_IMP);
-    for (unsigned i=0, j=0; i< pd.island_ijoints.size(); i++)
-    {
-      pd.island_ijoints[i]->evaluate_constraints(C);
-      for (unsigned k=0; k< pd.island_ijoints[i]->num_constraint_eqns(); k++)
-        tmpv[j++] = C[k];
-    }
-
-    // select proper constraints
-    tmpv.select(pd.active, pd.Jx_v);    
-
-    // clear all impulses
-    pd.contact_constraints.clear();
-    pd.limit_constraints.clear();
+    super_bodies[i].clear();
+    ImpactConstraintHandler::get_super_bodies(pd[i].begin(), pd[i].end(), std::back_inserter(super_bodies[i]));
   }
 }
 
@@ -537,525 +578,185 @@ shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body_from_rigid_body
     return sb;
 }
 
-/// Computes the data to the LCP / QP problems
-void ConstraintStabilization::set_bilateral_only_constraint_data(UnilateralConstraintProblemData& q, const vector<shared_ptr<DynamicBodyd> >& island)
-{
-  const unsigned UINF = std::numeric_limits<unsigned>::max();
-  const unsigned N_SPATIAL = 6;
-  MatrixNd X, tmp;
-  VectorNd v;
-
-  // determine set of "super" bodies 
-  q.super_bodies.clear();
-  for (unsigned i=0; i< island.size(); i++)
-  {
-    // get the super bodies
-    shared_ptr<DynamicBodyd> sb = get_super_body(island[i]);
-    if (sb)
-      q.super_bodies.push_back(sb);
-  }
-
-  // make super bodies vector unique
-  std::sort(q.super_bodies.begin(), q.super_bodies.end());
-  q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
-
-  // prepare to compute the number of implicit constraint equations from islands
-  q.N_CONSTRAINT_EQNS_IMP = 0;
-
-  // add island implicit joint constraints to q
-  for (unsigned i=0; i< q.simulator->implicit_joints.size(); i++)
-  {
-    // see whether a body from the implicit constraint matches a body in the
-    // island
-    JointPtr j = q.simulator->implicit_joints[i];
-    shared_ptr<DynamicBodyd> in = j->get_inboard_link()->get_super_body();
-    shared_ptr<DynamicBodyd> out = j->get_outboard_link()->get_super_body();
-    if (std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), in))
-    {
-      q.island_ijoints.push_back(j);
-      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
-    }
-    else if ( std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), out))
-    {
-      q.island_ijoints.push_back(j);
-      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
-    }
-  }
-
-  // set total number of generalized coordinates
-  q.N_GC = 0;
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-    q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
-
-  // initialize constants and set easy to set constants
-  q.N_CONTACTS = q.N_LIMITS = 0;
-
-  // setup constants related to articulated bodies
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-  {
-    ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(q.super_bodies[i]);
-    if (abody) {
-      q.N_CONSTRAINT_EQNS_IMP += abody->num_constraint_eqns_implicit();
-    }
-  }
-
-  // setup no friction constraints
-  q.N_LIN_CONE = q.N_K_TOTAL = q.N_TRUE_CONE = 0; 
-
-  // initialize the problem matrices / vectors
-  q.Cn_X_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-  q.Cn_X_CsT.set_zero(q.N_CONTACTS, 0);
-  q.Cn_X_CtT.set_zero(q.N_CONTACTS, 0);
-  q.Cn_X_LT.set_zero(q.N_CONTACTS, q.N_LIMITS);
-  q.Cn_X_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_IMP);
-  q.Cs_X_CsT.set_zero(0, 0);
-  q.Cs_X_CtT.set_zero(0, 0);
-  q.Cs_X_LT.set_zero(0, q.N_LIMITS);
-  q.Cs_X_JxT.set_zero(0, q.N_CONSTRAINT_EQNS_IMP);
-  q.Ct_X_CtT.set_zero(0, 0);
-  q.Ct_X_LT.set_zero(0, q.N_LIMITS);
-  q.Ct_X_JxT.set_zero(0, q.N_CONSTRAINT_EQNS_IMP);
-  q.L_X_LT.set_zero(q.N_LIMITS, q.N_LIMITS);
-  q.L_X_JxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_EQNS_IMP);
-  q.Jx_X_JxT.set_zero(q.N_CONSTRAINT_EQNS_IMP, q.N_CONSTRAINT_EQNS_IMP);
-  q.Cn_v.set_zero(q.N_CONTACTS);
-  q.Cs_v.set_zero(0);
-  q.Ct_v.set_zero(0);
-  q.L_v.set_zero(q.N_LIMITS);
-  q.Jx_v.set_zero(q.N_CONSTRAINT_EQNS_IMP);
-  q.cn.set_zero(q.N_CONTACTS);
-  q.cs.set_zero(0);
-  q.ct.set_zero(0);
-  q.l.set_zero(q.N_LIMITS);
-
-  // setup indices
-  q.CN_IDX = 0;
-  q.CS_IDX = q.CN_IDX + q.N_CONTACTS;
-  q.CT_IDX = q.CS_IDX;
-  q.NCS_IDX = q.CT_IDX;
-  q.NCT_IDX = q.NCS_IDX;
-  q.L_IDX = q.NCT_IDX;
-  q.B_IDX = q.L_IDX + q.N_LIMITS;
-  q.N_VARS = q.B_IDX + q.N_FL_BILAT_CONSTRAINTS;
-
-  // get generalized velocity
-  ImpactConstraintHandler::get_generalized_velocity(q, v);
-
-  // setup the gc map
-  map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
-  for (unsigned i=0, gc_index = 0; i< q.super_bodies.size(); i++)
-  {
-    gc_map[q.super_bodies[i]] = gc_index;
-    unsigned NGC = q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
-    gc_index += NGC;
-  }
-
-  // get the total number of implicit constraint equations
-  unsigned n_implicit_eqns = 0;
-  for (unsigned i=0; i< q.island_ijoints.size(); i++)
-    n_implicit_eqns += q.island_ijoints[i]->num_constraint_eqns();
-
-  // prepare to setup Jacobian
-  q.Jfull.rows = n_implicit_eqns;
-  q.Jfull.cols = q.N_GC;
-
-  // determine implicit constraint Jacobian
-  for (unsigned i=0, eq_idx=0; i< q.island_ijoints.size(); i++)
-  {
-    // resize the temporary matrix
-    tmp.resize(q.island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
-
-    // get the inboard and outboard links
-    shared_ptr<RigidBodyd> inboard = q.island_ijoints[i]->get_inboard_link();
-    shared_ptr<RigidBodyd> outboard = q.island_ijoints[i]->get_outboard_link();
-
-    // compute the Jacobian w.r.t. the inboard link
-    if (inboard->is_enabled())
-    {
-      // add the block to the Jacobian
-      q.Jfull.blocks.push_back(MatrixBlock());
-      q.island_ijoints[i]->calc_constraint_jacobian(true, q.Jfull.blocks.back().block);
-      q.Jfull.blocks.back().st_row_idx = eq_idx;
-      q.Jfull.blocks.back().st_col_idx = gc_map[inboard];
-    }
- 
-    if (outboard->is_enabled())
-    {
-      // add the block to the Jacobian
-      q.Jfull.blocks.push_back(MatrixBlock());
-      q.island_ijoints[i]->calc_constraint_jacobian(false, q.Jfull.blocks.back().block);
-      q.Jfull.blocks.back().st_row_idx = eq_idx;
-      q.Jfull.blocks.back().st_col_idx = gc_map[outboard];
-    }
-
-    // update the equation index
-    eq_idx += q.island_ijoints[i]->num_constraint_eqns();
-  } 
-
-  // determine active set of implicit constraints
-  ImpactConstraintHandler::get_full_rank_implicit_constraints(q.Jfull, q.active);
-
-  // compute X
-  ImpactConstraintHandler::compute_X(q, X);
-
-  // setup Jacobian for Cn
-  SparseJacobian Cn;
-  Cn.cols = q.N_GC;
-
-  // setup Jacobian for J
-  q.J.mult(X, tmp); MatrixNd::transpose(tmp, q.X_JxT);
-
-  // setup X*other Jacobians
-  q.X_CnT.resize(q.N_GC, 0);
-  q.X_CsT.resize(q.N_GC, 0);
-  q.X_CtT.resize(q.N_GC, 0);
-  q.X_LT.resize(q.N_GC, 0);
-}
-
-/// Computes the data to the LCP / QP problems
-void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstraintProblemData& q, const list<shared_ptr<SingleBodyd> >& single_bodies)
-{
-  const unsigned UINF = std::numeric_limits<unsigned>::max();
-  const unsigned N_SPATIAL = 6;
-  VectorNd v;
-  MatrixNd X, tmp;
-
-  // determine set of "super" bodies from single bodies 
-  q.super_bodies.clear();
-  BOOST_FOREACH(shared_ptr<SingleBodyd> sb, single_bodies)
-  {
-    shared_ptr<DynamicBodyd> super = get_super_body(sb);
-    if (super && super->is_enabled())
-      q.super_bodies.push_back(super);
-  }
-
-  // make super bodies vector unique
-  std::sort(q.super_bodies.begin(), q.super_bodies.end());
-  q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
-
-  // prepare to compute the number of implicit constraint equations from islands
-  q.N_CONSTRAINT_EQNS_IMP = 0;
-
-  // add island implicit joint constraints to q
-  for (unsigned i=0; i< q.simulator->implicit_joints.size(); i++)
-  {
-    // see whether a body from the implicit constraint matches a body in the
-    // island
-    JointPtr j = q.simulator->implicit_joints[i];
-    shared_ptr<DynamicBodyd> in = j->get_inboard_link()->get_super_body();
-    shared_ptr<DynamicBodyd> out = j->get_outboard_link()->get_super_body();
-    if (std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), in))
-    {
-      q.island_ijoints.push_back(j);
-      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
-    }
-    else if ( std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), out))
-    {
-      q.island_ijoints.push_back(j);
-      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
-    }
-  }
-
-  // set total number of generalized coordinates
-  q.N_GC = 0;
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-    q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
-
-  // initialize constants and set easy to set constants
-  q.N_CONTACTS = q.contact_constraints.size();
-  q.N_LIMITS = q.limit_constraints.size();
-
-  // setup constants related to articulated bodies
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-  {
-    ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(q.super_bodies[i]);
-    if (abody) {
-      q.N_CONSTRAINT_EQNS_IMP += abody->num_constraint_eqns_implicit();
-    }
-  }
-
-  // setup no friction constraints
-  q.N_LIN_CONE = q.N_K_TOTAL = q.N_TRUE_CONE = 0; 
-
-  // initialize the problem matrices / vectors
-  q.Cn_X_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-  q.Cn_X_CsT.set_zero(q.N_CONTACTS, 0);
-  q.Cn_X_CtT.set_zero(q.N_CONTACTS, 0);
-  q.Cn_X_LT.set_zero(q.N_CONTACTS, q.N_LIMITS);
-  q.Cn_X_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_IMP);
-  q.Cs_X_CsT.set_zero(0, 0);
-  q.Cs_X_CtT.set_zero(0, 0);
-  q.Cs_X_LT.set_zero(0, q.N_LIMITS);
-  q.Cs_X_JxT.set_zero(0, q.N_CONSTRAINT_EQNS_IMP);
-  q.Ct_X_CtT.set_zero(0, 0);
-  q.Ct_X_LT.set_zero(0, q.N_LIMITS);
-  q.Ct_X_JxT.set_zero(0, q.N_CONSTRAINT_EQNS_IMP);
-  q.L_X_LT.set_zero(q.N_LIMITS, q.N_LIMITS);
-  q.L_X_JxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_EQNS_IMP);
-  q.Jx_X_JxT.set_zero(q.N_CONSTRAINT_EQNS_IMP, q.N_CONSTRAINT_EQNS_IMP);
-  q.Cn_v.set_zero(q.N_CONTACTS);
-  q.Cs_v.set_zero(0);
-  q.Ct_v.set_zero(0);
-  q.L_v.set_zero(q.N_LIMITS);
-  q.Jx_v.set_zero(q.N_CONSTRAINT_EQNS_IMP);
-  q.cn.set_zero(q.N_CONTACTS);
-  q.cs.set_zero(0);
-  q.ct.set_zero(0);
-  q.l.set_zero(q.N_LIMITS);
-
-  // setup indices
-  q.CN_IDX = 0;
-  q.CS_IDX = q.CN_IDX + q.N_CONTACTS;
-  q.CT_IDX = q.CS_IDX;
-  q.NCS_IDX = q.CT_IDX;
-  q.NCT_IDX = q.NCS_IDX;
-  q.L_IDX = q.NCT_IDX;
-  q.B_IDX = q.L_IDX + q.N_LIMITS;
-  q.N_VARS = q.B_IDX + q.N_FL_BILAT_CONSTRAINTS;
-
-  // get generalized velocity
-  ImpactConstraintHandler::get_generalized_velocity(q, v);
-
-  // setup the gc map
-  map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
-  for (unsigned i=0, gc_index = 0; i< q.super_bodies.size(); i++)
-  {
-    gc_map[q.super_bodies[i]] = gc_index;
-    unsigned NGC = q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
-    gc_index += NGC;
-  }
-
-  // setup limit indices
-  q.limit_indices.resize(q.N_LIMITS);
-  for (unsigned i=0; i< q.N_LIMITS; i++)
-  {
-    UnilateralConstraint& u = *q.limit_constraints[i];
-    unsigned idx = u.limit_joint->get_coord_index() + u.limit_dof;
-    shared_ptr<DynamicBodyd> ab = u.limit_joint->get_articulated_body();
-    q.limit_indices[i] = idx + gc_map[ab];
-  }
-
-  // get the total number of implicit constraint equations
-  unsigned n_implicit_eqns = 0;
-  for (unsigned i=0; i< q.island_ijoints.size(); i++)
-    n_implicit_eqns += q.island_ijoints[i]->num_constraint_eqns();
-
-  // prepare to setup Jacobian
-  q.Jfull.rows = n_implicit_eqns;
-  q.Jfull.cols = q.N_GC;
-
-  // determine implicit constraint Jacobian
-  for (unsigned i=0, eq_idx=0; i< q.island_ijoints.size(); i++)
-  {
-    // resize the temporary matrix
-    tmp.resize(q.island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
-
-    // get the inboard and outboard links
-    shared_ptr<RigidBodyd> inboard = q.island_ijoints[i]->get_inboard_link();
-    shared_ptr<RigidBodyd> outboard = q.island_ijoints[i]->get_outboard_link();
-
-    // compute the Jacobian w.r.t. the inboard link
-    if (inboard->is_enabled())
-    {
-      // add the block to the Jacobian
-      q.Jfull.blocks.push_back(MatrixBlock());
-      q.island_ijoints[i]->calc_constraint_jacobian(true, q.Jfull.blocks.back().block);
-      q.Jfull.blocks.back().st_row_idx = eq_idx;
-      q.Jfull.blocks.back().st_col_idx = gc_map[inboard];
-    }
- 
-    if (outboard->is_enabled())
-    {
-      // add the block to the Jacobian
-      q.Jfull.blocks.push_back(MatrixBlock());
-      q.island_ijoints[i]->calc_constraint_jacobian(false, q.Jfull.blocks.back().block);
-      q.Jfull.blocks.back().st_row_idx = eq_idx;
-      q.Jfull.blocks.back().st_col_idx = gc_map[outboard];
-    }
-
-    // update the equation index
-    eq_idx += q.island_ijoints[i]->num_constraint_eqns();
-  } 
-
-  // determine active set of implicit constraints
-  ImpactConstraintHandler::get_full_rank_implicit_constraints(q.Jfull, q.active);
-
-  // compute X
-  ImpactConstraintHandler::compute_X(q, X);
-
-  // setup Jacobian for Cn
-  SparseJacobian Cn;
-
-  // setup the number of columns in each Jacobian
-  Cn.cols = q.N_GC;
-
-  // process all contact constraints
-  for (unsigned i=0; i< q.contact_constraints.size(); i++)
-    add_contact_to_Jacobian(*q.contact_constraints[i], Cn, gc_map, i); 
-
-  // compute X_CnT
-  Cn.mult(X, tmp);  MatrixNd::transpose(tmp, q.X_CnT);
-  q.J.mult(X, tmp); MatrixNd::transpose(tmp, q.X_JxT);
-
-  // setup X_CsT, X_CtT
-  q.X_CsT.resize(q.N_GC, 0);
-  q.X_CtT.resize(q.N_GC, 0);
-  
-  // compute limit components - must do this first
-  ImpactConstraintHandler::compute_limit_components(X, q);
-
-  // compute problem data for Cn rows
-  Cn.mult(q.X_CnT, q.Cn_X_CnT); 
-  Cn.mult(q.X_LT,  q.Cn_X_LT);  
-  Cn.mult(q.X_JxT,  q.Cn_X_JxT);
-
-  // compute problem data for limit rows
-  q.L_X_JxT.resize(q.N_LIMITS, q.N_CONSTRAINT_EQNS_IMP);
-  for (unsigned i=0; i< q.N_LIMITS; i++)
-    q.L_X_JxT.row(i) = q.X_JxT.row(q.limit_indices[i]);
-}
-
-/// Adds a contact constraint to the contact Jacobians
-void ConstraintStabilization::add_contact_to_Jacobian(const UnilateralConstraint& c, SparseJacobian& Cn, const std::map<shared_ptr<DynamicBodyd>, unsigned>& gc_map, unsigned contact_idx)
-{
-  MatrixNd tmp, tmp2, Jm;
-
-  // get the two single bodies involved in the contact
-  shared_ptr<SingleBodyd> b1 = c.contact_geom1->get_single_body();
-  shared_ptr<SingleBodyd> b2 = c.contact_geom2->get_single_body();
-
-  // get the two rigid bodies
-  shared_ptr<RigidBodyd> rb1 = dynamic_pointer_cast<RigidBodyd>(b1);
-  shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBodyd>(b2);
-
-  // get the super bodies
-  shared_ptr<ArticulatedBodyd> su1 = dynamic_pointer_cast<ArticulatedBodyd>(b1->get_super_body());
-  shared_ptr<ArticulatedBodyd> su2 = dynamic_pointer_cast<ArticulatedBodyd>(b2->get_super_body());
-
-  // add a row to the Jacobian
-  Cn.rows++;
-
-  // do this six times, one for each body and each direction
-  ImpactConstraintHandler::add_contact_dir_to_Jacobian(rb1, su1, Cn, c.contact_point, c.contact_normal, gc_map, contact_idx);
-  ImpactConstraintHandler::add_contact_dir_to_Jacobian(rb2, su2, Cn, c.contact_point, -c.contact_normal, gc_map, contact_idx);
-}
-
 /// Computes deltaq by solving a linear complementarity problem
-void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, VectorNd& dqm, const std::map<shared_ptr<DynamicBodyd>, unsigned>& body_index_map)
+void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector<shared_ptr<DynamicBodyd> >& super_bodies, VectorNd& dqm, const std::map<shared_ptr<DynamicBodyd>, unsigned>& body_index_map)
 {
   VectorNd z, dq_sub;
 
-  // initialize the LCP matrix and LCP vector
-  MatrixNd MM(pd.N_CONTACTS + pd.N_LIMITS, pd.N_CONTACTS + pd.N_LIMITS);
-  VectorNd qq(pd.N_CONTACTS + pd.N_LIMITS);
+  // determine the total number of variables, number of inequality constraints,
+  // and number of equality constraints
+  const unsigned N_VARS = ImpactConstraintHandler::num_variables(pd);
+  const unsigned N_INEQ_CONSTRAINTS = ImpactConstraintHandler::num_inequality_constraints(pd);
+  const unsigned N_EQ_CONSTRAINTS = ImpactConstraintHandler::num_equality_constraints(pd);
 
-  // setup the LCP matrix and LCP vector
-  MM.block(0, pd.N_CONTACTS, 0, pd.N_CONTACTS) = pd.Cn_X_CnT;
-  MM.block(0, pd.N_CONTACTS, pd.N_CONTACTS, MM.columns()) = pd.Cn_X_LT;
-  SharedMatrixNd L_X_CnT_block = MM.block(pd.N_CONTACTS, MM.rows(), 0, pd.N_CONTACTS);
-  MatrixNd::transpose(pd.Cn_X_LT, L_X_CnT_block);
-  MM.block(pd.N_CONTACTS, MM.rows(), pd.N_CONTACTS, MM.columns()) = pd.L_X_LT;
-  qq.segment(0, pd.N_CONTACTS) = pd.Cn_v;
-  qq.segment(pd.N_CONTACTS, qq.size()) = pd.L_v;
+  // compute the linear term vector and quadratic matrix terms
+  ImpactConstraintHandler::compute_quadratic_matrix(pd, N_VARS, _H);
+  ImpactConstraintHandler::compute_linear_term(pd, N_VARS, _c);
 
-  FILE_LOG(LOG_SIMULATOR) << "# of constraints in determine_dq(): " << qq.size() << std::endl;
-  FILE_LOG(LOG_SIMULATOR) << "MM: " << std::endl << MM;
-  FILE_LOG(LOG_SIMULATOR) << "qq: " << qq << std::endl;
+  // everything is happening instantaneously; nevertheless, we will set
+  // inv_dt to 1.0 to incorporate constraint violations
+  const double INV_DT = 1.0;
+  const double INF = std::numeric_limits<double>::max();
 
-  // solve N*inv(M)*N'*dq = N*alpha for impulses 
-  if (!_lcp.lcp_fast(MM, qq, z))
-    _lcp.lcp_lemke_regularized(MM, qq, z);
-  FILE_LOG(LOG_SIMULATOR) << "zz: " << z << std::endl;
+  // compute constraint terms
+  ImpactConstraintHandler::compute_inequality_terms(pd, _H, N_INEQ_CONSTRAINTS, INV_DT, _M, _q);
+  ImpactConstraintHandler::compute_equality_terms(pd, _H, N_EQ_CONSTRAINTS, INV_DT, _A, _b);
+
+  // modify q terms
+  for (unsigned i=0; i< _q.size(); i++)
+    _q[i] += std::fabs(eps) + NEAR_ZERO;
+
+  // see whether an MLCP is necessary
+  if (N_EQ_CONSTRAINTS == 0)
+  {
+    // no MLCP necessary
+    // solve using an LCP formulation
+    _MM.set_zero(N_VARS + N_INEQ_CONSTRAINTS, N_VARS + N_INEQ_CONSTRAINTS);
+    _qq.resize(_MM.rows());
+
+    // setup MM and qq
+    _MM.block(0, N_VARS, 0, N_VARS) = _H;
+    _MM.block(N_VARS, _MM.rows(), 0, N_VARS) = _M;
+    SharedMatrixNd MT = _MM.block(0, N_VARS, N_VARS, _MM.rows());
+    MatrixNd::transpose(_M, MT);
+    MT.negate();
+    _qq.segment(0, N_VARS) = _c;
+    _qq.segment(N_VARS, _qq.size()) = _q;
+    _qq.segment(N_VARS, _qq.size()).negate();
+
+    // solve using the fast regularized solver first, then fall back to the
+    // Lemke solver
+    if (!_lcp.lcp_fast_regularized(_MM, _qq, z, -20, 4, -8))
+    {
+      // Lemke does not like warm starting
+      z.set_zero();
+
+      if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
+        throw LCPSolverException();
+    }
+
+    FILE_LOG(LOG_SIMULATOR) << "# of constraints in determine_dq(): " << _qq.size() << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "MM: " << std::endl << _MM;
+    FILE_LOG(LOG_SIMULATOR) << "qq: " << _qq << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "zz: " << z << std::endl;
+  } 
+  else
+  {
+    #ifdef USE_QPOASES
+    // setup the lower and upper bounds variables
+    _lb.resize(N_VARS);
+    _ub.resize(N_VARS);
+    for (unsigned i=0, j=0; i< pd.size(); i++)
+      for (unsigned k=0; k< pd[i]->num_variables(); k++)
+      {
+        _lb[j] = pd[i]->get_lower_variable_limit(k);
+        _ub[j] = pd[i]->get_upper_variable_limit(k);
+        j++;
+      } 
+
+    // add tolerance to inequality constraints
+    double TOL = (inequality_tolerance >= 0.0) ? inequality_tolerance : (_H.rows() + _q.rows()) * (_H.norm_inf() + _M.norm_inf()) * std::numeric_limits<double>::epsilon();
+    for (ColumnIteratord iter = _q.begin(); iter != _q.end(); iter++)
+      *iter -= TOL;
+
+    // add tolerance to lower bounds (if necessary)
+    for (ColumnIteratord iter = _lb.begin(); iter != _lb.end(); iter++)
+      if (*iter > -INF)
+        *iter -= TOL;
+
+    // add tolerance to upper bounds (if necessary)
+    for (ColumnIteratord iter = _ub.begin(); iter != _ub.end(); iter++)
+      if (*iter < INF)
+        *iter += TOL;
+
+    // no slackable equality constraints; try solving QP first w/o any
+    // tolerance in the constraints
+    bool result = qpOASES::qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
+    if (!result)
+    {
+      FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution failed without tolerance in the constraints" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- solving LP to find feasible solution" << std::endl;
+
+      // determine new number of variables (one for inequality constraints,
+      // two for equality constraints)
+      unsigned NEW_VARS = N_VARS + 3;
+
+      // augment M
+      _Maug.resize(_M.rows(), NEW_VARS);
+      _Maug.block(0, _M.rows(), 0, N_VARS) = _M;
+      _Maug.block(0, _M.rows(), N_VARS, NEW_VARS).set_zero();
+      _Maug.column(N_VARS).set_one();
+
+      // augment A
+      _Aaug.resize(_A.rows(), NEW_VARS);
+      _Aaug.block(0, _A.rows(), 0, N_VARS) = _A;
+      _Aaug.block(0, _A.rows(), N_VARS, NEW_VARS).set_zero();
+      _Aaug.column(N_VARS+1).set_one();
+      _Aaug.column(N_VARS+2).set_one().negate();
+
+      // augment lb
+      _lbaug.resize(NEW_VARS);
+      _lbaug.segment(0, _lb.size()) = _lb;
+      _lbaug.segment(_lb.size(), NEW_VARS).set_zero();
+
+      // augment ub
+      _ubaug.resize(NEW_VARS);
+      _ubaug.segment(0, _ub.size()) = _ub;
+      _ubaug.segment(_ub.size(), NEW_VARS).set_one() *= INF;
+
+      // create a H for the QP
+      _Haug.set_zero(NEW_VARS, NEW_VARS); 
+      _Haug.block(N_VARS, NEW_VARS, N_VARS, NEW_VARS).set_identity();
+
+      // create a c for the QP
+      _caug.resize(NEW_VARS);
+      _caug.segment(0, N_VARS).set_zero();
+      _caug.segment(N_VARS, NEW_VARS).set_one();
+
+      // solve the QP, using zero for z
+      z.set_zero(NEW_VARS);
+      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      assert(result);
+      FILE_LOG(LOG_CONSTRAINT) << " -- LP solution: " << z << std::endl;
+
+      // modify c for re-solving the QP
+      _caug.segment(0, N_VARS) = _c;
+      _caug.segment(N_VARS, NEW_VARS).set_zero();
+
+      // modify H for re-solving the QP
+      _Haug.block(0, N_VARS, 0, N_VARS) = _H;
+      _Haug.block(N_VARS, NEW_VARS, 0, N_VARS).set_zero();
+      _Haug.block(0, N_VARS, N_VARS, NEW_VARS).set_zero();
+      _Haug.block(N_VARS, NEW_VARS, N_VARS, NEW_VARS).set_zero();
+
+      // modify lb and ub for the new variables
+      for (unsigned i=N_VARS; i< NEW_VARS; i++)
+        _lbaug[i] = _ubaug[i] = z[i];
+
+      // resolve the QP
+      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
+    }
+    else
+      FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution found" << std::endl;
+    #else
+    std::cerr << "Moby not built with qpOASES support; unable to solve QP" << std::endl;
+    #endif
+  }
 
   // update velocities
-  ImpactConstraintHandler::update_from_stacked(pd, z);
+  ImpactConstraintHandler::apply_impulses(pd, z);
 
   // populate dq 
-  for(unsigned i = 0; i< pd.super_bodies.size(); i++)
+  for(unsigned i = 0; i< super_bodies.size(); i++)
   {
-    assert(body_index_map.find(pd.super_bodies[i]) != body_index_map.end());
-    unsigned start = (body_index_map.find(pd.super_bodies[i]))->second;
-    unsigned coord_num = pd.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eEuler);
-    pd.super_bodies[i]->get_generalized_velocity(DynamicBodyd::eEuler, dq_sub);  
+    assert(body_index_map.find(super_bodies[i]) != body_index_map.end());
+    unsigned start = (body_index_map.find(super_bodies[i]))->second;
+    unsigned coord_num = super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eEuler);
+    super_bodies[i]->get_generalized_velocity(DynamicBodyd::eEuler, dq_sub);  
     dqm.segment(start, start+coord_num) = dq_sub;
   }
-}
-
-/// Updates the body velocities based on problem data
-void ConstraintStabilization::update_velocities(const UnilateralConstraintProblemData& pd)
-{
-  VectorNd v; 
-  map<shared_ptr<DynamicBodyd>, VectorNd> gj;
-  map<shared_ptr<DynamicBodyd>, VectorNd>::iterator gj_iter;
-
-  // loop over all contact constraints first
-  for (unsigned i=0; i< pd.contact_constraints.size(); i++)
-  {
-    // get the contact force
-    const UnilateralConstraint& e = *pd.contact_constraints[i];
-    SForced w(e.contact_impulse);
-
-    // get the two single bodies of the contact
-    shared_ptr<SingleBodyd> sb1 = e.contact_geom1->get_single_body();
-    shared_ptr<SingleBodyd> sb2 = e.contact_geom2->get_single_body();
-
-    // get the two super bodies
-    shared_ptr<DynamicBodyd> b1 = sb1->get_super_body();
-    shared_ptr<DynamicBodyd> b2 = sb2->get_super_body();
-
-    // convert force on first body to generalized forces
-    if ((gj_iter = gj.find(b1)) == gj.end())
-      b1->convert_to_generalized_force(sb1, w, gj[b1]);
-    else
-    {
-      b1->convert_to_generalized_force(sb1, w, v);
-      gj_iter->second += v;
-    }
-
-    // convert force on second body to generalized forces
-    if ((gj_iter = gj.find(b2)) == gj.end())
-      b2->convert_to_generalized_force(sb2, -w, gj[b2]);
-    else
-    {
-      b2->convert_to_generalized_force(sb2, -w, v);
-      gj_iter->second += v;
-    }
-  }
-
-  // loop over all limit constraints next
-  for (unsigned i=0; i< pd.limit_constraints.size(); i++)
-  {
-    const UnilateralConstraint& e = *pd.limit_constraints[i];
-    shared_ptr<ArticulatedBodyd> ab = e.limit_joint->get_articulated_body();
-
-    // get the iterator for the articulated body
-    gj_iter = gj.find(ab);
-
-    // apply limit impulses to bodies in independent coordinates
-    if (dynamic_pointer_cast<RCArticulatedBody>(ab))
-    {
-      // get the index of the joint
-      unsigned idx = e.limit_joint->get_coord_index() + e.limit_dof;
-
-      // initialize the vector if necessary
-      if (gj_iter == gj.end())
-      {
-        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBodyd::eSpatial));
-        gj_iter = gj.find(ab);
-      }
-
-      // set the limit force
-      gj_iter->second[idx] += e.limit_impulse;
-    }
-    else
-    {
-      assert(false);
-    }
-  }
-
-  // apply all generalized impacts
-  for (map<shared_ptr<DynamicBodyd>, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
-    i->first->apply_generalized_impulse(i->second);
 }
 
 /// Simple squaring function

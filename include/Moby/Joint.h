@@ -66,8 +66,7 @@ class Joint : public Visualizable, public virtual Ravelin::Jointd
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void set_inboard_link(RigidBodyPtr link, bool update_pose);
     virtual void set_outboard_link(RigidBodyPtr link, bool update_pose);
-    void set_articulated_body(ArticulatedBodyPtr abody);
-    ArticulatedBodyPtr get_articulated_body();
+    void apply_impulse(const Ravelin::VectorNd& lambda);
 
     /// Gets the inboard link for this joint
     RigidBodyPtr get_inboard_link() const { return (_inboard_link.expired()) ? RigidBodyPtr() : boost::dynamic_pointer_cast<RigidBody>(boost::shared_ptr<Ravelin::RigidBodyd>(_inboard_link)); }

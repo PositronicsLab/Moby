@@ -50,13 +50,6 @@ RigidBody::RigidBody()
   _vF->rpose = _F;
 }
 
-/// Applies a generalized impulse to the rigid body (calls the simulator)
-void RigidBody::apply_generalized_impulse(const SharedVectorNd& gj)
-{
-  shared_ptr<Simulator> s(simulator);
-  s->apply_impulse(RigidBodyd::get_this(), gj);
-}
-
 /// Sets the rigid body inertia for this body
 void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 {

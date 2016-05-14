@@ -13,7 +13,7 @@
 #include <Ravelin/Matrix3d.h>
 #include <Ravelin/SMomentumd.h>
 #include <Ravelin/sorted_pair>
-#include <Moby/UnilateralConstraint.h>
+#include <Moby/Constraint.h>
 #include <Moby/ControlledBody.h>
 #include <Moby/Joint.h>
 #include <Ravelin/ArticulatedBodyd.h>

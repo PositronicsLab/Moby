@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RCArticulatedBodyInvDyn.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp Constraint.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerQP.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RCArticulatedBodyInvDyn.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -18,6 +18,7 @@ option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
 option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 option (USE_QLCPD "Build against QLCPD library?" OFF)
+option (USE_QPOASES "Build against QPOASES library?" OFF)
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
 option (USE_SIGNED_DIST_CONSTRAINT "Use signed distance constraint? (experimental)" OFF)
@@ -29,7 +30,17 @@ if (USE_QLCPD AND QLCPD_FOUND)
   set (EXTRA_LIBS qlcpd-dense)
   set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
   set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
+  set_source_files_properties(src/ConstraintStabilization.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
+
+# look for qpOASES
+find_package (QPOASES)
+if (QPOASES_FOUND)
+    set (EXTRA_LIBS qpOASES)
+    set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QPOASES)
+    set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QPOASES)
+    set_source_files_properties(src/ConstraintStabilization.cpp PROPERTIES COMPILE_FLAGS -DUSE_QPOASES)
+endif (QPOASES_FOUND)
 
 # modify C++ flags
 add_definitions (-DSAFESTATIC=static)
