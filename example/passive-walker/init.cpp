@@ -61,6 +61,41 @@ void post_step_callback(Simulator* s)
 */
 }
 
+// mirrors the walker's configuration
+void mirror()
+{
+  VectorNd q, qd;
+
+  // get the generalized coordinates and velocity
+  walker->get_generalized_coordinates_euler(q);
+  walker->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
+
+  // get the base link
+  shared_ptr<RigidBodyd> base_link = walker->get_base_link();  
+
+  // base upright, foot forward by 45 degrees should be mirrored to
+  // base pitched backward 45 degrees, foot backward by -45 degrees
+  const double x = q[0];
+  Pose3d P = *base_link->get_pose();
+  P.update_relative_pose(GLOBAL);
+  Matrix3d R = Matrix3d::rot_Y(x);
+  P.q = R * P.q;
+std::cout << "P.x before: " << P.x << std::endl;
+  P.x = R * P.x;
+std::cout << "P.x after: " << P.x << std::endl;
+  P.update_relative_pose(base_link->get_pose()->rpose);
+  base_link->set_pose(P);
+
+  // get the joint
+  shared_ptr<Jointd> joint = walker->get_joints().front();
+
+  // update the joint
+  joint->q = -x;
+
+  // update the link transforms
+  walker->update_link_poses();
+}
+
 // called when the simulator completes a step
 void post_event_callback_fn(const std::vector<Constraint>& e,
                             boost::shared_ptr<void> empty)
@@ -74,6 +109,11 @@ void post_event_callback_fn(const std::vector<Constraint>& e,
     {
       shared_ptr<SingleBodyd> sb1 = e[i].contact_geom1->get_single_body();
       shared_ptr<SingleBodyd> sb2 = e[i].contact_geom2->get_single_body();
+
+      if (e[i].contact_geom1 == rfoot_geom || e[i].contact_geom2 == rfoot_geom)
+        std::cout << "right foot contacting; signed violation: " << e[i].signed_violation << std::endl;
+      if (e[i].contact_geom1 == lfoot_geom || e[i].contact_geom2 == lfoot_geom)
+        std::cout << "left foot contacting; signed violation: " << e[i].signed_violation << std::endl;
 
       // look for contacting foot matching the stop
       if ((touchdown_stop == eRightFoot && 
@@ -104,6 +144,10 @@ void post_event_callback_fn(const std::vector<Constraint>& e,
 
 VectorNd& controller_callback(ControlledBodyPtr dbp, VectorNd& gf, double t, void*)
 {
+  shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(dbp);
+  unsigned ngc = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  gf.set_zero(ngc);
+  return gf;
 /*
   std::cout << "> > start controller_callback(.)" << std::endl;
   RCArticulatedBodyPtr
@@ -193,6 +237,8 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
 
   // read in the initial configuration
   std::ifstream in("input.dat");
+  if (in.fail())
+    throw std::runtime_error("No input file located!");
   VectorNd q, qd;
   q.resize(walker->num_generalized_coordinates(DynamicBodyd::eEuler));
   qd.resize(walker->num_generalized_coordinates(DynamicBodyd::eSpatial));
@@ -205,7 +251,9 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
   walker->set_generalized_coordinates_euler(q);
   walker->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
 
-  // indicate that we stop on right foot touchdown
+mirror();
+
+  // indicate that we stop on left foot touchdown
   touchdown_stop = eRightFoot;
 
   // setup callbacks

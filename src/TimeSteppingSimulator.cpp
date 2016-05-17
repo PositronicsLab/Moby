@@ -165,6 +165,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
     // update h
     h += tc;
+
+    // look for the minimum step size being taken
+    if (tc == min_step_size)
+      break;
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;

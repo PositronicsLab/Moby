@@ -460,7 +460,6 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
 
         // create a H for the QP
         _Haug.set_zero(NEW_VARS, NEW_VARS); 
-        _Haug.block(N_VARS, NEW_VARS, N_VARS, NEW_VARS).set_identity();
 
         // create a c for the QP
         _caug.resize(NEW_VARS);
@@ -544,7 +543,6 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
 
       // create a H for the QP
       _Haug.set_zero(NEW_VARS, NEW_VARS); 
-      _Haug.block(N_VARS, N_VARS+3, N_VARS, N_VARS+3).set_identity();
 
       // create a c for the QP
       _caug.resize(NEW_VARS);

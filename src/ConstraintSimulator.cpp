@@ -295,13 +295,13 @@ void ConstraintSimulator::visualize_contact( Constraint& constraint )
 /// Handles constraints
 void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
 {
-  // if there are no constraints, quit now
-  if (_rigid_constraints.empty() && implicit_joints.empty())
-    return;
-
   // call the callback function, if any
   if (constraint_callback_fn)
     (*constraint_callback_fn)(_rigid_constraints, constraint_callback_data);
+
+  // if there are no constraints, quit now
+  if (_rigid_constraints.empty() && implicit_joints.empty())
+    return;
 
   // preprocess constraints
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
