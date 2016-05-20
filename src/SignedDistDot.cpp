@@ -282,7 +282,7 @@ void SignedDistDot::apply_impulse(const UnilateralConstraint& limit_constraint)
   JointPtr j = limit_constraint.limit_joint;
 
   // get the articulated body
-  shared_ptr<ArticulatedBody> ab = j->get_articulated_body();
+  shared_ptr<ArticulatedBody> ab = dynamic_pointer_cast<ArticulatedBody>(j->get_articulated_body());
 
   // get the direction of the impulse application
   double dir = (limit_constraint.limit_upper) ? -1.0 : 1.0;

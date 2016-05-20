@@ -716,7 +716,7 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
   for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
     const UnilateralConstraint& e = *q.limit_constraints[i];
-    ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(e.limit_joint->get_articulated_body());
 
     // get the iterator for the articulated body
     gj_iter = gj.find(ab);

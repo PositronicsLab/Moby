@@ -172,7 +172,7 @@ void UnilateralConstraint::compute_constraint_data(MatrixNd& M, VectorNd& q) con
   else if (constraint_type == eLimit)
   {
     // get the super body
-    ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(limit_joint->get_articulated_body());
     RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
 
     // case 1: reduced-coordinate articulated body
@@ -246,7 +246,7 @@ bool UnilateralConstraint::is_linked(const UnilateralConstraint& e1, const Unila
     }
     else if (e2.constraint_type == eLimit)
     {
-      ArticulatedBodyPtr ab = e2.limit_joint->get_articulated_body();
+      ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(e2.limit_joint->get_articulated_body());
       return e1s1 == ab || e1s2 == ab; 
     }
     else
@@ -263,8 +263,8 @@ bool UnilateralConstraint::is_linked(const UnilateralConstraint& e1, const Unila
       return is_linked(e2, e1);
     else if (e2.constraint_type == eLimit)
     {
-      ArticulatedBodyPtr ab1 = e1.limit_joint->get_articulated_body();
-      ArticulatedBodyPtr ab2 = e2.limit_joint->get_articulated_body();
+      ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(e1.limit_joint->get_articulated_body());
+      ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(e2.limit_joint->get_articulated_body());
       return ab1 == ab2;
     }
     else
@@ -478,7 +478,7 @@ void UnilateralConstraint::compute_cross_contact_limit_constraint_data(const Uni
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the articulated body of the constraint
-  ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
+  ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(e.limit_joint->get_articulated_body());
   RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
   assert(su);
 
@@ -580,7 +580,7 @@ void UnilateralConstraint::compute_cross_limit_contact_constraint_data(const Uni
 void UnilateralConstraint::compute_cross_limit_limit_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // get the super body
-  ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
+  ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(limit_joint->get_articulated_body());
   RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
   assert(su);
 

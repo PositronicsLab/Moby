@@ -180,29 +180,6 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
   return f;
 }
 
-/// Gets the articulated body corresponding to this body
-/**
- * \return a pointer to the articulated body, or NULL if this body is not 
- *         a link an articulated body
- */
-ArticulatedBodyPtr Joint::get_articulated_body() 
-{ 
-  if (_abody.expired()) 
-    return ArticulatedBodyPtr();
-  else
-    return dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)); 
-}
-
-/// Sets the articulated body corresponding to this body
-/**
- * \param body a pointer to the articulated body or NULL if this body is
- *        not a link in an articulated body
- */
-void Joint::set_articulated_body(ArticulatedBodyPtr abody) 
-{ 
-  _abody = boost::dynamic_pointer_cast<Ravelin::ArticulatedBodyd>(abody); 
-}
-
 /// Implements Base::load_from_xml()
 void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
@@ -303,8 +280,6 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
       std::cout << "  offending node: " << std::endl << *node;
       #endif
     }
-    else
-      set_articulated_body(boost::dynamic_pointer_cast<RCArticulatedBody>(id_iter->second));
   }
 
   // read the inboard link id, if given
@@ -427,13 +402,6 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
   {
     Origin3d loc(Pose3d::transform_point(GLOBAL, get_location()));
     node->attribs.insert(XMLAttrib("location", loc));
-  }
-
-  // save the ID articulated body (if any)
-  if (!_abody.expired())
-  {
-    shared_ptr<ArticulatedBodyd> abody(_abody);
-    node->attribs.insert(XMLAttrib("articulated-body-id", abody->body_id));
   }
 }
 
