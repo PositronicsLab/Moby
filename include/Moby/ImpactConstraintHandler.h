@@ -80,8 +80,9 @@ class ImpactConstraintHandler
     boost::shared_ptr<ConstraintSimulator> _simulator;
 
     // temporaries for apply_model_to_connected_constraints()
-    Ravelin::MatrixNd _H, _M, _A, _MM, _Maug, _Aaug, _Haug;
+    Ravelin::MatrixNd _H, _M, _A, _MM, _Maug, _Aaug, _Haug, _workM;
     Ravelin::VectorNd _c, _q, _b, _qq, _lb, _ub, _zlast, _caug, _lbaug, _ubaug;
+    Ravelin::VectorNd _workv;
 
     // interior-point solver "application"
     #ifdef HAVE_IPOPT

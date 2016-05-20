@@ -70,30 +70,43 @@ void mirror()
   walker->get_generalized_coordinates_euler(q);
   walker->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
 
-  // get the base link
-  shared_ptr<RigidBodyd> base_link = walker->get_base_link();  
-
   // base upright, foot forward by 45 degrees should be mirrored to
   // base pitched backward 45 degrees, foot backward by -45 degrees
   const double x = q[0];
-  Pose3d P = *base_link->get_pose();
-  P.update_relative_pose(GLOBAL);
-  Matrix3d R = Matrix3d::rot_Y(x);
-  P.q = R * P.q;
-std::cout << "P.x before: " << P.x << std::endl;
-  P.x = R * P.x;
-std::cout << "P.x after: " << P.x << std::endl;
-  P.update_relative_pose(base_link->get_pose()->rpose);
-  base_link->set_pose(P);
+  const double xd = qd[0];
 
+  // get the left foot pose 
+  shared_ptr<const Pose3d> lf_pose = walker->get_base_link()->get_pose(); 
+
+  // get the right foot pose 
+  Pose3d rf_pose = *walker->get_links().back()->get_pose();
+
+  // transform the velocity 
+  shared_ptr<const Pose3d> base_vel_pose = walker->get_base_link()->get_velocity().pose;
+  SVelocityd v = walker->get_links().back()->get_velocity();
+  v.pose = base_vel_pose;
+  walker->get_base_link()->set_velocity(v);
+ 
+  // set the left foot pose to the right foot pose
+  rf_pose.update_relative_pose(lf_pose->rpose);
+  walker->get_base_link()->set_pose(rf_pose);
+
+/*
+  // update the angular velocity
+  SVelocityd base_xd = base_link->get_velocity();
+  base_xd.set_angular(Vector3d(R * Origin3d(base_xd.get_angular()), base_xd.pose));
+  base_link->set_velocity(base_xd);
+*/
   // get the joint
   shared_ptr<Jointd> joint = walker->get_joints().front();
 
   // update the joint
   joint->q = -x;
+  joint->qd = -xd;
 
   // update the link transforms
   walker->update_link_poses();
+  walker->update_link_velocities();
 }
 
 // called when the simulator completes a step
@@ -120,6 +133,9 @@ void post_event_callback_fn(const std::vector<Constraint>& e,
           (e[i].contact_geom1 == rfoot_geom || e[i].contact_geom2 == rfoot_geom)) || (touchdown_stop == eLeftFoot &&
           (e[i].contact_geom1 == lfoot_geom || e[i].contact_geom2 == lfoot_geom)))
       {
+/*
+        // mirror the coordinates
+        mirror();
         // get the generalized coordinates and velocity
         walker->get_generalized_coordinates_euler(q);
         walker->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
@@ -136,6 +152,7 @@ void post_event_callback_fn(const std::vector<Constraint>& e,
 
         // exit with no error message
         exit(0);
+*/
       }
     }
   }
@@ -242,7 +259,7 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
   VectorNd q, qd;
   q.resize(walker->num_generalized_coordinates(DynamicBodyd::eEuler));
   qd.resize(walker->num_generalized_coordinates(DynamicBodyd::eSpatial));
-  for (unsigned i=0; i< q.size(); i++)
+  for (unsigned i=2; i< q.size(); i++)
     in >> q[i]; assert(!in.eof());
   for (unsigned i=0; i< qd.size(); i++)
     in >> qd[i]; assert(!in.eof());
@@ -251,14 +268,15 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
   walker->set_generalized_coordinates_euler(q);
   walker->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
 
-mirror();
+// mirror the configuration
+//mirror();
 
   // indicate that we stop on left foot touchdown
   touchdown_stop = eRightFoot;
 
   // setup callbacks
   walker->controller                  = &controller_callback;
-  sim->constraint_post_callback_fn  = &post_event_callback_fn;
+//  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
   // get the collision geometries for the feet
   lfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("LLEG"))->geometries.front();

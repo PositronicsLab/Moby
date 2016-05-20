@@ -417,9 +417,6 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
         if (*iter < INF)
           *iter += TOL;
 
-// TODO: rearrange A/b so that slackable equality constraints are on the
-// bottom
-
       // no slackable equality constraints; try solving QP first w/o any
       // tolerance in the constraints
       bool result = qpOASES::qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
@@ -508,6 +505,46 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
       // there are slackable equality constraints; find a feasible solution
       // to the problem without minimizing slack on the slackable equality 
       // constraints  
+
+      // first rearrange A/b so that slackable equality constraints are on the
+      // bottom; 1. copy slackable constraints first
+      _workM.resize(_A.rows(), _A.columns());
+      _workv.resize(_b.size());
+      for (unsigned i=0, j=0, m=0; i< constraints.size(); i++)
+        for (unsigned k=0; k< constraints[i]->num_constraint_eqns(); k++)
+      {
+        if (constraints[i]->get_constraint_type() == Constraint::eEquality)
+        {
+          if (constraints[i]->is_constraint_slackable(k))
+          {
+            _workM.row(j) = _A.row(m); 
+            _workv[j] = _b[m];
+            j++;
+          }
+
+          // update m
+          m++;
+        }
+      }
+
+      // rearrange A/b so that slackable equality constraints are on the
+      // bottom; 1. copy non-slackable constraints next 
+      for (unsigned i=0, j=N_SLACKABLE_EQ_CONSTRAINTS, m=0; i< constraints.size(); i++)
+        for (unsigned k=0; k< constraints[i]->num_constraint_eqns(); k++)
+      {
+        if (constraints[i]->get_constraint_type() == Constraint::eEquality)
+        {
+          if (!constraints[i]->is_constraint_slackable(k))
+          {
+            _workM.row(j) = _A.row(m); 
+            _workv[j] = _b[m];
+            j++;
+          }
+
+          // update m
+          m++;
+        }
+      }
 
       // determine new number of variables (one for inequality constraints,
       // two for unslackable equality constraints, two for each slackable
