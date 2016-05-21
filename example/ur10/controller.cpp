@@ -13,19 +13,37 @@
 using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
+using boost::dynamic_pointer_cast;
 
 Moby::RCArticulatedBodyPtr robot;
 boost::shared_ptr<TimeSteppingSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
+std::map<std::string, double> qd_des;
 
 void check_constraint_num(std::vector<Constraint>& constraints, boost::shared_ptr<void> data)
 {
-  std::vector<Constraint> c_constraints = sim->get_rigid_constraints();
-  //std::cout<<"callback implement";
-  assert (c_constraints.size() >= 3);
-  return;
-}
+  std::vector<Constraint>& c_constraints = sim->get_rigid_constraints();
+return;
+  // get the mapping from joint names to gc indices
+  const std::vector<shared_ptr<Jointd> >& joints = robot->get_joints();
 
+  // setup the mapping from joint ids to joints 
+  std::map<std::string, shared_ptr<Jointd> > mapping;
+  for (unsigned i=0; i< joints.size(); i++)
+    mapping[joints[i]->joint_id] = joints[i];
+
+  // setup inverse dynamics constraints
+  for (std::map<std::string, double>::const_iterator i = qd_des.begin(); i != qd_des.end(); i++)
+  {
+    Constraint c;
+    c.constraint_type = Constraint::eInverseDynamics;
+    c.inv_dyn_joint = dynamic_pointer_cast<Joint>(mapping[i->first]);
+    assert(c.inv_dyn_joint->num_dof() == 1);
+    c.qdot_des.resize(1); 
+    c.qdot_des[0] = i->second;
+    constraints.push_back(c);
+  }
+}
 
 VectorNd& controller(shared_ptr<ControlledBody> body, VectorNd& u, double t, void*)
 {
@@ -42,22 +60,31 @@ VectorNd& controller(shared_ptr<ControlledBody> body, VectorNd& u, double t, voi
   for (unsigned i=0; i< joints.size(); i++)
     mapping[joints[i]->joint_id] = joints[i]->get_coord_index();
 
-  // determine the desired position and velocity for the controller 
+  // determine the desired position, velocity, and acceleration for the controller 
   const double PERIOD = 5.0;
   const double AMP = 0.5;
   const double SMALL_AMP = AMP*0.1;
   double sh_pan_q_des = std::sin(t)*AMP*PERIOD;
   double sh_pan_qd_des = std::cos(t)*AMP*PERIOD;
+  qd_des["shoulder_pan_joint"] = sh_pan_qd_des; 
   double sh_lift_q_des = std::sin(t*2.0)*SMALL_AMP*PERIOD*2.0;
   double sh_lift_qd_des = std::cos(t*2.0)*SMALL_AMP*PERIOD*2.0;
+  qd_des["shoulder_lift_joint"] = sh_lift_qd_des; 
   double elbow_q_des = std::sin(t*2.0/3.0)*AMP*PERIOD*2.0/3.0;
   double elbow_qd_des = std::cos(t*2.0/3.0)*AMP*PERIOD*2.0/3.0;
+  qd_des["elbow_joint"] = elbow_qd_des;
   double wrist1_q_des = std::sin(t*1.0/7.0)*AMP*PERIOD*1.0/7.0;
   double wrist1_qd_des = std::cos(t*1.0/7.0)*AMP*PERIOD*1.0/7.0;
+  qd_des["wrist_1_joint"] = wrist1_qd_des;
   double wrist2_q_des = std::sin(t*2.0/11.0)*AMP*PERIOD*2.0/11.0;
   double wrist2_qd_des = std::cos(t*2.0/11.0)*AMP*PERIOD*2.0/11.0;
+  qd_des["wrist_2_joint"] = wrist2_qd_des;
   double wrist3_q_des = std::sin(t*3.0/13.0)*AMP*PERIOD*3.0/13.0;
   double wrist3_qd_des = std::cos(t*3.0/13.0)*AMP*PERIOD*3.0/13.0;
+  qd_des["wrist_3_joint"] = wrist3_qd_des;
+
+  // add no forces
+  u.set_zero(robot->num_generalized_coordinates(DynamicBodyd::eSpatial));
 
   // compute the errors
   double sh_pan_q_err = (sh_pan_q_des - q[mapping["shoulder_pan_joint"]]);

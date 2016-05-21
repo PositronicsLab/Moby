@@ -132,9 +132,26 @@ void Constraint::apply_test_impulse(unsigned var_index)
 }
 
 /// Determines whether slack is allowed in the constraint
-bool Constraint::slack_allowed() const
+bool Constraint::is_constraint_slackable(unsigned i) const
 {
-  return (constraint_type == eInverseDynamics || constraint_type == eSpringDamper);
+  if (constraint_type == eInverseDynamics && inv_dyn_fmax.size() == inv_dyn_joint->num_dof())
+  {
+    const double INF = std::numeric_limits<double>::max();
+    bool all_inf = true;
+    for (unsigned i=0; i< inv_dyn_fmax.size(); i++)
+      if (inv_dyn_fmax[i] < INF)
+      {
+        bool all_inf = false;
+        break;
+      }
+    return !all_inf;
+  }
+  else if (constraint_type == eSpringDamper)
+  {
+    return true;
+  }
+  else
+    return false;
 } 
 
 /// Gets the number of optimization / mathematical programming variables
@@ -187,7 +204,10 @@ double Constraint::get_lower_variable_limit(unsigned var_index) const
       return 0.0;
 
     case eInverseDynamics:
-      return -inv_dyn_fmax[var_index]; 
+      if (inv_dyn_fmax.size() > 0)
+        return -inv_dyn_fmax[var_index]; 
+      else
+        return -INF;
 
     case eSpringDamper:
       return -calc_spring_damper_fmax();
@@ -216,7 +236,10 @@ double Constraint::get_upper_variable_limit(unsigned var_index) const
       return INF;
 
     case eInverseDynamics:
-      return inv_dyn_fmax[var_index]; 
+      if (inv_dyn_fmax.size() > 0)
+        return inv_dyn_fmax[var_index]; 
+      else
+        return INF;
 
     case eSpringDamper:
       return calc_spring_damper_fmax();
@@ -252,10 +275,6 @@ Constraint::ConstraintEquationType Constraint::get_constraint_equation_type(unsi
       #ifdef USE_AP_MODEL
       return eComplementarity;
       #else
-      if (constraint_eqn_index == 0)
-        return eInequality; 
-      if (contact_mu_coulomb >= NO_SLIP_COEFF)
-        return eEquality;
       return eInequality; 
       #endif
 
@@ -717,7 +736,7 @@ unsigned Constraint::num_constraint_equations() const
       else if (contact_mu_coulomb < NO_SLIP_COEFF)
         return contact_NK/4 + 1;
       else
-        return 3; 
+        return 1; 
       #endif
 
     case eLimit:

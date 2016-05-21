@@ -490,10 +490,14 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
 
         // modify lb and ub for the new variables
         for (unsigned i=N_VARS; i< NEW_VARS; i++)
-          _lbaug[i] = _ubaug[i] = z[i];
+        {
+          _lbaug[i] = z[i] - std::sqrt(NEAR_ZERO);
+          _ubaug[i] = z[i] + std::sqrt(NEAR_ZERO);
+        }
 
         // resolve the QP
         result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+        assert(result);
         FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
         FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
       }
@@ -511,9 +515,9 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
       _workM.resize(_A.rows(), _A.columns());
       _workv.resize(_b.size());
       for (unsigned i=0, j=0, m=0; i< constraints.size(); i++)
-        for (unsigned k=0; k< constraints[i]->num_constraint_eqns(); k++)
+        for (unsigned k=0; k< constraints[i]->num_constraint_equations(); k++)
       {
-        if (constraints[i]->get_constraint_type() == Constraint::eEquality)
+        if (constraints[i]->get_constraint_equation_type(k) == Constraint::eEquality)
         {
           if (constraints[i]->is_constraint_slackable(k))
           {
@@ -530,9 +534,9 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
       // rearrange A/b so that slackable equality constraints are on the
       // bottom; 1. copy non-slackable constraints next 
       for (unsigned i=0, j=N_SLACKABLE_EQ_CONSTRAINTS, m=0; i< constraints.size(); i++)
-        for (unsigned k=0; k< constraints[i]->num_constraint_eqns(); k++)
+        for (unsigned k=0; k< constraints[i]->num_constraint_equations(); k++)
       {
-        if (constraints[i]->get_constraint_type() == Constraint::eEquality)
+        if (constraints[i]->get_constraint_equation_type(k) == Constraint::eEquality)
         {
           if (!constraints[i]->is_constraint_slackable(k))
           {

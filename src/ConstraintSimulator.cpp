@@ -396,13 +396,21 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
 /// Performs necessary preprocessing on an constraint
 void ConstraintSimulator::preprocess_constraint(Constraint& e)
 {
-  // no pre-processing for limit constraints currently...
-  if (e.constraint_type == Constraint::eLimit)
-    return;
+  // no pre-processing for many constraint types
+  switch (e.constraint_type)
+  {
+    case Constraint::eLimit:
+    case Constraint::eNone:
+    case Constraint::eInverseDynamics:
+    case Constraint::eSpringDamper:
+      return;
 
-  // no pre-processing for (none) constraints
-  if (e.constraint_type == Constraint::eNone)
-    return;
+    case Constraint::eContact: // contact will be handled below
+      break;
+
+    default:
+      assert(false); 
+  }
 
   // get the contact parameters
   assert(e.constraint_type == Constraint::eContact);

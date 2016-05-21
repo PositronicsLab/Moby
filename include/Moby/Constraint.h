@@ -42,7 +42,6 @@ class Constraint
     ConstraintCoeffType get_constraint_coeff_type(unsigned constraint_eqn_index) const;
     unsigned get_velocity_constraint_index(unsigned constraint_eqn_index) const;
     void get_impulse_constraint_coeffs(unsigned constraint_eqn_index, Ravelin::SharedVectorNd& a);
-    bool slack_allowed() const;
     unsigned num_variables() const;
     unsigned num_impulsive_variables() const;
     unsigned num_constraint_equations() const;
@@ -66,6 +65,7 @@ class Constraint
     bool is_separating() const { return determine_constraint_velocity_class() == ePositive; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
+    bool is_constraint_slackable(unsigned i) const;
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
