@@ -22,25 +22,35 @@ class LCP
     bool lcp_lemke_regularized(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
-    bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& z, double zero_tol = -1.0);
+    bool mlcp_keller(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& z, double zero_tol = -1.0);
+    bool mlcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& z, double zero_tol = -1.0);
     bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double zero_tol = -1.0);
     bool lcp_fast_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
+    bool mlcp_fast_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
+    bool mlcp_keller_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
     bool fast_pivoting(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double eps = std::sqrt(std::numeric_limits<double>::epsilon()));
 
     /// number of pivots required by the last call to the solver
     unsigned pivots;
 
   private:
+    static double sgn(double x);
     static void log_failure(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q);
     static void set_basis(unsigned n, unsigned count, std::vector<unsigned>& bas, std::vector<unsigned>& nbas);
     static unsigned rand_min(const Ravelin::VectorNd& v, double zero_tol);
+    static void compute_z_w(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::VectorNd& zalpha, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, const std::vector<unsigned>& alpha, const std::vector<unsigned>& betal, const std::vector<unsigned>& betau, Ravelin::VectorNd& z, Ravelin::VectorNd& w);
+
+    // temporaries for Keller's algorithm
+    std::vector<unsigned> _alpha, _beta, _betal, _betau;
+    Ravelin::VectorNd _workv, _workv2, _valpha, _lalpha, _ualpha, _zalpha;
+    Ravelin::MatrixNd _Mba;
 
     // temporaries for regularized solver
     Ravelin::MatrixNd _MM;
     Ravelin::VectorNd _wx;
 
     // temporaries for fast pivoting solver
-    Ravelin::VectorNd _z, _w, _qbas, _qprime, _wfull, _wplus, _wminus, _workv;
+    Ravelin::VectorNd _z, _w, _qbas, _qprime, _wfull, _wplus, _wminus;
     Ravelin::MatrixNd _Msub, _Mmix, _M;
 
     // temporaries for Lemke solver

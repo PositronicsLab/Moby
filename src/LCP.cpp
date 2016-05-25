@@ -37,19 +37,431 @@ LCP::LCP()
 {
 }
 
+/// Sign function for Keller's algorithm
+double LCP::sgn(double x)
+{
+  if (x > NEAR_ZERO)
+    return 1.0;
+  else if (x < -NEAR_ZERO)
+    return -1.0;
+  else
+    return 0.0;
+}
+
+// compute z and w
+void LCP::compute_z_w(const MatrixNd& M, const VectorNd& q, const VectorNd& zalpha, const VectorNd& l, const VectorNd& u, const std::vector<unsigned>& alpha, const std::vector<unsigned>& betal, const std::vector<unsigned>& betau, VectorNd& z, VectorNd& w)
+{ 
+  // resize z as necessary
+  const unsigned N = q.size();
+  z.resize(N);
+
+  // set nonbasic components of z
+  z.set(alpha.begin(), alpha.end(), zalpha);
+
+  // set basic components of z 
+  for (unsigned i=0; i< N; i++)
+  {
+    // if the index is in the nonbasic set, skip it
+    if (std::binary_search(alpha.begin(), alpha.end(), i))
+      continue;
+
+    // the index is in the basic set, find whether it is in betal 
+    if (std::binary_search(betal.begin(), betal.end(), i))
+      z[i] = l[i];
+    else 
+    {
+      assert(std::binary_search(betau.begin(), betau.end(), i));
+      z[i] = u[i];
+    }
+  }
+
+  // finally, compute w
+  M.mult(z, w) += q;
+}
+
+static std::string to_string(const vector<unsigned>& indices)
+{
+  std::ostringstream str;
+  for (unsigned i=0; i< indices.size(); i++)
+    str << " " << indices[i];
+  return str.str();
+} 
+
+static void verify(const VectorNd& l, const VectorNd& u, const VectorNd& z)
+{
+return;
+  for (unsigned i=0; i< z.size(); i++)
+  {
+    assert (z[i] + NEAR_ZERO >= l[i]);
+    assert (z[i] - NEAR_ZERO <= u[i]);
+  } 
+} 
+
+/// Keller's fast pivoting algorithm for LCPs with positive semi-definite matrices and lower and upper bounds on variables 
+bool LCP::mlcp_keller(const MatrixNd& M, const VectorNd& q, const VectorNd& l, const VectorNd& u, VectorNd& z, double zero_tol)
+{
+  const unsigned N = q.rows();
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
+  const double INF = std::numeric_limits<double>::max();
+  double theta, theta0, theta1, theta2, theta3;
+  std::vector<int> pivwork;
+
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_keller() entered" << std::endl;
+
+  // look for trivial solution
+  if (N == 0)
+  {
+    FILE_LOG(LOG_OPT) << "LCP::mlcp_keller() - empty problem" << std::endl;
+    z.resize(0);
+    return true;
+  }
+
+  // set zero tolerance if necessary
+  if (zero_tol < 0.0)
+    zero_tol = M.rows() * M.norm_inf() * std::numeric_limits<double>::epsilon();
+
+  // prepare to setup basic and nonbasic variable indices for z
+  _alpha.clear();
+  _beta.clear();
+  _betal.clear();
+  _betau.clear();
+
+  // setup alpha, beta
+  for (unsigned i=0; i< q.size(); i++)
+  {
+    if (l[i] == -INF && u[i] == INF)
+      _alpha.push_back(i);
+    else
+    {
+      if (l[i] == -INF)
+        _betau.push_back(i);
+      else
+        _betal.push_back(i);
+      _beta.push_back(i);
+    }
+  }
+
+  // solve for zalpha 
+  M.select_square(_alpha.begin(), _alpha.end(), _Msub);
+  if (!_LA.factor_LU(_Msub, pivwork))
+  {
+    FILE_LOG(LOG_OPT) << "LCP::mlcp_keller() - linear system solve failed" << std::endl;
+    return false;
+  }
+  q.select(_alpha.begin(), _alpha.end(), _zalpha);
+  _zalpha.negate();
+  _LA.solve_LU_fast(_Msub, false, pivwork, _zalpha);
+
+  // compute z and w
+  compute_z_w(M, q, _zalpha, l, u, _alpha, _betal, _betau, z, _w); 
+  #ifndef NDEBUG
+  verify(l, u, z);
+  #endif
+
+  // pivot up to the prescribed number of times
+  const unsigned MAX_PIV = 2*N;
+  for (pivots=0; pivots < MAX_PIV; pivots++)
+  {
+    // determine sl 
+    unsigned sl = UINF;
+    double wplus_min = INF;
+    for (unsigned i=0; i< _betal.size(); i++)
+      if (_w[_betal[i]] < wplus_min)
+      {
+        sl = _betal[i];
+        wplus_min = _w[sl];
+      }
+
+    // determine su
+    unsigned su = UINF;
+    double wminus_max = -INF;
+    for (unsigned i=0; i< _betau.size(); i++)
+      if (_w[_betau[i]] > wminus_max)
+      {
+        su = _betau[i];
+        wminus_max = _w[su];
+      }
+
+    // determine s 
+    unsigned s;
+    if (sl == UINF)
+      s = su;
+    else if (su == UINF || _w[sl] < -_w[su])
+      s = sl;
+    else
+      s = su; 
+
+    // if there is no violation of w, algorithm is successful (feasibility of
+    // z is always maintained)
+    if (wminus_max < zero_tol && wplus_min > -zero_tol)
+    {
+/*
+      // solve for zalpha 
+      M.select_square(_alpha.begin(), _alpha.end(), _Msub);
+      q.select(_alpha.begin(), _alpha.end(), _zalpha);
+      _zalpha.negate();
+      try
+      {
+        _LA.solve_LU_fast(_Msub, false, pivwork, _zalpha);
+      }
+      catch (SingularException e)
+      {
+        FILE_LOG(LOG_OPT) << "LCP::mlcp_keller() - linear system solve failed" << std::endl;
+        return false;
+      }
+*/
+      // compute z and w
+      compute_z_w(M, q, _zalpha, l, u, _alpha, _betal, _betau, z, _w); 
+      #ifndef NDEBUG
+      verify(l, u, z);
+      #endif
+
+      if (LOGGING(LOG_OPT))
+      {
+        FILE_LOG(LOG_OPT) << "z: " << z << std::endl;
+        FILE_LOG(LOG_OPT) << "predicted w: " << _w << std::endl;
+        M.mult(z, _workv) += q;
+        FILE_LOG(LOG_OPT) << "true w: " << _workv << std::endl;
+      }
+      return true;
+    }
+    else
+      FILE_LOG(LOG_OPT) << "w violation: " << std::fabs(_w[s]) << std::endl;
+
+    // compute p
+    double p = -sgn(_w[s]);
+
+    // verify p
+    assert(p != 0.0);
+
+    do
+    {
+      FILE_LOG(LOG_OPT) << "non-basic (alpha) indices: " << to_string(_alpha) << std::endl;
+      FILE_LOG(LOG_OPT) << "basic (beta) indices: " << to_string(_beta) << std::endl;
+      FILE_LOG(LOG_OPT) << "basic lower (beta) indices: " << to_string(_betal) << std::endl;
+      FILE_LOG(LOG_OPT) << "basic upper (beta) indices: " << to_string(_betau) << std::endl;
+      FILE_LOG(LOG_OPT) << "s: " << s << " sl: " << sl << " su: " << su << std::endl;
+
+      // compute valpha
+      M.get_column(s, _workv);
+      _workv.select(_alpha.begin(), _alpha.end(), _valpha);
+      _valpha.negate();
+      _LA.solve_LU_fast(_Msub, false, pivwork, _valpha);
+
+      // get row of M
+      M.get_row(s, _workv);
+      _workv.select(_alpha.begin(), _alpha.end(), _workv2);
+
+      // compute rho s
+      double rho_s = M(s,s) + _workv2.dot(_valpha);
+      
+      // reset thetas
+      if (p < 0)
+        theta0 = theta1 = theta2 = theta3 = -INF;
+      else
+        theta0 = theta1 = theta2 = theta3 = INF;
+
+      // potentially update theta0
+      FILE_LOG(LOG_OPT) << "rho_s: " << rho_s << "  w[s]: " << _w[s] << std::endl;
+      if (rho_s > NEAR_ZERO)
+        theta0 = -_w[s]/rho_s;
+
+      // potentially update theta1
+      if (p > 0)
+        theta1 = u[s] - z[s];
+      else
+        theta1 = l[s] - z[s];
+
+      // compute theta2 and theta3 (and r2 and r3)
+      l.select(_alpha.begin(), _alpha.end(), _lalpha);
+      u.select(_alpha.begin(), _alpha.end(), _ualpha);
+      unsigned r2 = UINF, r3 = UINF;
+      for (unsigned i=0; i< _valpha.size(); i++)
+      {
+        // first, attempt to update r2 / theta2
+        if (p * _valpha[i] < -zero_tol)
+        {
+          double cand = p * (_lalpha[i] - _zalpha[i])/_valpha[i];
+          if (r2 == UINF || cand < theta2)
+          {
+            r2 = _alpha[i];
+            theta2 = cand;
+            assert(theta2 > -NEAR_ZERO);
+          }
+        }
+        else if (p * _valpha[i] > zero_tol)
+        {
+          double cand = p * (_ualpha[i] - _zalpha[i])/_valpha[i];
+          if (r3 == UINF || cand < theta3)
+          {
+            r3 = _alpha[i];
+            theta3 = cand;
+            assert(theta3 > -NEAR_ZERO);
+          }
+        }
+      }
+
+      // compute theta
+      FILE_LOG(LOG_OPT) << "theta0: " << theta0 << " theta1: " << theta1 << " theta2: " << theta2 << " theta3: " << theta3 << std::endl;
+      double thetas[4] = { p*theta0, p*theta1, p*theta2, p*theta3 };
+      theta = p * (*std::min_element(thetas, thetas+4));
+
+      // look for ray termination
+      if (theta == INF || theta == -INF)
+      {
+        FILE_LOG(LOG_OPT) << "LCP::mlcp_keller() - terminated on ray" << std::endl;
+        return false;
+      }
+
+      // update z and w
+      _valpha *= theta;
+      _zalpha += _valpha;
+      _w[s] += theta * rho_s;
+      M.select(_beta.begin(), _beta.end(), _alpha.begin(), _alpha.end(), _Mba);
+      M.get_column(s, _workv);
+      _workv.select(_beta.begin(), _beta.end(), _workv2);
+      _workv2 *= theta;
+      _w.select(_beta.begin(), _beta.end(), _workv);
+      _workv += _workv2;    // _wbeta += theta*Mbs
+      _Mba.mult(_valpha, _workv2);
+      _workv += _workv2;    // _wbeta += Mba*valpha
+      _w.set(_beta.begin(), _beta.end(), _workv);
+
+      // update z
+      FILE_LOG(LOG_OPT) << "z: " << z << std::endl;
+      z.set(_alpha.begin(), _alpha.end(), _zalpha);
+      #ifndef NDEBUG
+      verify(l, u, z);
+      #endif
+
+      // update w further if theta = theta0 (also update indices) ...
+      if (theta == theta0)
+      {
+        _w[s] = 0.0;
+        _alpha.push_back(s);
+        insertion_sort(_alpha.begin(), _alpha.end());
+        assert(std::lower_bound(_beta.begin(), _beta.end(), s) != _beta.end());
+
+        // erase from beta
+        _beta.erase(std::lower_bound(_beta.begin(), _beta.end(), s));
+
+        // erase from betal
+        vector<unsigned>::iterator siter;
+        siter = std::lower_bound(_betal.begin(), _betal.end(), s);
+        if (siter != _betal.end())
+          _betal.erase(siter);
+
+        // erase from betau
+        siter = std::lower_bound(_betau.begin(), _betau.end(), s);
+        if (siter != _betau.end())
+          _betau.erase(siter);
+      }
+      // ...or if theta = theta1 (also update indices) ...
+      else if (theta == theta1)
+      {
+        // remove s from alpha
+        assert(std::lower_bound(_alpha.begin(), _alpha.end(), s) != _alpha.end());
+        _alpha.erase(std::lower_bound(_alpha.begin(), _alpha.end(), s));
+
+        // add s to beta
+        _beta.push_back(s);
+        insertion_sort(_beta.begin(), _beta.end());
+
+        if (p > 0.0)
+        {
+          z[s] = u[s];
+
+          // add s to beta u
+          _betau.push_back(s);
+          insertion_sort(_betau.begin(), _betau.end());
+        }
+        else
+        {
+          z[s] = l[s];
+
+          // add s to beta l 
+          _betal.push_back(s);
+          insertion_sort(_betal.begin(), _betal.end());
+        }
+      }
+      // ...or if theta = theta2 (also update indices) ...
+      else if (theta == theta2)
+      {
+        // update z
+        z[r2] = l[r2];
+
+        // remove r2 from alpha
+        assert(std::lower_bound(_alpha.begin(), _alpha.end(), r2) != _alpha.end());
+        _alpha.erase(std::lower_bound(_alpha.begin(), _alpha.end(), r2));
+
+        // add r to beta l 
+        _betal.push_back(r2);
+        insertion_sort(_betal.begin(), _betal.end());
+
+        // add r to beta
+        _beta.push_back(r2);
+        insertion_sort(_beta.begin(), _beta.end());
+      }
+      // ...or if theta = theta3 (also update indices) ...
+      else if (theta == theta3)
+      {
+        // update z
+        z[r3] = u[r3];
+
+        // remove r3 from alpha
+        assert(std::lower_bound(_alpha.begin(), _alpha.end(), r3) != _alpha.end());
+        _alpha.erase(std::lower_bound(_alpha.begin(), _alpha.end(), r3));
+
+        // add r to beta u 
+        _betau.push_back(r3);
+        insertion_sort(_betau.begin(), _betau.end());
+
+        // add r to beta
+        _beta.push_back(r3);
+        insertion_sort(_beta.begin(), _beta.end());
+      }
+      else
+        assert(false);
+
+      FILE_LOG(LOG_OPT) << "predicted w: " << _w << std::endl;
+  
+      // redetermine z -- first solve for zalpha
+      M.select_square(_alpha.begin(), _alpha.end(), _Msub);
+      if (!_LA.factor_LU(_Msub, pivwork))
+      {
+        FILE_LOG(LOG_OPT) << "LCP::mlcp_keller() - linear system solve failed" << std::endl;
+        return false;
+      }
+      q.select(_alpha.begin(), _alpha.end(), _zalpha);
+      _zalpha.negate();
+      _LA.solve_LU_fast(_Msub, false, pivwork, _zalpha);
+
+      // compute z and w
+      compute_z_w(M, q, _zalpha, l, u, _alpha, _betal, _betau, z, _w); 
+    }
+    while (theta != theta0);    
+  }
+
+  // if we're here, maximum pivots exceeded
+  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - maximum allowable pivots exceeded" << std::endl;
+
+  // if we're here, then the maximum number of pivots has been exceeded
+  return false;
+}
+
 /// Fast pivoting algorithm for LCPs with positive semi-definite matrices and lower and upper bounds on variables 
-bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, const VectorNd& u, VectorNd& z, double zero_tol)
+bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, const VectorNd& u, VectorNd& z, double zero_tol)
 {
   const unsigned N = q.rows();
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   const double INF = std::numeric_limits<double>::max();
 
-  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() entered" << std::endl;
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() entered" << std::endl;
 
   // look for trivial solution
   if (N == 0)
   {
-    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - empty problem" << std::endl;
+    FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() - empty problem" << std::endl;
     z.set_zero(0);
     return true;
   }
@@ -64,10 +476,19 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
   _basl.clear();
   _basu.clear();
 
+  // determine whether any lower values are at infinity
+  bool nolinf = true;
+  for (unsigned i=0; i< N; i++)
+    if (l[i] == -INF)
+    {
+      nolinf = false;
+      break;
+    }
+
   // see whether to warm-start
   if (z.size() == q.size())
   {
-    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - warm starting activated" << std::endl;
+    FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() - warm starting activated" << std::endl;
 
     for (unsigned i=0; i< z.size(); i++)
     {
@@ -94,7 +515,7 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
       FILE_LOG(LOG_OPT) << str.str() << std::endl;
     }
   }
-  else
+  else if (nolinf)
   {
     // compute M*l + q and compute the minimum element
     M.mult(l, _w) += q; 
@@ -115,7 +536,26 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
     _basu.resize(0);
     _bas = _basl;
   }
-
+  else
+  {
+    // set as few non-basic indices as possible
+    for (unsigned i=0; i< N; i++)
+    {
+      if (l[i] == -INF && u[i] == INF)
+        _nonbas.push_back(i);
+      else if (l[i] == -INF)
+      {
+        _basu.push_back(i);
+        _bas.push_back(i);
+      }
+      else
+      { 
+        _basl.push_back(i);
+        _bas.push_back(i);
+      }
+    }
+  }
+ 
   // loop for maximum number of pivots
 //  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
   const unsigned MAX_PIV = 2*N;
@@ -139,9 +579,22 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
       FILE_LOG(LOG_OPT) << "indices before beginning pivot" << std::endl << str.str();
     }
 
+    // setup basic elements of z
+    VectorNd zbas, tmpv;
+    zbas.resize(_bas.size());
+    for (unsigned i=0; i< _bas.size(); i++)
+    {
+      if (std::binary_search(_basl.begin(), _basl.end(), _bas[i]))
+        zbas[i] = l[_bas[i]];
+      else
+        zbas[i] = u[_bas[i]];
+    } 
+
     // select nonbasic indices
+    MatrixNd Mbas;
     M.select_square(_nonbas.begin(), _nonbas.end(), _Msub);
     M.select(_bas.begin(), _bas.end(), _nonbas.begin(), _nonbas.end(), _Mmix);
+    M.select_square(_bas.begin(), _bas.end(), Mbas);
     q.select(_nonbas.begin(), _nonbas.end(), _z);
     q.select(_bas.begin(), _bas.end(), _qbas);
     _z.negate();
@@ -155,30 +608,33 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
     }
     catch (SingularException e)
     {
-      FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - linear system solve failed" << std::endl;
+      FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() - linear system solve failed" << std::endl;
       return false;
     }
     FILE_LOG(LOG_OPT) << "sub z: " << _z << std::endl;
 
     // compute w, which will be the size of the basic indices 
     _Mmix.mult(_z, _w) += _qbas;
+    Mbas.mult(zbas, tmpv);
+    _w += tmpv;
     FILE_LOG(LOG_OPT) << "sub w: " << _w << std::endl;
 
     // move _w back to a full vector
-    _wfull.set_zero(N);
-    _wfull.set(_bas.begin(), _bas.end(), _w);
-    FILE_LOG(LOG_OPT) << "full w: " << _wfull << std::endl;
+    tmpv.set_zero(N);
+    tmpv.set(_bas.begin(), _bas.end(), _w);
+    _w = tmpv;
+    FILE_LOG(LOG_OPT) << "full w: " << _w << std::endl;
 
     // elements of w corresponding to z at lower bounds (lower basic indices) 
     // must be non-negative; elements of w corresponding to z at upper bounds
     // (upper basic indices) must be non-positive
 
     // get all elements of w (w+) that correspond to lower basic indices
-    _wfull.select(_basl.begin(), _basl.end(), _wplus);
+    _w.select(_basl.begin(), _basl.end(), _wplus);
     FILE_LOG(LOG_OPT) << "w+: " << _wplus << std::endl;
 
     // get all elements of w (w-) that correspond to upper basic indices
-    _wfull.select(_basu.begin(), _basu.end(), _wminus);
+    _w.select(_basu.begin(), _basu.end(), _wminus);
     FILE_LOG(LOG_OPT) << "w-: " << _wminus << std::endl;
 
     // get the most positive element of w-
@@ -196,15 +652,19 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
     double max_wvio = -1.0;
     if (-wminus_max > wplus_min)
     {
-      max_wvio = -wminus_max;
       if (wminus_max_idx < UINF)
+      {
+        max_wvio = -wminus_max;
         wvio.push_back(_basu[wminus_max_idx]);
+      }
     }
     else
     {
-      max_wvio = wplus_min;
       if (wplus_min_idx < UINF)
+      {
+        max_wvio = -wplus_min;
         wvio.push_back(_basl[wplus_min_idx]);
+      }
     }  
 
     if (LOGGING(LOG_OPT))
@@ -238,7 +698,7 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
       unsigned max_zvio_idx = UINF;
       for (unsigned i=0; i< N; i++)
       {
-        if (z[i] < l[i] - zero_tol)
+        if (z[i] < l[i])
         {
           if (l[i] - z[i] > max_zvio)
           {
@@ -246,7 +706,7 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
             max_zvio_idx = i;
           }
         }
-        else if (z[i] > u[i] + zero_tol)
+        else if (z[i] > u[i])
         {
           if (z[i] - u[i] > max_zvio)
           {
@@ -257,16 +717,16 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
       }
 
       // get *all* indices of z that have been violated that much
-      if (max_zvio_idx < UINF)
+      if (max_zvio > 0.0)
       {
         std::vector<unsigned> zvio;
         for (unsigned i=0; i< N; i++)
         {
           if (i == max_zvio_idx)
             zvio.push_back(i);
-          else if (l[i] - z[i] + zero_tol > max_zvio)
+          else if (l[i] - z[i] + NEAR_ZERO > max_zvio)
             zvio.push_back(i);
-          else if (z[i] - u[i] + zero_tol > max_zvio)
+          else if (z[i] - u[i] + NEAR_ZERO > max_zvio)
             zvio.push_back(i);
         }
     
@@ -286,25 +746,29 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
 
         // move the index from the non-basic to the appropriate basic set (z < l
         // will move to basl, z > u will move to basu)
-        if (l[to_bas] - z[to_bas] > 0.0)
+        if (l[to_bas] - z[to_bas] > z[to_bas] - u[to_bas])
         {
           _basl.push_back(to_bas);
           insertion_sort(_basl.begin(), _basl.end());
         }
-        else
+        else 
         {
-          assert(z[to_bas] - u[to_bas] > 0.0);
           _basu.push_back(to_bas);
           insertion_sort(_basu.begin(), _basu.end());
         }
         assert(std::binary_search(_nonbas.begin(), _nonbas.end(), to_bas));
+        _bas.push_back(to_bas);
+        insertion_sort(_bas.begin(), _bas.end());
         _nonbas.erase(std::lower_bound(_nonbas.begin(), _nonbas.end(), to_bas));
 
         // continue looping
         continue;
       }
       else
+      {
+        FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() - reporting solution found" << std::endl;
         return true;  // solution found
+      }
     }
 
     // get all of the violated w indices
@@ -423,12 +887,14 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, cons
         insertion_sort(_basu.begin(), _basu.end());
       }
       FILE_LOG(LOG_OPT) << "removing index " << to_bas << " from non-basic set" << std::endl;
+      _bas.push_back(to_bas);
+      insertion_sort(_bas.begin(), _bas.end());
       assert(std::binary_search(_nonbas.begin(), _nonbas.end(), to_bas));
       _nonbas.erase(std::lower_bound(_nonbas.begin(), _nonbas.end(), to_bas));
     }
   }
 
-  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - maximum allowable pivots exceeded" << std::endl;
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() - maximum allowable pivots exceeded" << std::endl;
 
   // if we're here, then the maximum number of pivots has been exceeded
   return false;
@@ -441,6 +907,8 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
   FILE_LOG(LOG_OPT) << "LCP::lcp_fast() entered" << std::endl;
+  FILE_LOG(LOG_OPT) << "M: " << std::endl << M;
+  FILE_LOG(LOG_OPT) << "q: " << q << std::endl;
 
   // look for trivial solution
   if (N == 0)
@@ -526,6 +994,28 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
     _Mmix.mult(_z, _w) += _qbas;
     unsigned minw = (_w.rows() > 0) ? rand_min(_w, zero_tol) : UINF;
 
+    if (LOGGING(LOG_OPT))
+    {
+      // found the solution
+      z.set_zero(N);
+
+      // set values of z corresponding to _z
+      std::ostringstream nbas_str, bas_str;
+      for (unsigned i=0, j=0; j < _nonbas.size(); i++, j++)
+      {
+        nbas_str << _nonbas[j] << " ";
+        z[_nonbas[j]] = _z[i];
+      }
+      for (unsigned j=0; j< _bas.size(); j++)
+        bas_str << _bas[j] << " ";
+
+      VectorNd tmpv;
+      M.mult(z, tmpv) += q; 
+      FILE_LOG(LOG_OPT) << " non-basic indices: " << nbas_str.str() << std::endl;
+      FILE_LOG(LOG_OPT) << " basic indices: " << bas_str.str() << std::endl;
+      FILE_LOG(LOG_OPT) << " computed z: " << z << std::endl;
+      FILE_LOG(LOG_OPT) << " new w: " << tmpv << std::endl;
+    }
     FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum w after pivot: " << _w[minw] << std::endl;
 
     // if w >= 0, check whether any component of z < 0
@@ -563,11 +1053,9 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
       FILE_LOG(LOG_OPT) << "(minimum w too negative)" << std::endl;
 
       // one or more components of w violating w >= 0
-      // move component of w from basic set to nonbasic set
-      unsigned idx = _bas[minw];
-      _bas.erase(_bas.begin()+minw);
-      _nonbas.push_back(idx);
-      insertion_sort(_nonbas.begin(), _nonbas.end());
+      // prepare to move component of w from basic set to nonbasic set
+      unsigned widx = _bas[minw];
+      FILE_LOG(LOG_OPT) << "moving index " << widx << " to nonbasic set" << std::endl;
 
       // look whether any component of z needs to move to basic set
       unsigned minz = (_z.rows() > 0) ? rand_min(_z, zero_tol) : UINF; 
@@ -575,13 +1063,22 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
         FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum z after pivot: " << _z[minz] << std::endl;
       if (minz < UINF &&_z[minz] < -zero_tol)
       {
-        // move index to basic set and continue looping
-        unsigned idx = _nonbas[minz];
-        FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - moving index " << idx << " to basic set" << std::endl;
+        // prepare to move index to basic set and continue looping
+        unsigned zidx = _nonbas[minz];
+        FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - moving index " << zidx << " to basic set" << std::endl;
 
         _nonbas.erase(_nonbas.begin()+minz);
-        _bas.push_back(idx);
+        _nonbas.push_back(widx);
+        _bas.erase(_bas.begin()+minw);
+        _bas.push_back(zidx);
         insertion_sort(_bas.begin(), _bas.end());
+        insertion_sort(_nonbas.begin(), _nonbas.end());
+      }
+      else
+      {
+        _bas.erase(_bas.begin()+minw);
+        _nonbas.push_back(widx);
+        insertion_sort(_nonbas.begin(), _nonbas.end());
       }
     }
   }
@@ -603,6 +1100,345 @@ unsigned LCP::rand_min(const VectorNd& v, double zero_tol)
     if (i != minv && v[i] < v[minv] + zero_tol)
       minima.push_back(i);
   return minima[rand() % minima.size()];
+}
+
+/// Regularized wrapper around PPM I with bounds constraints 
+bool LCP::mlcp_fast_regularized(const MatrixNd& M, const VectorNd& q, const VectorNd& l, const VectorNd& u, VectorNd& z, int min_exp, unsigned step_exp, int max_exp, double piv_tol, double zero_tol)
+{
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_fast_regularized() entered" << endl;
+  pair<ColumnIteratord, ColumnIteratord> mmax;
+ 
+  // look for fast exit
+  if (q.size() == 0)
+  {
+    z.resize(0);
+    return true;
+  }
+
+  // copy MM
+  _MM = M;
+
+  // assign value for zero tolerance, if necessary
+  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * M.norm_inf() * NEAR_ZERO;
+
+  FILE_LOG(LOG_OPT) << " zero tolerance: " << ZERO_TOL << endl;
+
+  // store the total pivots
+  unsigned total_piv = 0;
+
+  // try non-regularized version first
+  bool result = mlcp_fast(_MM, q, l, u, z, ZERO_TOL);
+  if (result)
+  {
+    FILE_LOG(LOG_OPT) << "  LCP::mlcp_fast() reports that LCP solved to desired tolerance" << std::endl;
+
+    // verify that solution truly is a solution -- first compute w 
+    M.mult(z, _wx) += q;
+
+    // now check each pair z/w
+    bool found = true;
+    for (unsigned i=0; i< z.size(); i++)
+    {
+      // look for z at lower bound
+      if (z[i] < l[i] + ZERO_TOL)
+      {
+        // look for lower bound exceeded or negative w
+        if (z[i] + ZERO_TOL < l[i] || _wx[i] < -ZERO_TOL)
+        {
+          found = false;
+          break;
+        }
+      }
+      // look for z at upper bound
+      else if (z[i] > u[i] - ZERO_TOL)
+      {
+        // look for upper bound exceeded or positive w
+        if (z[i] - ZERO_TOL > u[i] || _wx[i] > ZERO_TOL)
+        {
+          found = false;
+          break;
+        }
+      }
+      // z is not near a bound; w should be effectively zero
+      else if (std::fabs(_wx[i]) > ZERO_TOL)
+      {
+        found = false;
+        break;
+      }
+    } 
+
+    if (found)
+    {          
+      FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
+      FILE_LOG(LOG_OPT) << "  pivots / total pivots: " << pivots << " " << pivots << endl;
+      FILE_LOG(LOG_OPT) << "LCP::mlcp_fast_regularized() exited" << endl;
+      return true;
+    }
+    else
+      FILE_LOG(LOG_OPT) << "  LCP::mlcp_fast_regularized() - failed to solve w/o regularization" << std::endl;
+  }
+
+  // update the pivots
+  total_piv += pivots;
+
+  // start the regularization process
+  int rf = min_exp;
+  while (rf <= max_exp)
+  {
+    // setup regularization factor
+    double lambda = std::pow((double) 10.0, (double) rf);
+
+    FILE_LOG(LOG_OPT) << "  trying to solve LCP with regularization factor: " << lambda << endl;
+
+    // regularize M
+    _MM = M;
+    for (unsigned i=0; i< M.rows(); i++)
+      _MM(i,i) += lambda;
+
+    // try to solve the LCP
+    result = mlcp_fast(_MM, q, l, u, z, ZERO_TOL);
+
+    // update total pivots
+    total_piv += pivots;
+
+    if (result)
+    {
+      FILE_LOG(LOG_OPT) << "  LCP::mlcp_fast() reports that LCP solved to desired tolerance" << std::endl;
+
+      // verify that solution truly is a solution -- first compute w 
+      _MM.mult(z, _wx) += q;
+
+      // now check each pair z/w
+      bool found = true;
+      for (unsigned i=0; i< z.size(); i++)
+      {
+        // look for z at lower bound
+        if (z[i] < l[i] + ZERO_TOL)
+        {
+          // look for lower bound exceeded or negative w
+          if (z[i] + ZERO_TOL < l[i] || _wx[i] < -ZERO_TOL)
+          {
+            FILE_LOG(LOG_OPT) << "  invalid z/l (" << z[i] << "/" << l[i] << ") or w(" << _wx[i] <<")" << std::endl;
+            found = false;
+            if (!LOGGING(LOG_OPT))
+              break;
+          }
+        }
+        // look for z at upper bound
+        else if (z[i] > u[i] - ZERO_TOL)
+        {
+          // look for upper bound exceeded or positive w
+          if (z[i] - ZERO_TOL > u[i] || _wx[i] > ZERO_TOL)
+          {
+            FILE_LOG(LOG_OPT) << "  invalid z/u (" << z[i] << "/" << u[i] << ") or w(" << _wx[i] <<")" << std::endl;
+            found = false;
+            if (!LOGGING(LOG_OPT))
+              break;
+          }
+        }
+        // z is not near a bound; w should be effectively zero
+        else if (std::fabs(_wx[i]) > ZERO_TOL)
+        {
+          FILE_LOG(LOG_OPT) << "  invalid complementarity, z=" << z[i] << ", w=" << _wx[i] <<std::endl;
+          found = false;
+          if (!LOGGING(LOG_OPT))
+            break;
+        }
+      } 
+
+      if (found)
+      {          
+        FILE_LOG(LOG_OPT) << "  solved with regularization!" << endl;
+        FILE_LOG(LOG_OPT) << "  pivots / total pivots: " << pivots << " " << pivots << endl;
+        FILE_LOG(LOG_OPT) << "LCP::mlcp_fast_regularized() exited" << endl;
+        return true;
+      }
+      else
+        FILE_LOG(LOG_OPT) << "  LCP::mlcp_fast_regularized() - failed to solve w/ current regularization factor" << std::endl;
+    }
+
+    // increase rf
+    rf += step_exp;
+  }
+
+  FILE_LOG(LOG_OPT) << "  unable to solve given any regularization!" << endl;
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_fast_regularized() exited" << endl;
+
+  // store total pivots
+  pivots = total_piv;
+
+  // still here?  failure...
+  return false;
+}
+
+
+/// Regularized wrapper around PPM I with bounds constraints 
+bool LCP::mlcp_keller_regularized(const MatrixNd& M, const VectorNd& q, const VectorNd& l, const VectorNd& u, VectorNd& z, int min_exp, unsigned step_exp, int max_exp, double piv_tol, double zero_tol)
+{
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_keller_regularized() entered" << endl;
+  pair<ColumnIteratord, ColumnIteratord> mmax;
+ 
+  // look for fast exit
+  if (q.size() == 0)
+  {
+    z.resize(0);
+    return true;
+  }
+
+  // copy MM
+  _MM = M;
+
+  // assign value for zero tolerance, if necessary
+  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * M.norm_inf() * NEAR_ZERO;
+
+  FILE_LOG(LOG_OPT) << " zero tolerance: " << ZERO_TOL << endl;
+
+  // store the total pivots
+  unsigned total_piv = 0;
+
+  // try non-regularized version first
+  bool result = mlcp_keller(_MM, q, l, u, z, ZERO_TOL);
+  if (result)
+  {
+    FILE_LOG(LOG_OPT) << "  LCP::mlcp_keller() reports that LCP solved to desired tolerance" << std::endl;
+
+    // verify that solution truly is a solution -- first compute w 
+    M.mult(z, _wx) += q;
+
+    // now check each pair z/w
+    bool found = true;
+    for (unsigned i=0; i< z.size(); i++)
+    {
+      // look for z at lower bound
+      if (z[i] < l[i] + ZERO_TOL)
+      {
+        // look for lower bound exceeded or negative w
+        if (z[i] + ZERO_TOL < l[i] || _wx[i] < -ZERO_TOL)
+        {
+          found = false;
+          break;
+        }
+      }
+      // look for z at upper bound
+      else if (z[i] > u[i] - ZERO_TOL)
+      {
+        // look for upper bound exceeded or positive w
+        if (z[i] - ZERO_TOL > u[i] || _wx[i] > ZERO_TOL)
+        {
+          found = false;
+          break;
+        }
+      }
+      // z is not near a bound; w should be effectively zero
+      else if (std::fabs(_wx[i]) > ZERO_TOL)
+      {
+        found = false;
+        break;
+      }
+    } 
+
+    if (found)
+    {          
+      FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
+      FILE_LOG(LOG_OPT) << "  pivots / total pivots: " << pivots << " " << pivots << endl;
+      FILE_LOG(LOG_OPT) << "LCP::mlcp_keller_regularized() exited" << endl;
+      return true;
+    }
+    else
+      FILE_LOG(LOG_OPT) << "  LCP::mlcp_keller_regularized() - failed to solve w/o regularization" << std::endl;
+  }
+
+  // update the pivots
+  total_piv += pivots;
+
+  // start the regularization process
+  int rf = min_exp;
+  while (rf <= max_exp)
+  {
+    // setup regularization factor
+    double lambda = std::pow((double) 10.0, (double) rf);
+
+    FILE_LOG(LOG_OPT) << "  trying to solve LCP with regularization factor: " << lambda << endl;
+
+    // regularize M
+    _MM = M;
+    for (unsigned i=0; i< M.rows(); i++)
+      _MM(i,i) += lambda;
+
+    // try to solve the LCP
+    result = mlcp_keller(_MM, q, l, u, z, ZERO_TOL);
+
+    // update total pivots
+    total_piv += pivots;
+
+    if (result)
+    {
+      FILE_LOG(LOG_OPT) << "  LCP::mlcp_keller() reports that LCP solved to desired tolerance" << std::endl;
+
+      // verify that solution truly is a solution -- first compute w 
+      _MM.mult(z, _wx) += q;
+
+      // now check each pair z/w
+      bool found = true;
+      for (unsigned i=0; i< z.size(); i++)
+      {
+        // look for z at lower bound
+        if (z[i] < l[i] + ZERO_TOL)
+        {
+          // look for lower bound exceeded or negative w
+          if (z[i] + ZERO_TOL < l[i] || _wx[i] < -ZERO_TOL)
+          {
+            FILE_LOG(LOG_OPT) << "  invalid z/l (" << z[i] << "/" << l[i] << ") or w(" << _wx[i] <<")" << std::endl;
+            found = false;
+            if (!LOGGING(LOG_OPT))
+              break;
+          }
+        }
+        // look for z at upper bound
+        else if (z[i] > u[i] - ZERO_TOL)
+        {
+          // look for upper bound exceeded or positive w
+          if (z[i] - ZERO_TOL > u[i] || _wx[i] > ZERO_TOL)
+          {
+            FILE_LOG(LOG_OPT) << "  invalid z/u (" << z[i] << "/" << u[i] << ") or w(" << _wx[i] <<")" << std::endl;
+            found = false;
+            if (!LOGGING(LOG_OPT))
+              break;
+          }
+        }
+        // z is not near a bound; w should be effectively zero
+        else if (std::fabs(_wx[i]) > ZERO_TOL)
+        {
+          FILE_LOG(LOG_OPT) << "  invalid complementarity, z=" << z[i] << ", w=" << _wx[i] <<std::endl;
+          found = false;
+          if (!LOGGING(LOG_OPT))
+            break;
+        }
+      } 
+
+      if (found)
+      {          
+        FILE_LOG(LOG_OPT) << "  solved with regularization!" << endl;
+        FILE_LOG(LOG_OPT) << "  pivots / total pivots: " << pivots << " " << pivots << endl;
+        FILE_LOG(LOG_OPT) << "LCP::mlcp_keller_regularized() exited" << endl;
+        return true;
+      }
+      else
+        FILE_LOG(LOG_OPT) << "  LCP::mlcp_keller_regularized() - failed to solve w/ current regularization factor" << std::endl;
+    }
+
+    // increase rf
+    rf += step_exp;
+  }
+
+  FILE_LOG(LOG_OPT) << "  unable to solve given any regularization!" << endl;
+  FILE_LOG(LOG_OPT) << "LCP::mlcp_keller_regularized() exited" << endl;
+
+  // store total pivots
+  pivots = total_piv;
+
+  // still here?  failure...
+  return false;
 }
 
 /// Regularized wrapper around PPM I 
@@ -676,7 +1512,7 @@ bool LCP::lcp_fast_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& z
 
   // start the regularization process
   int rf = min_exp;
-  while (rf < max_exp)
+  while (rf <= max_exp)
   {
     // setup regularization factor
     double lambda = std::pow((double) 10.0, (double) rf);
@@ -814,7 +1650,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
 
   // start the regularization process
   int rf = min_exp;
-  while (rf < max_exp)
+  while (rf <= max_exp)
   {
     // setup regularization factor
     double lambda = std::pow((double) 10.0, (double) rf);
@@ -1448,7 +2284,7 @@ bool LCP::lcp_lemke_regularized(const SparseMatrixNd& M, const VectorNd& q, Vect
 
   // start the regularization process
   int rf = min_exp;
-  while (rf < max_exp)
+  while (rf <= max_exp)
   {
     // setup regularization factor
     double lambda = std::pow((double) 10.0, (double) rf);

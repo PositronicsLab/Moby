@@ -12,6 +12,7 @@
 #include <set>
 #include <cmath>
 #include <numeric>
+#include <Moby/LP.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/Constants.h>
 #include <Moby/Constraint.h>
@@ -21,8 +22,10 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/LCPSolverException.h>
+#include <Moby/QP.h>
 #include <Moby/ImpactConstraintHandler.h>
 
+#undef USE_QPOASES
 #ifdef USE_QPOASES
 #include <Moby/qpOASES.h>
 #endif
@@ -303,10 +306,26 @@ void ImpactConstraintHandler::compute_linear_term(const vector<Constraint*>& con
       c[j++] = constraints[i]->calc_projected_vel(k);
 }
 
+/// Determine the number of slackable equality constraints
+unsigned ImpactConstraintHandler::num_slackable_constraints(const vector<Constraint*>& constraints)
+{
+  unsigned n = 0;
+
+  for (unsigned i=0; i< constraints.size(); i++)
+    for (unsigned k=0; k< constraints[i]->num_constraint_equations(); k++)
+    {
+      if (constraints[i]->get_constraint_equation_type(k) == Constraint::eEquality && constraints[i]->is_constraint_slackable(k))
+        n++;
+    }
+
+  return n;
+}        
+
+
 /// Forms and solves the impact problem
 void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, MatrixNd& H, VectorNd& z)
 {
-  const double INF = std::numeric_limits<double>::max();
+  const double INF = (double) std::numeric_limits<double>::max();
 
   // determine number of inequality and equality constraints 
   const unsigned N_INEQ_CONSTRAINTS = num_inequality_constraints(constraints);
@@ -353,8 +372,11 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
   FILE_LOG(LOG_CONSTRAINT) << "A: " << std::endl << _A;
   FILE_LOG(LOG_CONSTRAINT) << "b: " << _b << std::endl;
 
+  // determine the number of slackable constraints 
+  unsigned N_SLACKABLE_EQ_CONSTRAINTS = (N_EQ_CONSTRAINTS == 0) ? 0 : num_slackable_constraints(constraints);
+
   // see whether we can solve using an LCP formulation
-  if (N_EQ_CONSTRAINTS == 0)
+  if (false && N_EQ_CONSTRAINTS == 0)
   {
     // solve using an LCP formulation
     _MM.set_zero(N_VARS + N_INEQ_CONSTRAINTS, N_VARS + N_INEQ_CONSTRAINTS);
@@ -386,7 +408,6 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
   }
   else
   {
-    #ifdef USE_QPOASES
     // setup the lower and upper bounds variables
     _lb.resize(N_VARS);
     _ub.resize(N_VARS);
@@ -398,8 +419,11 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
         j++;
       } 
 
-// TODO: fix this
-unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
+    #ifdef USE_QPOASES
+    // save some variables
+    static qpOASES qp;
+
+    // special consideration needed when slackable constraints present 
     if (N_SLACKABLE_EQ_CONSTRAINTS == 0)
     {
       // add tolerance to inequality constraints
@@ -419,7 +443,7 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
 
       // no slackable equality constraints; try solving QP first w/o any
       // tolerance in the constraints
-      bool result = qpOASES::qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
+      bool result = qp.qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
       if (!result)
       {
         FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution failed without tolerance in the constraints" << std::endl;
@@ -472,9 +496,9 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
         FILE_LOG(LOG_CONSTRAINT) << "lb (augmented): " << _lbaug << std::endl;
         FILE_LOG(LOG_CONSTRAINT) << "ub (augmented): " << _ubaug << std::endl;
 
-        // solve the QP, using zero for z
+        // solve the LP, using zero for z
         z.set_zero(NEW_VARS);
-        result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+        result = LP::lp_simplex(_caug, _Maug, _q, _Aaug, _b, _lbaug, _ubaug, z);
         assert(result);
         FILE_LOG(LOG_CONSTRAINT) << " -- LP solution: " << z << std::endl;
 
@@ -491,18 +515,30 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
         // modify lb and ub for the new variables
         for (unsigned i=N_VARS; i< NEW_VARS; i++)
         {
-          _lbaug[i] = z[i] - std::sqrt(NEAR_ZERO);
-          _ubaug[i] = z[i] + std::sqrt(NEAR_ZERO);
+          _lbaug[i] = z[i];
+          _ubaug[i] = z[i];
         }
 
+        FILE_LOG(LOG_CONSTRAINT) << "H (augmented): " << std::endl  << _Haug;
+        FILE_LOG(LOG_CONSTRAINT) << "c (augmented): " << _caug << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "M (augmented): " << std::endl  << _Maug;
+        FILE_LOG(LOG_CONSTRAINT) << "q (augmented): " << _q << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "A (augmented): " << std::endl << _Aaug;
+        FILE_LOG(LOG_CONSTRAINT) << "b (augmented): " << _b << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "lb (augmented): " << _lbaug << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "ub (augmented): " << _ubaug << std::endl;
+
         // resolve the QP
-        result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+        result = qp.qp_activeset_regularized(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
         assert(result);
         FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
         FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
       }
       else
+      {
         FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution found" << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution: " << z << std::endl;
+      }
     } 
     else
     {
@@ -595,7 +631,7 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
 
       // solve the QP, using zero for z
       z.set_zero(NEW_VARS);
-      bool result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      bool result = qp.qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
       assert(result);
       FILE_LOG(LOG_CONSTRAINT) << " -- LP solution (1): " << z << std::endl;
 
@@ -616,7 +652,7 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
         _lbaug[i] = _ubaug[i] = z[i];
 
       // resolve the QP
-      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      result = qp.qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
       assert(result);
       FILE_LOG(LOG_CONSTRAINT) << " -- LP solution (2): " << z << std::endl;
 
@@ -635,13 +671,23 @@ unsigned N_SLACKABLE_EQ_CONSTRAINTS = 0;
         _lbaug[i] = _ubaug[i] = z[i];
 
       // resolve the QP
-      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      result = qp.qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
       assert(result);
       FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
       FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
     }
     #else
-    std::cerr << "Moby not built with qpOASES support; unable to solve QP" << std::endl;
+    if (N_SLACKABLE_EQ_CONSTRAINTS == 0)
+    {
+      // convert the QP to an LCP
+      VectorNd zlo, zhi;
+      QP::convex_qp_to_glcp(_H, _c, _M, _q, _A, _b, _lb, _ub, _MM, _qq, zlo, zhi);
+
+      // solve using the fast regularized solver first, then fall back to the
+      // Lemke solver
+      if (!_lcp.mlcp_fast_regularized(_MM, _qq, zlo, zhi, z, -16, 4, 0))
+        throw LCPSolverException();
+    }
     #endif
   }
 }

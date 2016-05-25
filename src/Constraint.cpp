@@ -704,7 +704,7 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
       }
 
     case eInverseDynamics:
-      return qdot_des[constraint_eqn_index]; // P*v^+ = \dot{q}_des
+      return qdot_des[constraint_eqn_index] - calc_projected_vel(constraint_eqn_index); // P*v^+ = \dot{q}_des
 
     case eSpringDamper:
       return eval_spring()*inv_dt; // K*v^+ = \varphi/dt - K*v 
@@ -933,6 +933,18 @@ std::ostream& Moby::operator<<(std::ostream& o, const Constraint& e)
     case Constraint::eContact:
       o << "(constraint type: contact)" << std::endl;
       break;
+
+    case Constraint::eInverseDynamics:
+      o << "(constraint type: inverse dynamics)" << std::endl;
+      break;
+
+    case Constraint::eImplicitJoint:
+      o << "(constraint type: implicit joint)" << std::endl;
+      break;
+
+    case Constraint::eSpringDamper:
+      o << "(constraint type: spring/damper)" << std::endl;
+      break;
   }
 	 
   if (e.constraint_type == Constraint::eLimit)
@@ -1008,6 +1020,26 @@ std::ostream& Moby::operator<<(std::ostream& o, const Constraint& e)
     o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
     o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
   }
+  else if (e.constraint_type == Constraint::eSpringDamper)
+  {
+    o << "spring/damper joint ID: " << e.spring_damper_joint->id << std::endl;
+    o << "joint velocity: " << e.calc_constraint_vel(0) << std::endl;
+  }
+  else if (e.constraint_type == Constraint::eImplicitJoint)
+  {
+    o << "implicit joint ID: " << e.spring_damper_joint->id << std::endl;
+    o << "constraint velocities:";
+    for (unsigned i=0; i< e.num_constraint_equations(); i++)
+      o << " " << e.calc_constraint_vel(i);
+    o << std::endl;
+  }
+  else if (e.constraint_type == Constraint::eInverseDynamics)
+  {
+    o << "inverse dynamics joint ID: " << e.inv_dyn_joint->id << std::endl;
+    o << "joint velocity: " << e.calc_constraint_vel(0) << std::endl;
+  }
+  else
+    assert(false);
 
   return o;
 }

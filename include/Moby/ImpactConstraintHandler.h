@@ -59,6 +59,7 @@ class ImpactConstraintHandler
   private:
     static unsigned num_variables(const std::vector<Constraint*>& constraints);
     static unsigned num_inequality_constraints(const std::vector<Constraint*>& constraints);
+    static unsigned num_slackable_constraints(const std::vector<Constraint*>& constraints);
     static unsigned num_equality_constraints(const std::vector<Constraint*>& constraints);
     static double calc_max_constraint_violation(const std::vector<Constraint*>& constraints);
     void form_and_solve(const std::vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, Ravelin::MatrixNd& H, Ravelin::VectorNd& z);

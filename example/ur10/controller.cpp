@@ -23,7 +23,7 @@ std::map<std::string, double> qd_des;
 void check_constraint_num(std::vector<Constraint>& constraints, boost::shared_ptr<void> data)
 {
   std::vector<Constraint>& c_constraints = sim->get_rigid_constraints();
-return;
+
   // get the mapping from joint names to gc indices
   const std::vector<shared_ptr<Jointd> >& joints = robot->get_joints();
 
@@ -85,6 +85,7 @@ VectorNd& controller(shared_ptr<ControlledBody> body, VectorNd& u, double t, voi
 
   // add no forces
   u.set_zero(robot->num_generalized_coordinates(DynamicBodyd::eSpatial));
+return u;
 
   // compute the errors
   double sh_pan_q_err = (sh_pan_q_des - q[mapping["shoulder_pan_joint"]]);
@@ -146,9 +147,12 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       robot = boost::dynamic_pointer_cast<RCArticulatedBody>(i->second);
   }
   assert(sim);
-  sim -> constraint_callback_fn = &check_constraint_num;
+  sim->constraint_callback_fn = &check_constraint_num;
   assert(robot);
   robot->controller = &controller; 
+
+  // make the base fixed
+  robot->set_floating_base(false);
 
   // sets the starting velocity for the robot joints
   const std::vector<shared_ptr<Jointd> >& joints = robot->get_joints();

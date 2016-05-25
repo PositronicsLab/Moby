@@ -7,13 +7,20 @@
 #ifndef _MOBY_QP_H
 #define _MOBY_QP_H
 
+#include <Ravelin/VectorNd.h>
+#include <Ravelin/MatrixNd.h>
+#include <Ravelin/LinAlgd.h>
 #include <Ravelin/NonsquareMatrixException.h>
+#include <Moby/Constants.h>
 
 namespace Moby {
 
 // class for solving positive definite QPs with box constraints
 class QP
 {
+  public:
+    static void convex_qp_to_glcp(const Ravelin::MatrixNd& H, const Ravelin::VectorNd& c, const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& lb, const Ravelin::VectorNd& ub, Ravelin::MatrixNd& MM, Ravelin::VectorNd& qq, Ravelin::VectorNd& zlo, Ravelin::VectorNd& zhi);
+
   private:
     Ravelin::LinAlgd _LA;
 

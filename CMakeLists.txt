@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp Constraint.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerQP.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RCArticulatedBodyInvDyn.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp Constraint.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerQP.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp QP.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RCArticulatedBodyInvDyn.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -59,6 +59,7 @@ set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")
 # find libraries
 find_package (Ravelin REQUIRED)
 find_package (LibXml2 REQUIRED)
+find_package (GLPK)
 find_package (Boost REQUIRED)
 find_package (IPOPT)
 get_property(_LANGUAGES_ GLOBAL PROPERTY ENABLED_LANGUAGES)
@@ -133,6 +134,10 @@ if (LIBXML2_FOUND)
   set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${LIBXML2_DEFINITIONS})
   include_directories (${LIBXML2_INCLUDE_DIR})
 endif (LIBXML2_FOUND)
+if (GLPK_FOUND)
+  add_definitions (-DUSE_GLPK)
+  include_directories (${GLPK_INCLUDE_DIRS})
+endif (GLPK_FOUND)
 
 # setup include directories, compiler flags, and libraries for required pkgs
 include_directories (${BOOST_INCLUDE_DIR})
@@ -167,6 +172,9 @@ endif (OMP)
 if (LIBXML2_FOUND)
   target_link_libraries (Moby ${LIBXML2_LIBRARIES})
 endif (LIBXML2_FOUND)
+if (GLPK_FOUND)
+  target_link_libraries (Moby ${GLPK_LIBRARIES})
+endif (GLPK_FOUND)
 if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSG_LIBRARIES})
   target_link_libraries (Moby ${OSGVIEWER_LIBRARIES})

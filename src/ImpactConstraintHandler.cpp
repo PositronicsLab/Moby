@@ -116,18 +116,42 @@ void ImpactConstraintHandler::apply_model(const vector<Constraint>& constraints,
   // **********************************************************
   for (list<pair<list<Constraint*>, list<shared_ptr<SingleBodyd> > > >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-      // copy the lists
-      pair<list<Constraint*>, list<shared_ptr<SingleBodyd> > > rconstraints = *i;
+    // copy the lists
+    pair<list<Constraint*>, list<shared_ptr<SingleBodyd> > > rconstraints = *i;
 
-      FILE_LOG(LOG_CONSTRAINT) << " -- pre-constraint velocity (all constraints): " << std::endl;
+    // prepare to remove joint limit constraints if they also exist 
+    // as an inverse dynamics constraint
+    std::vector<JointPtr> id_constraints;
+    for (list<Constraint*>::iterator j = i->first.begin(); j != i->first.end(); j++)
+      if ((*j)->constraint_type == Constraint::eInverseDynamics)
+        id_constraints.push_back((*j)->inv_dyn_joint);
+
+    // sort the inverse dynamics constraints
+    std::sort(id_constraints.begin(), id_constraints.end());
+
+    // remove joint limit constraints if they also exist 
+    // as an inverse dynamics constraint
+    FILE_LOG(LOG_CONSTRAINT) << " -- pre-constraint velocity (all constraints): " << std::endl;
+    for (list<Constraint*>::iterator j = i->first.begin(); j != i->first.end(); )
+    {
+      if ((*j)->constraint_type == Constraint::eLimit && std::binary_search(id_constraints.begin(), id_constraints.end(), (*j)->limit_joint))
+        j = i->first.erase(j); 
+      else
+      {
+        FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
+        j++;
+      }
+    }
+
+    // apply the model to the constraints
+    apply_model_to_connected_constraints(rconstraints.first, rconstraints.second, inv_dt);
+
+    FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
+    if (LOGGING(LOG_CONSTRAINT))
+    {
       for (list<Constraint*>::iterator j = i->first.begin(); j != i->first.end(); j++)
         FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
-
-      apply_model_to_connected_constraints(rconstraints.first, rconstraints.second, inv_dt);
-
-      FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
-      for (list<Constraint*>::iterator j = i->first.begin(); j != i->first.end(); j++)
-        FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
+    }
   }
 }
 

@@ -643,6 +643,8 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
   else
   {
     #ifdef USE_QPOASES
+    static qpOASES qp;
+
     // setup the lower and upper bounds variables
     _lb.resize(N_VARS);
     _ub.resize(N_VARS);
@@ -671,7 +673,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
 
     // no slackable equality constraints; try solving QP first w/o any
     // tolerance in the constraints
-    bool result = qpOASES::qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
+    bool result = qp.qp_activeset(_H, _c, _lb, _ub, _M, _q, _A, _b, z);
     if (!result)
     {
       FILE_LOG(LOG_CONSTRAINT) << "QP activeset solution failed without tolerance in the constraints" << std::endl;
@@ -714,7 +716,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
 
       // solve the QP, using zero for z
       z.set_zero(NEW_VARS);
-      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      result = qp.qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
       assert(result);
       FILE_LOG(LOG_CONSTRAINT) << " -- LP solution: " << z << std::endl;
 
@@ -733,7 +735,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
         _lbaug[i] = _ubaug[i] = z[i];
 
       // resolve the QP
-      result = qpOASES::qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      result = qp.qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
       FILE_LOG(LOG_CONSTRAINT) << "result of QP activeset with constraints: " << result << std::endl;
       FILE_LOG(LOG_CONSTRAINT) << "robust QP activeset solution: " << z << std::endl;
     }

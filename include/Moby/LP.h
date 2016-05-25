@@ -17,6 +17,7 @@ namespace Moby {
 class LP 
 {
   public:
+    static bool lp_simplex(const Ravelin::VectorNd& c, const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);
     static bool lp_seidel(const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);
 
   private:

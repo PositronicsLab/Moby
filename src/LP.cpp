@@ -4,6 +4,12 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#ifdef USE_GLPK
+extern "C" 
+{ 
+#include <glpk.h> 
+}
+#endif
 #include <limits>
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
@@ -12,8 +18,121 @@
 using std::endl;
 using std::vector;
 using boost::shared_ptr;
+using boost::shared_array;
 using namespace Ravelin;
 using namespace Moby;
+
+/// Solves a linear program using the simplex method
+/**
+ *  Solves the linear program:  min c'x
+ *                 subject to:  Ax = b
+ *                              Mx >= q
+ * \param the optimal point (if any) on return
+ * \return <b>false</b> if problem infeasible; <b>true</b> otherwise
+ */
+bool LP::lp_simplex(const VectorNd& c, const MatrixNd& M, const VectorNd& q, const MatrixNd& A, const VectorNd& b, const VectorNd& l, const VectorNd& u, VectorNd& x)
+{
+  #ifdef USE_GLPK
+  unsigned glpk_status;
+
+  // create the GLPK problem
+  glp_prob* lp = glp_create_prob();
+  glp_set_obj_dir(lp, GLP_MIN);
+
+  // get the problem size
+  const unsigned n = c.size();
+
+  // setup the objective function coefficients
+  glp_add_cols(lp, n);
+  for (unsigned i=0; i< n; i++)
+    glp_set_obj_coef(lp, i+1, (double) c[i]);
+
+  // setup bounds on x
+  const double INF = std::numeric_limits<double>::max();
+  for (unsigned i=0; i< n; i++)
+  {
+    // check for unbounded x
+    if (u.size() == 0 || u[i] == INF)
+    {
+      // check for unbounded x
+      if (l.size() == 0 || l[i] == -INF)
+        glp_set_col_bnds(lp, i+1, GLP_FR, 0.0, 0.0);
+      else // lower bounded x
+        glp_set_col_bnds(lp, i+1, GLP_LO, l[i], 0.0);
+    }
+    else
+    {
+      // check for upper bounded x
+      if (l.size() == 0 || l[i] == -INF)
+        glp_set_col_bnds(lp, i+1, GLP_UP, 0.0, u[i]);
+      else // double-bounded x
+        glp_set_col_bnds(lp, i+1, GLP_DB, l[i], u[i]);
+    }
+  }
+
+  // setup number of constraints
+  glp_add_rows(lp, b.size() + q.size());
+
+  // setup equality constraints
+  for (unsigned i=0; i< b.size(); i++)
+    glp_set_row_bnds(lp, i+1, GLP_FX, (double) b[i], (double) b[i]);
+
+  // setup inequality constraints
+  for (unsigned i=0; i< q.size(); i++)
+    glp_set_row_bnds(lp, b.size()+i+1, GLP_LO, (double) q[i], (double) q[i]);
+
+  // setup the coefficients
+  unsigned sz = (b.size() + q.size()) * n + 1;
+  shared_array<int> ia(new int[sz]);
+  shared_array<int> ja(new int[sz]);
+  shared_array<double> ar(new double[sz]);
+
+  // first setup the coefficients for A
+  int m = 1;
+  for (unsigned i=0; i< b.size(); i++)
+    for (unsigned j=0; j< n; j++, m++)
+    {
+      ia[m] = (int) i+1;
+      ja[m] = (int) j+1;
+      ar[m] = (double) A(i,j);
+    }
+
+  // now setup the coefficients for M
+  for (unsigned i=0; i< q.size(); i++)
+    for (unsigned j=0; j< n; j++, m++)
+    {
+      ia[m] = (int) i+1+b.size();
+      ja[m] = (int) j+1;
+      ar[m] = (double) M(i,j);
+    }
+
+  // load the matrix
+  glp_load_matrix(lp, (b.size()+q.size())*n, ia.get(), ja.get(), ar.get());
+
+  // turn off terminal output
+  glp_smcp sparams;
+  glp_init_smcp(&sparams);
+  sparams.msg_lev = GLP_MSG_OFF;
+
+  // call the interior-point method
+  bool result =  (glp_simplex(lp, &sparams) == 0 && glp_get_status(lp) == GLP_OPT);
+  glpk_status = glp_get_status(lp);
+  FILE_LOG(LOG_OPT) << "GLPK status: " << glpk_status << std::endl;
+
+  // get x out
+  x.resize(n);
+  for (unsigned i=0; i< x.size(); i++)
+    x[i] = (double) glp_get_col_prim(lp, (int) i+1);
+
+  // delete the GLPK problem
+  glp_delete_prob(lp);
+
+  return result;
+  #else
+  std::cerr << "LP::lp_simplex() - built without link to glpk!  Unable to solve LP!" << endl; 
+  return false;
+  #endif
+}
 
 /// Solves a linear program using the method of Seidel
 /**
