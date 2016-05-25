@@ -137,7 +137,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     {
       tpoly = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
     }
-    catch (Ravelin::NumericalException e)
+    catch (NumericalException e)
     {
       // case #2: polyhedra are kissing
       FILE_LOG(LOG_COLDET) << "qhull unable to compute intersection *volume*" << std::endl;
