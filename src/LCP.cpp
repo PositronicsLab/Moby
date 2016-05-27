@@ -557,8 +557,8 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
   }
  
   // loop for maximum number of pivots
-//  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
-  const unsigned MAX_PIV = 2*N;
+  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
+//  const unsigned MAX_PIV = 2*N;
   for (pivots=0; pivots < MAX_PIV; pivots++)
   {
     if (LOGGING(LOG_OPT))
@@ -698,6 +698,10 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
       unsigned max_zvio_idx = UINF;
       for (unsigned i=0; i< N; i++)
       {
+        // make sure that the index is non-basic
+        if (!std::binary_search(_nonbas.begin(), _nonbas.end(), i))
+          continue;
+
         if (z[i] < l[i])
         {
           if (l[i] - z[i] > max_zvio)
@@ -722,6 +726,10 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
         std::vector<unsigned> zvio;
         for (unsigned i=0; i< N; i++)
         {
+          // make sure that the index is non-basic
+          if (!std::binary_search(_nonbas.begin(), _nonbas.end(), i))
+            continue;
+
           if (i == max_zvio_idx)
             zvio.push_back(i);
           else if (l[i] - z[i] + NEAR_ZERO > max_zvio)
@@ -790,6 +798,7 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
     u.select(_basu.begin(), _basu.end(), _workv);
     z.set(_basu.begin(), _basu.end(), _workv);
     z.set(_nonbas.begin(), _nonbas.end(), _z);
+    FILE_LOG(LOG_OPT) << "full z: " << z << std::endl;
 
     // move the violated w index into the basic set, depending on how that
     // index is violated
@@ -1016,7 +1025,8 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
       FILE_LOG(LOG_OPT) << " computed z: " << z << std::endl;
       FILE_LOG(LOG_OPT) << " new w: " << tmpv << std::endl;
     }
-    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum w after pivot: " << _w[minw] << std::endl;
+    if (minw < UINF)
+      FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum w after pivot: " << _w[minw] << std::endl;
 
     // if w >= 0, check whether any component of z < 0
     if (minw == UINF || _w[minw] > -zero_tol)

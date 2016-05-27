@@ -376,7 +376,7 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
   unsigned N_SLACKABLE_EQ_CONSTRAINTS = (N_EQ_CONSTRAINTS == 0) ? 0 : num_slackable_constraints(constraints);
 
   // see whether we can solve using an LCP formulation
-  if (false && N_EQ_CONSTRAINTS == 0)
+  if (N_EQ_CONSTRAINTS == 0)
   {
     // solve using an LCP formulation
     _MM.set_zero(N_VARS + N_INEQ_CONSTRAINTS, N_VARS + N_INEQ_CONSTRAINTS);

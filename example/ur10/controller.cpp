@@ -10,6 +10,9 @@
 #include <fstream>
 #include <stdlib.h>
 
+// define below to use inverse dynamics
+#define USE_INV_DYN
+
 using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
@@ -83,9 +86,16 @@ VectorNd& controller(shared_ptr<ControlledBody> body, VectorNd& u, double t, voi
   double wrist3_qd_des = std::cos(t*3.0/13.0)*AMP*PERIOD*3.0/13.0;
   qd_des["wrist_3_joint"] = wrist3_qd_des;
 
-  // add no forces
+  // zero forces
   u.set_zero(robot->num_generalized_coordinates(DynamicBodyd::eSpatial));
-return u;
+
+  // set finger actuator forces
+  u[mapping["l_finger_actuator"]] = 100.0;
+  u[mapping["r_finger_actuator"]] = -100.0;
+
+  #ifdef USE_INV_DYN
+  return u;
+  #endif
 
   // compute the errors
   double sh_pan_q_err = (sh_pan_q_des - q[mapping["shoulder_pan_joint"]]);
@@ -122,8 +132,6 @@ return u;
   u[mapping["wrist_1_joint"]] = wrist1_f;
   u[mapping["wrist_2_joint"]] = wrist2_f;
   u[mapping["wrist_3_joint"]] = wrist3_f;
-  u[mapping["l_finger_actuator"]] = 100.0;
-  u[mapping["r_finger_actuator"]] = -100.0;
 
   return u; 
 }
@@ -147,7 +155,9 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       robot = boost::dynamic_pointer_cast<RCArticulatedBody>(i->second);
   }
   assert(sim);
+  #ifdef USE_INV_DYN
   sim->constraint_callback_fn = &check_constraint_num;
+  #endif
   assert(robot);
   robot->controller = &controller; 
 
