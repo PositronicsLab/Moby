@@ -591,7 +591,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
 
   // compute the linear term vector and quadratic matrix terms
   ImpactConstraintHandler::compute_quadratic_matrix(pd, N_VARS, _H);
-  ImpactConstraintHandler::compute_linear_term(pd, N_VARS, _c);
+  ImpactConstraintHandler::compute_linear_term(pd, N_VARS, 0.0, _c);
 
   // everything is happening instantaneously; nevertheless, we will set
   // inv_dt to 1.0 to incorporate constraint violations

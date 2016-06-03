@@ -590,7 +590,6 @@ unsigned Constraint::get_velocity_constraint_index(unsigned constraint_eqn_index
   } 
 }
 
-
 /// Gets the type of constraint coefficient
 Constraint::ConstraintCoeffType Constraint::get_constraint_coeff_type(unsigned constraint_eqn_index) const
 {
@@ -658,6 +657,53 @@ void Constraint::get_impulse_constraint_coeffs(unsigned constraint_eqn_index, Sh
   }
 }
 
+/// Gets the *stabilized* projected velocity of the given constraint equation 
+double Constraint::calc_projected_stab_vel(unsigned constraint_eqn_index, double inv_dt) const
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  switch (constraint_type)
+  {
+    case eNone:
+      assert(false); 
+
+    case eContact:
+      if (constraint_eqn_index == 0)
+      {
+        double compliant_layer_depth = contact_geom1->compliant_layer_depth +
+                                       contact_geom2->compliant_layer_depth;
+        double gamma = contact_stiffness * -signed_violation * inv_dt;
+        return calc_projected_vel(constraint_eqn_index) - gamma;  // N*v^+ >= gamma 
+      }
+      else
+        return calc_projected_vel(constraint_eqn_index);
+
+    case eLimit:
+      assert(constraint_eqn_index == 0);
+      {
+        double gamma = limit_stiffness * -signed_violation * inv_dt;
+        return -calc_projected_vel(constraint_eqn_index) + gamma;  // L*v^+ >= gamma 
+      }
+
+    case eInverseDynamics:
+      assert(false); // NOTE: this must be tested
+      return calc_projected_vel(constraint_eqn_index); // P*v^+ = \dot{q}_des
+
+    case eSpringDamper:
+      assert(false); // NOTE: this must be tested
+      return eval_spring()*inv_dt; // K*v^+ = \varphi/dt - K*v 
+
+    case eImplicitJoint:
+    {
+      double C[SPATIAL_DIM];
+      implicit_joint->evaluate_constraints(C);
+      double gamma = inv_dt*-C[constraint_eqn_index];
+      return calc_projected_vel(constraint_eqn_index) - gamma;  // J*v^+ = gamma
+    }
+  }
+}
+
+
 /// Gets the right-hand side of a constraint of the form a'*x >= b or a'*x = b
 double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_dt)
 {
@@ -714,7 +760,7 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
       double C[SPATIAL_DIM];
       implicit_joint->evaluate_constraints(C);
       double gamma = inv_dt*-C[constraint_eqn_index];
-      return -calc_projected_vel(constraint_eqn_index);  // J*v^+ = gamma
+      return gamma-calc_projected_vel(constraint_eqn_index);  // J*v^+ = gamma
     }
   }
 }

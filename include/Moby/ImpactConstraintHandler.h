@@ -71,7 +71,7 @@ class ImpactConstraintHandler
 
     static double sqr(double x) { return x*x; }
     static void compute_quadratic_matrix(const std::vector<Constraint*>& constraints, unsigned N_VARS, Ravelin::MatrixNd& H);
-    static void compute_linear_term(const std::vector<Constraint*>& constraints, unsigned N_VARS, Ravelin::VectorNd& c);
+    static void compute_linear_term(const std::vector<Constraint*>& constraints, unsigned N_VARS, double inv_dt, Ravelin::VectorNd& c);
     static void compute_equality_terms(const std::vector<Constraint*>& constraints, const Ravelin::MatrixNd& H, unsigned N_EQ_CONSTRAINTS, double inv_dt, Ravelin::MatrixNd& A, Ravelin::VectorNd& b);
     static void compute_inequality_terms(const std::vector<Constraint*>& constraints, const Ravelin::MatrixNd& H, unsigned N_INEQ_CONSTRAINTS, double inv_dt, Ravelin::MatrixNd& M, Ravelin::VectorNd& q);
 

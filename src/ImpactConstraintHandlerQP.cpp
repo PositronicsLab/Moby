@@ -200,7 +200,15 @@ void ImpactConstraintHandler::compute_quadratic_matrix(const vector<Constraint*>
       // measure constraint velocities after applying the impulse
       for (unsigned i=0, j=0; i< constraints.size(); i++)
         for (unsigned k=0; k< constraints[i]->num_variables(); k++)
-          Hcol[j++] += constraints[i]->calc_projected_vel(k);
+        {
+          if (o <= j)
+            Hcol[j++] += constraints[i]->calc_projected_vel(k);
+          else
+          {
+            Hcol[j] = H(o,j);
+            j++;
+          }
+        }
 
       // update o
       o++;
@@ -298,12 +306,12 @@ void ImpactConstraintHandler::compute_equality_terms(const vector<Constraint*>& 
 }
 
 /// Computes the linear term of a QP/LCP 
-void ImpactConstraintHandler::compute_linear_term(const vector<Constraint*>& constraints, unsigned N_VARS, VectorNd& c)
+void ImpactConstraintHandler::compute_linear_term(const vector<Constraint*>& constraints, unsigned N_VARS, double inv_dt, VectorNd& c)
 {
   c.resize(N_VARS);
   for (unsigned i=0, j=0; i< constraints.size(); i++)
     for (unsigned k=0; k< constraints[i]->num_variables(); k++)
-      c[j++] = constraints[i]->calc_projected_vel(k);
+      c[j++] = constraints[i]->calc_projected_stab_vel(k, inv_dt);
 }
 
 /// Determine the number of slackable equality constraints
@@ -356,7 +364,7 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
   }
 
   // compute the linear term vector
-  compute_linear_term(constraints, N_VARS, _c);
+  compute_linear_term(constraints, N_VARS, inv_dt, _c);
 
   // setup the inequality constraints matrix and vector
   compute_inequality_terms(constraints, H, N_INEQ_CONSTRAINTS, inv_dt, _M, _q);

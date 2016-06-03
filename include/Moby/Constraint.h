@@ -56,6 +56,7 @@ class Constraint
     double get_constraint_rhs(unsigned constraint_index, double inv_dt);
 
     double calc_contact_vel(const Ravelin::Vector3d& v) const;
+    double calc_projected_stab_vel(unsigned var_index, double inv_dt) const;
     double calc_projected_vel(unsigned var_index) const;
     double calc_constraint_vel(unsigned constraint_eqn_index) const;
     double calc_constraint_tol() const;
