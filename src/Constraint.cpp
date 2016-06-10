@@ -682,11 +682,10 @@ double Constraint::calc_projected_stab_vel(unsigned constraint_eqn_index, double
       assert(constraint_eqn_index == 0);
       {
         double gamma = limit_stiffness * -signed_violation * inv_dt;
-        return -calc_projected_vel(constraint_eqn_index) + gamma;  // L*v^+ >= gamma 
+        return calc_projected_vel(constraint_eqn_index) - gamma;  // L*v^+ >= gamma 
       }
 
     case eInverseDynamics:
-      assert(false); // NOTE: this must be tested
       return calc_projected_vel(constraint_eqn_index); // P*v^+ = \dot{q}_des
 
     case eSpringDamper:

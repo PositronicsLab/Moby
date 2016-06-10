@@ -47,6 +47,8 @@ class Gears : public Joint
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose() { return boost::shared_ptr<const Ravelin::Pose3d>(); }
     virtual bool is_singular_config() const { return false; }
     virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes_dot() { return _sdot; }
+    void set_ratio(double ratio) { _ratio = ratio; }
+    double get_ratio() const { return _ratio; }
 
   private:
     double _ratio; // the input:output ratio for the gears
