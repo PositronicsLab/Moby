@@ -43,6 +43,7 @@ bool QPOASES::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const V
 
    // configure the problem
    Options opts;
+   opts.setToReliable();
    opts.printLevel = PL_NONE;
    problem.setOptions(opts);
 
@@ -97,7 +98,8 @@ bool QPOASES::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const V
          _lbA.data(),
          _ubA.data(),
          nSWR,
-         NULL /* Maximum solution time */
+         NULL, /* Maximum solution time */
+         z.data() /* Initial guesses for primal solution */
       );
    }
    catch (std::runtime_error e)
@@ -107,7 +109,7 @@ bool QPOASES::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const V
 
    // look whether failure is indicated
    if (result != SUCCESSFUL_RETURN) {
-      std::cerr << "Failed to solve QP: " << result << std::endl;
+      std::cerr << "Failed to solve QP: " << MessageHandling::getErrorCodeMessage(result) << std::endl;
       return false;
    }
 
@@ -116,7 +118,7 @@ bool QPOASES::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const V
 
    // look whether failure is indicated
    if (result != SUCCESSFUL_RETURN) {
-      std::cerr << "Failed to fetch primal solution: " << result << std::endl;
+      std::cerr << "Failed to fetch primal solution: " << MessageHandling::getErrorCodeMessage(result) << std::endl;
       return false;
    }
 
