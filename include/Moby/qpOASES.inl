@@ -44,6 +44,7 @@ bool QPOASES::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const V
    // configure the problem
    Options opts;
    opts.setToReliable();
+   opts.enableEqualities = BT_TRUE;
    opts.printLevel = PL_NONE;
    problem.setOptions(opts);
 
@@ -74,8 +75,8 @@ bool QPOASES::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const V
 
    // setup equality and inequality constraints
    Ravelin::VectorNd _lbA, _ubA;
-   _lbA.set_zero(_X.columns());
-   _ubA.set_zero(_X.columns());
+   _lbA.set_zero(_X.rows());
+   _ubA.set_zero(_X.rows());
 
    // set the inequality constraint into the lower bound vector
    _lbA.set_sub_vec(0, q);
