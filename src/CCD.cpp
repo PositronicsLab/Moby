@@ -118,55 +118,12 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
 }
 */
 
-/// Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval
+/// Method for conservative step calculation
+/**
+ * \param pdi the distance information for a pair of geometries
+ * \param epsilon the (small) rigid boundary to maintain between geometries
+ */
 double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
-{
-  // get primitives 
-  PrimitivePtr pA = pdi.a->get_geometry(); 
-  PrimitivePtr pB = pdi.b->get_geometry();
-
-  // look for case of sphere
-  if (dynamic_pointer_cast<SpherePrimitive>(pA) || 
-      dynamic_pointer_cast<SpherePrimitive>(pB))
-    return calc_CA_Euler_step_sphere(pdi);  
-
-  // no special cases apply: call generic
-  return calc_CA_Euler_step_generic(pdi);
-}
-
-/// Computes the conservative advancement time for a sphere
-double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
-{
-  // reset the minimum observed distance, if possible
-  if (pdi.dist >= 0.0)
-    _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
-
-  // if the distance is greater than zero, use standard conservative
-  // advancement
-  if (pdi.dist > NEAR_ZERO)
-    return calc_CA_Euler_step_generic(pdi);
-
-  // if the relative velocity at the point of contact is zero, return infinity
-  std::vector<Constraint> contacts;
-  find_contacts(pdi.a, pdi.b, std::back_inserter(contacts), NEAR_ZERO);
-  if ((contacts.size() == 1 && 
-      std::fabs(contacts.front().calc_constraint_vel(0)) < NEAR_ZERO*10))
-  {
-    FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel(0) << "; reporting infinite conservative advancement time" << std::endl;
-    return std::numeric_limits<double>::max();
-  }
-  else
-  {
-    if (contacts.size() >= 1)
-      FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel(0) << std::endl;
-  }
- 
-  // otherwise, use standard conservative advancement 
-  return calc_CA_Euler_step_generic(pdi);
-}
-
-/// Generic method for conservative step calculation
-double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 {
   double maxt = std::numeric_limits<double>::max();
 
@@ -180,14 +137,13 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   const Point3d& pA = pdi.pa;
   const Point3d& pB = pdi.pb;
 
+  // get the compliant layer depth
+  double delta = cgA->compliant_layer_depth + cgB->compliant_layer_depth;
+
   // get the two underlying bodies
   RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
   RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
   FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
-
-  // if the distance is (essentially) zero, do process for bodies in contact 
-  if (pdi.dist <= 0.0)
-    return calc_next_CA_Euler_step(pdi);
 
   // get the direction of the vector from body B to body A
   Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
@@ -201,14 +157,8 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;
 
-  // if bodies are interpenetrating, reverse n0
+  // get the current distance 
   double dist = pdi.dist;
-  if (pdi.dist < 0.0)
-  {
-    double& min_dist = _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)];
-    min_dist = std::min(min_dist, pdi.dist);
-    dist = NEAR_ZERO + (pdi.dist - min_dist);
-  }
 
   // compute the distance that body A can move toward body B
   double dist_per_tA = calc_max_dist(rbA, -n0, _rmax[cgA]);
@@ -226,177 +176,15 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
 
   // compute the maximum safe step
-  maxt = std::min(maxt, dist/total_dist_per_t);
+  if (dist > delta+NEAR_ZERO)
+    maxt = std::min(maxt, (dist-delta)/total_dist_per_t);
+  else
+    maxt = std::min(maxt, dist/total_dist_per_t);
 
   FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
 
   // return the maximum safe step
   return maxt;
-}
-
-/// Generic method for *next* conservative step calculation (only for bodies in contact)
-double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
-{
-  const double INF = std::numeric_limits<double>::max();
-  const double MIN_STEP = 1e-5;
-  const double ZERO_VEL = NEAR_ZERO;
-
-  // get the contacts
-  vector<Constraint> contacts;
-  find_contacts(pdi.a, pdi.b, contacts);
-
-  // ensure that at least one contact was found
-  if (contacts.empty())
-  {
-    FILE_LOG(LOG_COLDET) << "No contacts found and at least one expected" << std::endl;
-    return INF;
-  }
-
-  // get the contact offset <n, x> = d
-  const Constraint& c = contacts.front();
-  double d = c.contact_normal.dot(c.contact_point);
-
-  // get the contact points
-  vector<Vector3d> contact_points(contacts.size());
-  for (unsigned i=0; i< contacts.size(); i++)
-    contact_points[i] = contacts[i].contact_point;
-
-  if (LOGGING(LOG_COLDET))
-  {
-    for (unsigned i=0; i< contact_points.size(); i++)
-      FILE_LOG(LOG_COLDET) << "CCD::::calc_next_CA_Euler_step_generic() contact point: " << contact_points[i] << std::endl;
-  }
-
-  // if the constraint velocity is non-zero at a contact point, contact 
-  // manifold is changing- return minimum step size (for now) 
-  for (unsigned i=0; i< contacts.size(); i++)
-  {
-    const double CVEL = contacts[i].calc_contact_vel(contacts[i].contact_normal);
-    FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - contact point velocity: " << CVEL << std::endl;
-/*
-    if (CVEL > ZERO_VEL)
-      return MIN_STEP;
-    else if (CVEL < -ZERO_VEL)
-      return 0.0;
-*/
-    if (CVEL < -ZERO_VEL)
-      return 0.0;
-  }
-
-  // if there are three or more contact points, contact points define a plane, 
-  // and constraint velocity at all points of contact is zero, return infinity
-  if (contacts.size() >= 3)
-  {
-    // ensure that all contact points have the same offset and normal  
-    for (unsigned i=1; i< contacts.size(); i++)
-    {
-      // compute the dot product between the original normal and this one
-      double dot = contacts[i].contact_normal.dot(c.contact_normal);
-      if (false && std::fabs(dot - 1.0) > NEAR_ZERO)
-      {
-        std::cerr << "CCD::calc_next_CA_Euler_step_generic() - contact normal unexpectedly mis-aligned (returning minimum step)" << std::endl;
-        return MIN_STEP;
-      }
-
-      // compute the offset
-      double dprime = c.contact_normal.dot(contacts[i].contact_point);
-      if (false && std::fabs(dprime - d) > NEAR_ZERO)
-      {
-        std::cerr << "CCD::calc_next_CA_Euler_step_generic() - unexpected contact offset (returning minimum step)" << std::endl;
-        return MIN_STEP;
-      }
-    }
-
-    FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - checking whether contact points are a 2-simplex" << std::endl;
-
-    // just need to find one non-collinear set of points
-    bool twosimplex = false;
-    for (unsigned i=2; i< contact_points.size(); i++)
-      if (!CompGeom::collinear(contact_points[0], contact_points[1],
-                               contact_points[2]))
-      {
-        twosimplex = true;
-        break;
-      }
-
-    // if it's not a two simplex, go through polygonal
-    // process; otherwise, continue below
-    if (twosimplex)
-    {
-      FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - contact points lie on a proper 2-simplex" << std::endl;
-
-      return INF;
-    }
-  }
-
-  // get the two geometries
-  shared_ptr<CollisionGeometry> cgA = c.contact_geom1;
-  shared_ptr<CollisionGeometry> cgB = c.contact_geom2; 
-
-  // contacts do not form a plane; first get two rigid bodies 
-  shared_ptr<RigidBodyd> rbA = dynamic_pointer_cast<RigidBodyd>(cgA->get_single_body());
-  shared_ptr<RigidBodyd> rbB = dynamic_pointer_cast<RigidBodyd>(cgB->get_single_body());
-
-  // now get relative velocities at centers-of-mass
-  SVelocityd vA = Pose3d::transform(rbA->get_mixed_pose(), rbA->get_velocity());
-  SVelocityd vB = Pose3d::transform(rbB->get_mixed_pose(), rbB->get_velocity());
-
-  // contacts do not form a plane; many pairwise cases follow
-  shared_ptr<PolyhedralPrimitive> pA = dynamic_pointer_cast<PolyhedralPrimitive>(cgA->get_geometry());
-  if (pA)
-  {
-    // look for another polyhedron
-    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
-    if (pB)
-    {
-      // compute the relative velocity at each polyhedron's pose
-      shared_ptr<const Pose3d> poseA = pA->get_pose(cgA);
-      shared_ptr<const Pose3d> poseB = pB->get_pose(cgB);
-      Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
-
-      // get the velocity in the A pose
-      SVelocityd rvA = Pose3d::transform(poseA, rbA->get_velocity()) -
-                       Pose3d::transform(poseA, rbB->get_velocity());
-
-      // now transform it to the B pose
-      SVelocityd rvB = aTb.inverse_transform(rvA);
-
-      return calc_next_CA_Euler_step_polyhedron_polyhedron(pA, pB, poseA, poseB, rvA, rvB, c.contact_normal, d);
-    }
-
-    // look for a plane
-    shared_ptr<PlanePrimitive> planeB = dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
-    if (planeB)
-    {
-      // compute the relative velocity at the polyhedron's pose
-      shared_ptr<const Pose3d> poseA = pA->get_pose(cgA);
-      SVelocityd rv = Pose3d::transform(poseA, rbA->get_velocity()) -
-                      Pose3d::transform(poseA, rbB->get_velocity());
-
-      return calc_next_CA_Euler_step_polyhedron_plane(pA, rv, poseA, c.contact_normal, d);
-    }
-  }
-
-  // look for plane case
-  shared_ptr<PlanePrimitive> planeA = dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
-  if (planeA)
-  {
-    // look for a polyhedron
-    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
-    if (pB)
-    {
-      // compute the relative velocity at the polyhedron's pose
-      shared_ptr<const Pose3d> poseB = pB->get_pose(cgB);
-      SVelocityd rv = Pose3d::transform(poseB, rbA->get_velocity()) -
-                      Pose3d::transform(poseB, rbB->get_velocity());
-
-      return calc_next_CA_Euler_step_polyhedron_plane(pB, -rv, poseB, -c.contact_normal, -d);
-    }
-  }
-
-  // still here? we don't know what to do- return infinity and count on
-  // constraint stabilization to patch things up
-  return INF;  
 }
 
 /// Computes the next step between a polyhedron and a plane
@@ -548,17 +336,24 @@ double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d
   RigidBodyPtr base = dynamic_pointer_cast<RigidBody>(ab->get_base_link());
 
   // get the base link's velocity
-  const SVelocityd& base_v0 = Pose3d::transform(GLOBAL, base->get_velocity());
-  Vector3d base_xd0 = base_v0.get_linear();
+  const SVelocityd& base_v = Pose3d::transform(base->get_gc_pose(), base->get_velocity());
+  Vector3d base_xd = base_v.get_linear();
+  Vector3d base_omega = base_v.get_angular();
+
+  // transform n
+  Vector3d n0 = Pose3d::transform_vector(base->get_gc_pose(), n);
 
   // setup the initial movement
-  double mvmt = n.dot(base_xd0);
+  double mvmt = n0.dot(base_xd);
 
   // get the inner joint
   JointPtr inner = rb->get_inner_joint_explicit();
 
-  // add the movement in for the rigid body
-  mvmt += 2.0 * rmax * inner->qd.norm();
+  // get the length so far
+  double len = 2.0 * rmax;
+
+  // compute the movement for the rigid body
+  mvmt += len * inner->qd.norm();
 
   // get the joint pose
   Pose3d joint_pose = *inner->get_pose();
@@ -570,13 +365,26 @@ double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d
     rb = inner->get_inboard_link();
     if (rb == base)
       break;
+
+    // update the length
     JointPtr next_inner = rb->get_inner_joint_explicit();
     Pose3d next_joint_pose = *next_inner->get_pose();
     next_joint_pose.update_relative_pose(GLOBAL);
-    mvmt += next_inner->qd.norm() * (next_joint_pose.x - joint_pose.x).norm(); 
+    len += (next_joint_pose.x - joint_pose.x).norm();
+
+    // update the movement
+    mvmt += len * next_inner->qd.norm(); 
     joint_pose = next_joint_pose;
     inner = next_inner;
   }
+
+  // update the length from the floating-base
+  Pose3d base_x = *base->get_pose();
+  base_x.update_relative_pose(GLOBAL);
+  len += (joint_pose.x - base_x.x).norm(); 
+
+  // add in base angular velocity
+  mvmt += len * base_omega.norm();
 
   return mvmt; 
 }
