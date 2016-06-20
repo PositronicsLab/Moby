@@ -1072,7 +1072,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Constraint& e)
   }
   else if (e.constraint_type == Constraint::eImplicitJoint)
   {
-    o << "implicit joint ID: " << e.spring_damper_joint->id << std::endl;
+    o << "implicit joint ID: " << e.implicit_joint->id << std::endl;
     o << "constraint velocities:";
     for (unsigned i=0; i< e.num_constraint_equations(); i++)
       o << " " << e.calc_constraint_vel(i);
