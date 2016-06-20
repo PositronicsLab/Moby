@@ -537,7 +537,7 @@ void ConstraintSimulator::find_unilateral_constraints()
 
     if (pdi.dist <= dist_thresh + NEAR_ZERO)
     {
-      // see whether one of the bodies is compliant
+      // find contacts with the given distance threshold 
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
       _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, dist_thresh + NEAR_ZERO);
