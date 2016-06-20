@@ -533,7 +533,6 @@ namespace Moby{
   }
   
   // where everything begins...
-  
   int init(int argc, char** argv, boost::shared_ptr<Simulator>& s)
   {
     // get the simulator pointer
@@ -791,6 +790,11 @@ namespace Moby{
     boost::shared_ptr<Simulator> s;
     
     init(argc,argv,s);
+
+    // do stabilization first
+    boost::shared_ptr<ConstraintSimulator> sim = boost::dynamic_pointer_cast<ConstraintSimulator>(s);
+    if (sim)
+      sim->cstab.stabilize(sim); 
 
     // if the step size is negative, set the step size to a default
     if (STEP_SIZE < 0.0)
