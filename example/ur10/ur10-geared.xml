@@ -1,0 +1,18 @@
+<XML>
+  <DRIVER>
+    <camera position="2 .5 .5" target="1.2 .3475 0.175" up="0 0 1" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+  <MOBY>
+
+  <GravityForce id="gravity" accel="0 0 -9.81" />
+
+<TimeSteppingSimulator constraint-stabilization-max-iterations="0">
+  <DisabledPair object1-id="ur10" object2-id="ur10"/>
+  <DynamicBody dynamic-body-id="ur10" />
+  <RecurrentForce recurrent-force-id="gravity" />
+</TimeSteppingSimulator>
+
+<SDF filename="gearedur10.sdf"/>
+</MOBY>
+</XML>
