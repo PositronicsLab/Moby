@@ -159,6 +159,8 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
 
   // get the current distance 
   double dist = pdi.dist;
+  if (dist < std::numeric_limits<double>::epsilon())
+    return 0.0;
 
   // compute the distance that body A can move toward body B
   double dist_per_tA = calc_max_dist(rbA, -n0, _rmax[cgA]);
