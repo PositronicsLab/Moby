@@ -487,9 +487,6 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
         _ubaug.segment(0, _ub.size()) = _ub;
         _ubaug.segment(_ub.size(), NEW_VARS).set_one() *= INF;
 
-        // create a H for the QP
-        _Haug.set_zero(NEW_VARS, NEW_VARS); 
-
         // create a c for the QP
         _caug.resize(NEW_VARS);
         _caug.segment(0, N_VARS).set_zero();
@@ -515,6 +512,7 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
         _caug.segment(N_VARS, NEW_VARS).set_zero();
 
         // modify H for re-solving the QP
+        _Haug.resize(NEW_VARS, NEW_VARS);
         _Haug.block(0, N_VARS, 0, N_VARS) = _H;
         _Haug.block(N_VARS, NEW_VARS, 0, N_VARS).set_zero();
         _Haug.block(0, N_VARS, N_VARS, NEW_VARS).set_zero();
