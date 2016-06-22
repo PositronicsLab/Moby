@@ -684,7 +684,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
 
       // determine new number of variables (one for inequality constraints,
       // two for equality constraints)
-      unsigned NEW_VARS = N_VARS + 3;
+      unsigned NEW_VARS = N_VARS + 1 + N_EQ_CONSTRAINTS * 2;
 
       // augment M
       _Maug.resize(_M.rows(), NEW_VARS);
@@ -696,8 +696,11 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
       _Aaug.resize(_A.rows(), NEW_VARS);
       _Aaug.block(0, _A.rows(), 0, N_VARS) = _A;
       _Aaug.block(0, _A.rows(), N_VARS, NEW_VARS).set_zero();
-      _Aaug.column(N_VARS+1).set_one();
-      _Aaug.column(N_VARS+2).set_one().negate();
+      for (unsigned i=0, j=N_VARS+1; i< _A.rows(); i++)
+      {
+        _Aaug(i,j++) = 1.0;
+        _Aaug(i,j++) = -1.0;
+      }
 
       // augment lb
       _lbaug.resize(NEW_VARS);
