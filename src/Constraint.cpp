@@ -48,7 +48,7 @@ Constraint::Constraint()
 {
   tol = NEAR_ZERO;              // default collision tolerance
   constraint_type = eNone;
-  signed_violation = 0.0;
+  signed_distance = 0.0;
   contact_stiffness = 0.0;
   contact_damping = 0.0;
   limit_stiffness = 0.0;
@@ -69,7 +69,7 @@ Constraint::Constraint()
 Constraint& Constraint::operator=(const Constraint& e)
 {
   tol = e.tol;
-  signed_violation = e.signed_violation;
+  signed_distance = e.signed_distance;
   constraint_type = e.constraint_type;
   contact_stiffness = e.contact_stiffness;
   contact_damping = e.contact_damping;
@@ -304,7 +304,7 @@ double Constraint::get_damping(unsigned constraint_eqn_index) const
         return 0.0;
       double clayer_depth = contact_geom1->compliant_layer_depth +
                             contact_geom2->compliant_layer_depth;
-      return (clayer_depth + signed_violation > 0.0) ? contact_damping : 0.0; 
+      return (clayer_depth + signed_distance > 0.0) ? contact_damping : 0.0; 
     }
 
     case eLimit:
@@ -312,7 +312,7 @@ double Constraint::get_damping(unsigned constraint_eqn_index) const
       if (constraint_eqn_index > 0)
         return 0.0;
       double clayer_depth = limit_joint->compliant_layer_depth; 
-      return (clayer_depth + signed_violation > 0.0) ? limit_damping : 0.0; 
+      return (clayer_depth + signed_distance > 0.0) ? limit_damping : 0.0; 
     }
    
     default:
@@ -670,9 +670,7 @@ double Constraint::calc_projected_stab_vel(unsigned constraint_eqn_index, double
     case eContact:
       if (constraint_eqn_index == 0)
       {
-        double compliant_layer_depth = contact_geom1->compliant_layer_depth +
-                                       contact_geom2->compliant_layer_depth;
-        double gamma = contact_stiffness * -signed_violation * inv_dt;
+        double gamma = contact_stiffness * -signed_distance * inv_dt;
         return calc_projected_vel(constraint_eqn_index) - gamma;  // N*v^+ >= gamma 
       }
       else
@@ -681,7 +679,7 @@ double Constraint::calc_projected_stab_vel(unsigned constraint_eqn_index, double
     case eLimit:
       assert(constraint_eqn_index == 0);
       {
-        double gamma = limit_stiffness * -signed_violation * inv_dt;
+        double gamma = limit_stiffness * -signed_distance * inv_dt;
         return calc_projected_vel(constraint_eqn_index) - gamma;  // L*v^+ >= gamma 
       }
 
@@ -716,9 +714,7 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
     case eContact:
       if (constraint_eqn_index == 0)
       {
-        double compliant_layer_depth = contact_geom1->compliant_layer_depth +
-                                       contact_geom2->compliant_layer_depth;
-        double gamma = contact_stiffness * -signed_violation * inv_dt;
+        double gamma = contact_stiffness * -signed_distance * inv_dt;
         return -calc_projected_vel(constraint_eqn_index) + gamma;  // N*v^+ >= gamma 
       }
       #ifdef USE_AP_MODEL
@@ -744,7 +740,7 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
     case eLimit:
       assert(constraint_eqn_index == 0);
       {
-        double gamma = limit_stiffness * -signed_violation * inv_dt;
+        double gamma = limit_stiffness * -signed_distance * inv_dt;
         return -calc_projected_vel(constraint_eqn_index) + gamma;  // L*v^+ >= gamma 
       }
 

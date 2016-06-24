@@ -7,7 +7,7 @@
 
   <GravityForce id="gravity" accel="0 0 -9.81" />
 
-<TimeSteppingSimulator constraint-stabilization-max-iterations="0">
+<TimeSteppingSimulator min-step-size="0.001" constraint-stabilization-max-iterations="0">
   <DisabledPair object1-id="ur10" object2-id="ur10"/>
   <DynamicBody dynamic-body-id="ur10" />
   <RecurrentForce recurrent-force-id="gravity" />

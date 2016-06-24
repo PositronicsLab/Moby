@@ -2,7 +2,7 @@
      next-time-of-contact finding. --> 
 
 <XML>
-  <DRIVER step-size=".01">
+  <DRIVER step-size=".0001">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>

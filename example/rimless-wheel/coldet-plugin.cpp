@@ -304,10 +304,10 @@ class BladePlanePlugin : public CCD
         out.close();
       }
 
-      // output constraint violation
+      // output constraint distance
       double cvio = std::numeric_limits<double>::max();
       for (unsigned i=0; i< contacts.size(); i++)
-        cvio = std::min(cvio, contacts[i].signed_violation);
+        cvio = std::min(cvio, contacts[i].signed_distance);
       std::ofstream out("cvio.dat", std::ostream::app);
       out << cvio << std::endl;
       out.close();

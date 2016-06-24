@@ -28,6 +28,7 @@ Gears::Gears() : Joint()
 {
   init_data();  
   _ratio = 1.0;
+  _constraint_type = Jointd::eImplicit;
 }
 
 /// Evaluates the joint constraint

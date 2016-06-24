@@ -159,7 +159,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   else
   {
     // integrate positions until a new event is detected
-    while (CA_step > 0.0)
+    while (CA_step > min_step_size)
     {
       // cap out the conservative advancement step
       CA_step = std::min(CA_step, dt-h);
@@ -214,15 +214,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
       FILE_LOG(LOG_DYNAMICS) << "new velocity: " << qd << std::endl; 
     }
-  }
-
-  // dissipate some energy
-  if (dissipator)
-  {
-    vector<shared_ptr<DynamicBodyd> > bodies;
-    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
-      bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(cb));
-    dissipator->apply(bodies);
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;

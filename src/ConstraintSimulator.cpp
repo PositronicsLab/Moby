@@ -523,7 +523,7 @@ void ConstraintSimulator::find_unilateral_constraints()
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
   {
     double depth = _rigid_constraints[i].limit_joint->compliant_layer_depth;
-    _rigid_constraints[i].signed_violation -= depth;
+    _rigid_constraints[i].signed_distance -= depth;
   }
 
   // get the current number of joint limits
@@ -550,7 +550,7 @@ void ConstraintSimulator::find_unilateral_constraints()
     double depth = _rigid_constraints[i].contact_geom1->compliant_layer_depth +                    _rigid_constraints[i].contact_geom2->compliant_layer_depth;
 
     // setup the signed violation
-    _rigid_constraints[i].signed_violation -= depth;
+    _rigid_constraints[i].signed_distance -= depth;
   }
 
   if (LOGGING(LOG_SIMULATOR))

@@ -363,7 +363,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
             e.limit_epsilon = 0.0;
             e.limit_upper = true;
             e.limit_stiffness = 1.0;
-            e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
+            e.signed_distance = joint->hilimit[k] - joint->q[k] - tare[k];
             constraints.push_back(e);
           }
 
@@ -377,7 +377,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
             e.limit_epsilon = 0.0;
             e.limit_upper = false;
             e.limit_stiffness = 1.0;
-            e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
+            e.signed_distance = joint->q[k] + tare[k] - joint->lolimit[k];
             constraints.push_back(e);
           }
         }
@@ -405,7 +405,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
           e.limit_epsilon = 0.0;
           e.limit_upper = true;
           e.limit_stiffness = 1.0;
-          e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
+          e.signed_distance = joint->hilimit[k] - joint->q[k] - tare[k];
           constraints.push_back(e);
         }
 
@@ -419,7 +419,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
           e.limit_epsilon = 0.0;
           e.limit_upper = false;
           e.limit_stiffness = 1.0;
-          e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
+          e.signed_distance = joint->q[k] + tare[k] - joint->lolimit[k];
           constraints.push_back(e);
         }
       }

@@ -5,7 +5,6 @@ static OutputIterator read_gearbox(boost::shared_ptr<const XMLTree> node, const 
   std::string name, type;
   boost::shared_ptr<Ravelin::Pose3d> P(new Ravelin::Pose3d);
   RigidBodyPtr refbody, parent, child;
-  boost::shared_ptr<RevoluteJoint> rj1, rj2;
   boost::shared_ptr<Gears> gj;
 
   // get the id of the joint
@@ -13,17 +12,11 @@ static OutputIterator read_gearbox(boost::shared_ptr<const XMLTree> node, const 
   if (name_attr)
     name = name_attr->get_string_value();
 
-  // create three joints
-  rj1 = boost::shared_ptr<RevoluteJoint>(new RevoluteJoint);
-  rj2 = boost::shared_ptr<RevoluteJoint>(new RevoluteJoint);
+  // create the gear joint 
   gj = boost::shared_ptr<Gears>(new Gears);
 
   // setup the generic components of the joints
-  rj1->id = name;
-  rj1->joint_id = rj1->id;
-  rj2->id = name + "'";
-  rj2->joint_id = rj2->id;
-  gj->id = name + "_gears";
+  gj->id = name;
   gj->joint_id =  gj->id;
 
   // read in the gearbox ratio
@@ -86,142 +79,13 @@ static OutputIterator read_gearbox(boost::shared_ptr<const XMLTree> node, const 
   }
   child = link_map.find(child_link)->second;
 
-  // get the pose of the joints
-  boost::shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  // set the links for the joint 
   Ravelin::Pose3d Px;
-  if (pose_node)
-  {
-    Px = read_pose(node);
-    Px.rpose = child->get_pose();
-    Px.update_relative_pose(GLOBAL);
-    Ravelin::Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
-    rj1->set_location(loc, parent, child);
-    rj2->set_location(loc, parent, refbody);
-    gj->set_location(loc, refbody, child);
-  }
-  else
-  {
-    Px.rpose = child->get_pose();
-    Px.update_relative_pose(GLOBAL);
-    Ravelin::Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
-    rj1->set_location(loc, parent, child);
-    rj2->set_location(loc, parent, refbody);
-    gj->set_location(loc, refbody, child);
-  }
-  *(P.get()) = Px;
+  Px.rpose = child->get_pose();
+  Px.update_relative_pose(GLOBAL);
+  Ravelin::Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
+  gj->set_location(loc, refbody, child);
 
-  // read the axis tag (contains limits, joint damping/friction)
-  boost::shared_ptr<const XMLTree> axis_node = find_one_tag("axis", node);
-  if (axis_node)
-  {
-    // read whether to use the parent model frame
-    boost::shared_ptr<const XMLTree> parent_model_frame_node = find_one_tag("use_parent_model_frame", axis_node);
-
-    // read the axis, if any
-    boost::shared_ptr<const XMLTree> xyz_node = find_one_tag("xyz", axis_node);
-    if (xyz_node)
-    {
-      // get the axis
-      Ravelin::Vector3d axis = read_Vector3(xyz_node);
-
-      // set the axis pose
-      if (parent_model_frame_node && read_bool(parent_model_frame_node))
-        axis.pose = parent->get_pose();
-      else
-        axis.pose = P;
-
-      // set the axis
-      rj1->set_axis(axis);
-    }
-
-    // read viscous and Coulomb friction
-    boost::shared_ptr<const XMLTree> dynamics_node = find_one_tag("dynamics", axis_node);
-    if (dynamics_node)
-    {
-      // attempt to read 'Coulomb' friction
-      boost::shared_ptr<const XMLTree> friction_node = find_one_tag("friction", dynamics_node);
-      if (friction_node)
-        rj1->mu_fc = read_double(friction_node);
-
-      // attempt to read viscous friction
-      boost::shared_ptr<const XMLTree> damping_node = find_one_tag("damping", dynamics_node);
-      if (damping_node)
-        rj1->mu_fv = read_double(damping_node);
-    }
-
-    // read joint limits
-    boost::shared_ptr<const XMLTree> limit_node = find_one_tag("limit", axis_node);
-    if (limit_node)
-    {
-      // attempt to read the lower limit
-      boost::shared_ptr<const XMLTree> llimit_node = find_one_tag("lower", limit_node);
-      if (llimit_node)
-        rj1->lolimit[0] = read_double(llimit_node);
-
-      // attempt to read the upper limit
-      boost::shared_ptr<const XMLTree> ulimit_node = find_one_tag("upper", limit_node);
-      if (ulimit_node)
-        rj1->hilimit[0] = read_double(ulimit_node);
-    }
-  }
-
-  // read the axis tag (contains limits, joint damping/friction)
-  boost::shared_ptr<const XMLTree> axis2_node = find_one_tag("axis2", node);
-  if (axis2_node)
-  {
-    // read whether to use the parent model frame
-    boost::shared_ptr<const XMLTree> parent_model_frame_node = find_one_tag("use_parent_model_frame", axis2_node);
-
-    // read the axis, if any
-    boost::shared_ptr<const XMLTree> xyz_node = find_one_tag("xyz", axis2_node);
-    if (xyz_node)
-    {
-      // get the axis
-      Ravelin::Vector3d axis = read_Vector3(xyz_node);
-
-      // set the axis pose
-      if (parent_model_frame_node && read_bool(parent_model_frame_node))
-        axis.pose = parent->get_pose();
-      else
-        axis.pose = P;
-
-      // set the axis
-      rj2->set_axis(axis);
-    }
-
-    // read viscous and Coulomb friction
-    boost::shared_ptr<const XMLTree> dynamics_node = find_one_tag("dynamics", axis2_node);
-    if (dynamics_node)
-    {
-      // attempt to read 'Coulomb' friction
-      boost::shared_ptr<const XMLTree> friction_node = find_one_tag("friction", dynamics_node);
-      if (friction_node)
-        rj2->mu_fc = read_double(friction_node);
-
-      // attempt to read viscous friction
-      boost::shared_ptr<const XMLTree> damping_node = find_one_tag("damping", dynamics_node);
-      if (damping_node)
-        rj2->mu_fv = read_double(damping_node);
-    }
-
-    // read joint limits
-    boost::shared_ptr<const XMLTree> limit_node = find_one_tag("limits", axis2_node);
-    if (limit_node)
-    {
-      // attempt to read the lower limit
-      boost::shared_ptr<const XMLTree> llimit_node = find_one_tag("lower", limit_node);
-      if (llimit_node)
-        rj2->lolimit[1] = read_double(llimit_node);
-
-      // attempt to read the upper limit
-      boost::shared_ptr<const XMLTree> ulimit_node = find_one_tag("upper", limit_node);
-      if (ulimit_node)
-        rj2->hilimit[1] = read_double(ulimit_node);
-    }
-  }
-
-  *output_begin++ = rj1;
-  *output_begin++ = rj2;
   *output_begin++ = gj;
   return output_begin;
 }

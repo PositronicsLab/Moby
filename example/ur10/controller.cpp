@@ -155,6 +155,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       robot = boost::dynamic_pointer_cast<RCArticulatedBody>(i->second);
   }
   assert(sim);
+
   #ifdef USE_INV_DYN
   sim->constraint_callback_fn = &check_constraint_num;
   #endif
