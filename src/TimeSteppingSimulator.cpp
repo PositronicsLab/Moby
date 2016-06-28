@@ -116,41 +116,34 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   VectorNd q, qd, qdd;
   std::vector<VectorNd> qsave;
 
-  // init qsave to proper size
+  // init qsave to proper size and save generalized coordinates for all bodies
   qsave.resize(_bodies.size());
-
-  // save generalized coordinates for all bodies
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
     db->get_generalized_coordinates_euler(qsave[i]);
   }
 
+  // ****
+  // prepare to compute the first conservative step
+
+  // do broad phase collision detection
+  broad_phase(dt);
+
+  // compute pairwise distances
+  calc_pairwise_distances();
+
+  // compute the first conservative step
+  double CA_step = calc_next_CA_Euler_step();
+
   // set the amount stepped
   double h = 0.0;
 
-  // integrate positions until a new event is detected
-  while (h < dt)
+  // look for minimum step
+  if (CA_step < std::min(dt, min_step_size))
   {
-    // do broad phase collision detection
-    broad_phase(dt-h);
-
-    // compute pairwise distances
-    calc_pairwise_distances();
-
-    // get the conservative step 
-    double CA_step = calc_next_CA_Euler_step();
-
-    // look for impact
-    if (CA_step <= 0.0)
-      break;
-
-    // get the conservative advancement step
-    double tc = std::max(min_step_size, CA_step);
-    FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step: " << tc << std::endl;
-
-    // don't take too large a step
-    tc = std::min(dt-h, tc); 
+    // integrate the positions by h
+    h = std::min(dt, min_step_size);
 
     // integrate the bodies' positions by h + conservative advancement step
     for (unsigned i=0; i< _bodies.size(); i++)
@@ -158,17 +151,44 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
       db->set_generalized_coordinates_euler(qsave[i]);
       db->get_generalized_velocity(DynamicBodyd::eEuler, q);
-      q *= (h + tc);
+      q *= h;
       q += qsave[i];
       db->set_generalized_coordinates_euler(q);
     }
+  }
+  else
+  {
+    // integrate positions until a new event is detected
+    while (CA_step > min_step_size)
+    {
+      // cap out the conservative advancement step
+      CA_step = std::min(CA_step, dt-h);
 
-    // update h
-    h += tc;
+      // integrate the bodies' positions by h + conservative advancement step
+      for (unsigned i=0; i< _bodies.size(); i++)
+      {
+        shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+        db->set_generalized_coordinates_euler(qsave[i]);
+        db->get_generalized_velocity(DynamicBodyd::eEuler, q);
+        q *= (h + CA_step);
+        q += qsave[i];
+        db->set_generalized_coordinates_euler(q);
+      }
 
-    // look for the minimum step size being taken
-    if (tc == min_step_size)
-      break;
+      // update h
+      h += CA_step;
+      if (h >= dt)
+        break;
+
+      // do broad phase collision detection
+      broad_phase(dt-h);
+
+      // compute pairwise distances
+      calc_pairwise_distances();
+
+      // get the conservative step 
+      CA_step = calc_next_CA_Euler_step();
+    }
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;
@@ -194,15 +214,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
       FILE_LOG(LOG_DYNAMICS) << "new velocity: " << qd << std::endl; 
     }
-  }
-
-  // dissipate some energy
-  if (dissipator)
-  {
-    vector<shared_ptr<DynamicBodyd> > bodies;
-    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
-      bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(cb));
-    dissipator->apply(bodies);
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;

@@ -108,7 +108,7 @@ class Constraint
     double limit_damping;
 
     /// Signed violation for this constraint
-    double signed_violation;
+    double signed_distance;
 
     /// The coefficient of restitution for this limit
     double limit_epsilon;

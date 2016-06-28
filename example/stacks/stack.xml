@@ -35,65 +35,69 @@
       <!-- the boxes -->
       <RigidBody id="box1" enabled="true" position="0 .5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b1" />
-        <CollisionGeometry primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the boxes -->
       <RigidBody id="box2" enabled="true" position="0 1.5 0" angular-velocity="0 0 0" visualization-id="b2" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b2" />
-        <CollisionGeometry primitive-id="b2" />
+        <CollisionGeometry primitive-id="b2" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the boxes -->
       <RigidBody id="box3" enabled="true" position="0 2.5 0" angular-velocity="0 0 0" visualization-id="b3" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b3" />
-        <CollisionGeometry primitive-id="b3" />
+        <CollisionGeometry primitive-id="b3" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the boxes -->
       <RigidBody id="box4" enabled="true" position="0 3.5 0" angular-velocity="0 0 0" visualization-id="b4" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b4" />
-        <CollisionGeometry primitive-id="b4" />
+        <CollisionGeometry primitive-id="b4" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the boxes -->
       <RigidBody id="box5" enabled="true" position="0 4.5 0" angular-velocity="0 0 0" visualization-id="b5" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b5" />
-        <CollisionGeometry primitive-id="b5" />
+        <CollisionGeometry primitive-id="b5" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the boxes -->
       <RigidBody id="box6" enabled="true" position="0 5.5 0" angular-velocity="0 0 0" visualization-id="b6" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b6" />
-        <CollisionGeometry primitive-id="b6" />
+        <CollisionGeometry primitive-id="b6" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the boxes -->
       <RigidBody id="box7" enabled="true" position="0 6.5 0" angular-velocity="0 0 0" visualization-id="b7" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b7" />
-        <CollisionGeometry primitive-id="b7" />
+        <CollisionGeometry primitive-id="b7" compliant-layer-depth="1e-4" />
       </RigidBody>
 
       <!-- the ground -->
       <RigidBody id="ground" enabled="false" visualization-id="ground-viz-primitive" position="0 0 0">
-        <CollisionGeometry primitive-id="ground-primitive" />  
+        <CollisionGeometry primitive-id="ground-primitive" compliant-layer-depth="1e-4" />  
       </RigidBody>
 
     <!-- NOTE: replace 'ccd' with 'plugin-ccd' to use the much faster plugin
          collision detector -->
-    <TimeSteppingSimulator id="simulator" >
+    <TimeSteppingSimulator id="simulator" min-step-size="0.01" constraint-stabilization-max-iterations="0">
       <DynamicBody dynamic-body-id="box1" />
       <DynamicBody dynamic-body-id="box2" />
       <DynamicBody dynamic-body-id="box3" />
+      <DynamicBody dynamic-body-id="box4" />
+      <DynamicBody dynamic-body-id="box5" />
+      <DynamicBody dynamic-body-id="box6" />
+      <DynamicBody dynamic-body-id="box7" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity" />
-      <ContactParameters object1-id="ground" object2-id="box1" epsilon="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box1" object2-id="box2" epsilon="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box2" object2-id="box3" epsilon="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box3" object2-id="box4" epsilon="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box4" object2-id="box5" epsilon="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box5" object2-id="box6" epsilon="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box6" object2-id="box7" epsilon="0" mu-coulomb=".0001" />
+      <ContactParameters object1-id="ground" object2-id="box1" epsilon="0" mu-coulomb="1e-4" contact-stiffness=".5" />
+      <ContactParameters object1-id="box1" object2-id="box2" epsilon="0" mu-coulomb="1e-4"  contact-stiffness=".5" />
+      <ContactParameters object1-id="box2" object2-id="box3" epsilon="0" mu-coulomb="1e-4"  contact-stiffness=".5" />
+      <ContactParameters object1-id="box3" object2-id="box4" epsilon="0" mu-coulomb="1e-4"  contact-stiffness=".5" />
+      <ContactParameters object1-id="box4" object2-id="box5" epsilon="0" mu-coulomb="1e-4"  contact-stiffness=".5" />
+      <ContactParameters object1-id="box5" object2-id="box6" epsilon="0" mu-coulomb="1e-4"  contact-stiffness=".5" />
+      <ContactParameters object1-id="box6" object2-id="box7" epsilon="0" mu-coulomb="1e-4"  contact-stiffness=".5" />
     </TimeSteppingSimulator> 
   </MOBY>
 </XML>

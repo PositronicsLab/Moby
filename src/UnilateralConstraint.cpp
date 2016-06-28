@@ -52,7 +52,7 @@ UnilateralConstraint::UnilateralConstraint()
   tol = NEAR_ZERO;              // default collision tolerance
   compliance = eRigid;
   constraint_type = eNone;
-  signed_violation = 0.0;
+  signed_distance = 0.0;
   contact_stiffness = 0.0;
   contact_damping = 0.0;
   limit_stiffness = 0.0;
@@ -76,7 +76,7 @@ UnilateralConstraint::UnilateralConstraint()
 UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint& e)
 {
   tol = e.tol;
-  signed_violation = e.signed_violation;
+  signed_distance = e.signed_distance;
   constraint_type = e.constraint_type;
   compliance = e.compliance;
   contact_stiffness = e.contact_stiffness;

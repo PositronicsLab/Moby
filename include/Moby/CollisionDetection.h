@@ -55,9 +55,6 @@ class CollisionDetection : public virtual Base
     /// Get the shared pointer for this
     boost::shared_ptr<CollisionDetection> get_this() { return boost::dynamic_pointer_cast<CollisionDetection>(shared_from_this()); }
 
-  protected:
-    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
-
   friend class ConstraintStabilization;
 }; // end class
 

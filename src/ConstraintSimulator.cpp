@@ -523,7 +523,7 @@ void ConstraintSimulator::find_unilateral_constraints()
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
   {
     double depth = _rigid_constraints[i].limit_joint->compliant_layer_depth;
-    _rigid_constraints[i].signed_violation -= depth;
+    _rigid_constraints[i].signed_distance -= depth;
   }
 
   // get the current number of joint limits
@@ -537,7 +537,7 @@ void ConstraintSimulator::find_unilateral_constraints()
 
     if (pdi.dist <= dist_thresh + NEAR_ZERO)
     {
-      // see whether one of the bodies is compliant
+      // find contacts with the given distance threshold 
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
       _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, dist_thresh + NEAR_ZERO);
@@ -550,7 +550,7 @@ void ConstraintSimulator::find_unilateral_constraints()
     double depth = _rigid_constraints[i].contact_geom1->compliant_layer_depth +                    _rigid_constraints[i].contact_geom2->compliant_layer_depth;
 
     // setup the signed violation
-    _rigid_constraints[i].signed_violation -= depth;
+    _rigid_constraints[i].signed_distance -= depth;
   }
 
   if (LOGGING(LOG_SIMULATOR))

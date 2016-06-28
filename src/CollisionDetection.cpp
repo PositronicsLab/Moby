@@ -64,7 +64,7 @@ Constraint CollisionDetection::create_contact(CollisionGeometryPtr a, CollisionG
   e.contact_normal = normal;
   e.contact_geom1 = a;
   e.contact_geom2 = b;
-  e.signed_violation = violation;
+  e.signed_distance = violation;
 
   // check for valid normal here
   assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < TOL);

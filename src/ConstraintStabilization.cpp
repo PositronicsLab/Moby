@@ -202,6 +202,9 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   if (max_iterations == 0)
     return;
 
+  // apply broad phase
+  sim->broad_phase(0.0);
+ 
   // save the generalized velocities
   save_velocities(sim, qd_save);
 
@@ -360,7 +363,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
             e.limit_epsilon = 0.0;
             e.limit_upper = true;
             e.limit_stiffness = 1.0;
-            e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
+            e.signed_distance = joint->hilimit[k] - joint->q[k] - tare[k];
             constraints.push_back(e);
           }
 
@@ -374,7 +377,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
             e.limit_epsilon = 0.0;
             e.limit_upper = false;
             e.limit_stiffness = 1.0;
-            e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
+            e.signed_distance = joint->q[k] + tare[k] - joint->lolimit[k];
             constraints.push_back(e);
           }
         }
@@ -402,7 +405,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
           e.limit_epsilon = 0.0;
           e.limit_upper = true;
           e.limit_stiffness = 1.0;
-          e.signed_violation = joint->hilimit[k] - joint->q[k] - tare[k];
+          e.signed_distance = joint->hilimit[k] - joint->q[k] - tare[k];
           constraints.push_back(e);
         }
 
@@ -416,7 +419,7 @@ void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyP
           e.limit_epsilon = 0.0;
           e.limit_upper = false;
           e.limit_stiffness = 1.0;
-          e.signed_violation = joint->q[k] + tare[k] - joint->lolimit[k];
+          e.signed_distance = joint->q[k] + tare[k] - joint->lolimit[k];
           constraints.push_back(e);
         }
       }
@@ -681,7 +684,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
 
       // determine new number of variables (one for inequality constraints,
       // two for equality constraints)
-      unsigned NEW_VARS = N_VARS + 3;
+      unsigned NEW_VARS = N_VARS + 1 + N_EQ_CONSTRAINTS * 2;
 
       // augment M
       _Maug.resize(_M.rows(), NEW_VARS);
@@ -693,8 +696,11 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
       _Aaug.resize(_A.rows(), NEW_VARS);
       _Aaug.block(0, _A.rows(), 0, N_VARS) = _A;
       _Aaug.block(0, _A.rows(), N_VARS, NEW_VARS).set_zero();
-      _Aaug.column(N_VARS+1).set_one();
-      _Aaug.column(N_VARS+2).set_one().negate();
+      for (unsigned i=0, j=N_VARS+1; i< _A.rows(); i++)
+      {
+        _Aaug(i,j++) = 1.0;
+        _Aaug(i,j++) = -1.0;
+      }
 
       // augment lb
       _lbaug.resize(NEW_VARS);
@@ -706,17 +712,14 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
       _ubaug.segment(0, _ub.size()) = _ub;
       _ubaug.segment(_ub.size(), NEW_VARS).set_one() *= INF;
 
-      // create a H for the QP
-      _Haug.set_zero(NEW_VARS, NEW_VARS); 
-
       // create a c for the QP
       _caug.resize(NEW_VARS);
       _caug.segment(0, N_VARS).set_zero();
       _caug.segment(N_VARS, NEW_VARS).set_one();
 
-      // solve the QP, using zero for z
+      // solve the LP, using zero for z
       z.set_zero(NEW_VARS);
-      result = qp.qp_activeset(_Haug, _caug, _lbaug, _ubaug, _Maug, _q, _Aaug, _b, z);
+      result = LP::lp_simplex(_caug, _Maug, _q, _Aaug, _b, _lbaug, _ubaug, z);
       assert(result);
       FILE_LOG(LOG_CONSTRAINT) << " -- LP solution: " << z << std::endl;
 
@@ -725,6 +728,7 @@ void ConstraintStabilization::determine_dq(vector<Constraint*>& pd, const vector
       _caug.segment(N_VARS, NEW_VARS).set_zero();
 
       // modify H for re-solving the QP
+      _Haug.resize(NEW_VARS, NEW_VARS);
       _Haug.block(0, N_VARS, 0, N_VARS) = _H;
       _Haug.block(N_VARS, NEW_VARS, 0, N_VARS).set_zero();
       _Haug.block(0, N_VARS, N_VARS, NEW_VARS).set_zero();

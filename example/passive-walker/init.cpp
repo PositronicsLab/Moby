@@ -124,9 +124,9 @@ void post_event_callback_fn(const std::vector<Constraint>& e,
       shared_ptr<SingleBodyd> sb2 = e[i].contact_geom2->get_single_body();
 
       if (e[i].contact_geom1 == rfoot_geom || e[i].contact_geom2 == rfoot_geom)
-        std::cout << "right foot contacting; signed violation: " << e[i].signed_violation << std::endl;
+        std::cout << "right foot contacting; signed distance: " << e[i].signed_distance << std::endl;
       if (e[i].contact_geom1 == lfoot_geom || e[i].contact_geom2 == lfoot_geom)
-        std::cout << "left foot contacting; signed violation: " << e[i].signed_violation << std::endl;
+        std::cout << "left foot contacting; signed distance: " << e[i].signed_distance << std::endl;
 
       // look for contacting foot matching the stop
       if ((touchdown_stop == eRightFoot && 

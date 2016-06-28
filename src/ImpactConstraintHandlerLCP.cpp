@@ -172,7 +172,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
     const UnilateralConstraint& c = *q.contact_constraints[i];
     double compliant_layer_depth = c.contact_geom1->compliant_layer_depth +
                                    c.contact_geom2->compliant_layer_depth;
-    if (c.signed_violation + compliant_layer_depth > 0)
+    if (c.signed_distance + compliant_layer_depth > 0)
       *Cn_X_CnT_iter += q.contact_constraints[i]->contact_damping;
   }
 
@@ -183,7 +183,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   {
     const UnilateralConstraint& c = *q.limit_constraints[i];
     double compliant_layer_depth = c.limit_joint->compliant_layer_depth;
-    if (c.signed_violation + compliant_layer_depth > 0)
+    if (c.signed_distance + compliant_layer_depth > 0)
       *L_X_LT_iter += q.limit_constraints[i]->limit_damping;
   }
 
@@ -206,11 +206,11 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
 
   // setup contact stiffness
   for (unsigned i=0; i< N_CONTACTS; i++)
-    _qq[i] += q.contact_constraints[i]->signed_violation * q.contact_constraints[i]->contact_stiffness;
+    _qq[i] += q.contact_constraints[i]->signed_distance * q.contact_constraints[i]->contact_stiffness;
 
   // setup limit stiffness
   for (unsigned i=0; i< N_LIMITS; i++)
-    _qq[i+N_FRICT] += q.limit_constraints[i]->signed_violation * q.limit_constraints[i]->limit_stiffness;
+    _qq[i+N_FRICT] += q.limit_constraints[i]->signed_distance * q.limit_constraints[i]->limit_stiffness;
 
   _UL.set_sub_mat(NC,NC,q.Cs_X_CsT);
   _UL.set_sub_mat(NC,0,Cs_X_CnT);

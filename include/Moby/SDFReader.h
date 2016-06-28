@@ -14,6 +14,11 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 #include <Moby/Types.h>
+#include <Moby/Gears.h>
+#include <Moby/RevoluteJoint.h>
+#include <Moby/UniversalJoint.h>
+#include <Moby/PrismaticJoint.h>
+#include <Moby/SphericalJoint.h>
 #include <Moby/TimeSteppingSimulator.h>
 
 namespace Moby {
@@ -74,9 +79,12 @@ class SDFReader
     static Ravelin::Pose3d read_pose(boost::shared_ptr<const XMLTree> node);
     static Ravelin::SpatialRBInertiad read_inertial(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<Ravelin::Pose3d>& inertial_pose);
 
-    static JointPtr read_joint(boost::shared_ptr<const XMLTree> node, const std::map<std::string, RigidBodyPtr>& link_map, RigidBodyPtr& base_link);
     static TupleType get_tuple(boost::shared_ptr<const XMLTree> node);
+
+    #include "SDFReader.inl"
+
 }; // end class
+
 } // end namespace
 
 #endif

@@ -61,9 +61,6 @@ class CCD : public CollisionDetection
      */
     std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > disabled_pairs;
 
-  protected:
-    virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi) { return calc_next_CA_Euler_step_generic(pdi); }
-
   private:
     // the 3 axes
     enum AxisType { eXAxis, eYAxis, eZAxis };
@@ -71,9 +68,6 @@ class CCD : public CollisionDetection
     static double sqr(double x) { return x*x; }
     double calc_next_CA_Euler_step_polyhedron_plane(boost::shared_ptr<PolyhedralPrimitive> p, const Ravelin::SVelocityd& rv, boost::shared_ptr<const Ravelin::Pose3d> P, const Ravelin::Vector3d& normal, double offset);
     double calc_next_CA_Euler_step_polyhedron_polyhedron(boost::shared_ptr<PolyhedralPrimitive> pA, boost::shared_ptr<PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, const Ravelin::SVelocityd& rvA, const Ravelin::SVelocityd& rvB, const Ravelin::Vector3d& n0, double offset);
-    virtual double calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi);
-    virtual double calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi);
-    virtual double calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi);
     static double calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_dist(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Ravelin::Vector3d& n, double rmaxA, double rmaxB, double dist);

@@ -109,7 +109,7 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
       deepest[make_sorted_pair(rba, rbb)] = i;
     else
     {
-      if (constraints[i].signed_violation < constraints[deepest_iter->second].signed_violation)
+      if (constraints[i].signed_distance < constraints[deepest_iter->second].signed_distance)
       deepest[make_sorted_pair(rba, rbb)] = i;
     }  
   }
@@ -169,7 +169,7 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     FILE_LOG(LOG_CONSTRAINT) << "cpa: " << cpa << endl;
     FILE_LOG(LOG_CONSTRAINT) << "cpb: " << cpb << endl;
 
-    double depth = e.signed_violation;
+    double depth = e.signed_distance;
 
     FILE_LOG(LOG_CONSTRAINT) << "Contact Point: " << e.contact_point << endl;
     FILE_LOG(LOG_CONSTRAINT) << "I.P. Depth: " << depth << endl;
