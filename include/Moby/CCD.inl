@@ -81,6 +81,98 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   return find_contacts_generic(cgA, cgB, output_begin, TOL);
 }
 
+inline std::vector<Ravelin::Vector3d> CCD::create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, Ravelin::Transform3d &wTe)
+{
+  std::vector<Ravelin::Vector3d > edge_vectors;
+  BOOST_FOREACH(boost::shared_ptr<Polyhedron::Edge> edge, edges)
+  {
+    Ravelin::Vector3d v1_e(edge->v1->o,wTe.source);
+    Ravelin::Vector3d v2_e(edge->v2->o,wTe.source);
+
+    Ravelin::Vector3d v1_w = wTe.transform_point(v1_e);
+    Ravelin::Vector3d v2_w = wTe.transform_point(v2_e);
+    
+    Ravelin::Vector3d edge_v = (v2_w - v1_w);
+    edge_v.normalize();
+    edge_vectors.push_back(edge_v);
+  }
+
+  return edge_vectors;
+}
+
+inline void CCD::project(std::vector<Ravelin::Vector3d> vectors, Ravelin::Vector3d axis, double &min_dot, double &max_dot, int &min_index, int &max_index)
+{
+  for(int i = 0 ; i < vectors.size(); ++i)
+  {
+    double value = axis.dot(vectors[i]);
+    if (!min_dot || value < min_dot)
+    {
+      min_dot = value;
+      min_index = i;
+    }
+
+    if(!max_dot || value > max_dot)
+    {
+      max_dot = value;
+      max_index = i;
+    }
+
+  }
+}
+
+inline std::vector<Ravelin::Vector3d> CCD::create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, Ravelin::Vector3d axis, Ravelin::Transform3d wTv)
+{
+  std::vector <boost::shared_ptr<Polyhedron::Vertex> > visited_vertices;
+  std::queue <boost::shared_ptr<Polyhedron::Vertex> > search_list;
+  std::vector<Ravelin::Vector3d> ch_vectors;
+
+
+    //adding the first projection into the map and list
+  search_list.push(start_vert);
+  Ravelin::Vector3d v(start_vert->o,wTv.source);
+  Ravelin::Vector3d vw = wTv.transform_point(v);
+  visited_vertices.push_back(start_vert);
+  ch_vectors.push_back(vw);
+
+    //create testing plane
+  Plane test_plane(axis,vw);
+
+  while(!search_list.empty())
+  {
+    boost::shared_ptr<Polyhedron::Vertex> cur_vertex = search_list.front();
+    search_list.pop();
+    std::list<boost::weak_ptr<Polyhedron::Edge> > edges = cur_vertex->e;
+    for (std::list<boost::weak_ptr<Polyhedron::Edge> >::iterator ei = edges.begin(); ei!=edges.end(); ei++)
+    {
+      boost::shared_ptr<Polyhedron::Edge> neighbor_e(*ei);
+      boost::shared_ptr<Polyhedron::Vertex> next_vertex = neighbor_e->v1;
+      if( next_vertex == cur_vertex)
+      {
+        next_vertex = neighbor_e->v2;
+      }
+
+      std::vector <boost::shared_ptr<Polyhedron::Vertex> >::iterator vvi = std::find(visited_vertices.begin(), visited_vertices.end(), next_vertex);
+      if(vvi != visited_vertices.end())
+      {
+          // we have visit this 
+        continue;
+      }
+      else
+      {
+        visited_vertices.push_back(cur_vertex);
+        Ravelin::Vector3d v(cur_vertex->o,wTv.source);
+        Ravelin::Vector3d vw = wTv.transform_point(v);
+        if (fabs(test_plane.calc_signed_distance(vw)) < NEAR_ZERO)
+        {
+          ch_vectors.push_back(vw);
+          search_list.push(next_vertex);
+        }
+      }
+    }
+  }
+  return ch_vectors;
+}
+
 /// Finds contacts between two polyhedra
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
@@ -93,7 +185,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   boost::shared_ptr<Polyhedron::Edge> eA, eB;
   boost::shared_ptr<Polyhedron::Face> fA, fB;
   TessellatedPolyhedronPtr tpoly;
- 
+  boost::shared_ptr<Ravelin::Pose2d> GLOBAL_2D;
+
   // get the two primitives
   boost::shared_ptr<const PolyhedralPrimitive> pA = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgA->get_geometry());
   boost::shared_ptr<const PolyhedralPrimitive> pB = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgB->get_geometry());
@@ -123,8 +216,210 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   // case #1: attempt to use volume of intersection
   if (dist <= 0.0)
   {
+    // initialize
+    std::vector<boost::shared_ptr<Polyhedron::Edge> > edgesA = polyA.get_edges();
+    std::vector<boost::shared_ptr<Polyhedron::Edge> > edgesB = polyB.get_edges();
+    std::vector<boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
+    std::vector<boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
+
+    std::vector<Ravelin::Vector3d> vector_a;
+    BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> vertex,vAa)
+    {
+      Ravelin::Vector3d v(vertex->o,wTa.source);
+      Ravelin::Vector3d vw = wTa.transform_point(v);
+      vector_a.push_back(vw);
+    }
+    std::vector<Ravelin::Vector3d> vector_b;
+    BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> vertex,vBb)
+    {
+      Ravelin::Vector3d v(vertex->o,wTb.source);
+      Ravelin::Vector3d vw = wTb.transform_point(v);
+      vector_b.push_back(vw);
+    }
+
+    // create testing axis (edges from A, edges from B, and their cross product)
+    std::vector<Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
+    std::vector<Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
+    std::vector<Ravelin::Vector3d> test_vectors;
+    for(std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin(); evAi != evA.end() ; ++evAi)
+    {
+      for(std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin(); evBi != evB.end() ; ++evBi)
+      {
+        Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi,*evBi);
+        xv.normalize();
+        test_vectors.push_back(xv);
+      }
+    }
+    test_vectors.insert(test_vectors.end(), evA.begin(), evA.end());
+    test_vectors.insert(test_vectors.end(), evB.begin(), evB.end());
+
+    //find the minimum overlap
+    double min_overlap = std::numeric_limits<double>::max();
+    Ravelin::Vector3d min_axis;
+    boost::shared_ptr<Polyhedron::Vertex> a_vertex, b_vertex;
+    int direction = 1;
+    for(std::vector<Ravelin::Vector3d>::iterator test_i = test_vectors.begin(); test_i != test_vectors.end() ; ++test_i)
+    {
+      double min_a, max_a, min_b, max_b;
+      boost::shared_ptr<Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
+      int min_index_a, min_index_b, max_index_a, max_index_b;
+
+      // projecting shapes to axis
+      project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
+      project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
+
+
+      double o1 = max_a - min_b;
+      double o2 = max_b - min_a;
+
+      if ( o1 > NEAR_ZERO && o2 > NEAR_ZERO)
+      {
+        // there is an overlap
+        double overlap = std::min(o1,o2);
+        boost::shared_ptr<Polyhedron::Vertex> v1,v2;
+        
+        if( min_overlap - overlap > NEAR_ZERO)
+        {
+          min_overlap = overlap;
+          min_axis = *test_i;
+          if(fabs(overlap - o1) > NEAR_ZERO)
+          { 
+            a_vertex = vAa[max_index_a];
+            b_vertex = vBb[min_index_b];
+            direction = 1;
+          }
+          else
+          {
+            b_vertex = vBb[max_index_b];
+            a_vertex = vAa[min_index_a];
+            direction = -1;
+          }
+        }
+      }
+    }
+
+
+    // feature search for two polyhedron 
+    min_axis = min_axis*direction;
+    std::vector<Ravelin::Vector3d> ch_vectors_a = create_convex_hull_list( a_vertex, min_axis, wTa);
+
+    //projecting b
+    Ravelin::Vector3d trans_v = (min_axis * min_overlap);
+    Ravelin::Origin3d trans_o(trans_v.x(), trans_v.y(), trans_v.z());
+    Ravelin::Transform3d sep_trans(trans_o);
+    Ravelin::Transform3d w_1Tb = sep_trans*wTb;
+
+    std::vector<Ravelin::Vector3d> ch_vectors_b = create_convex_hull_list( b_vertex, min_axis, w_1Tb);
+
+    std::vector<Ravelin::Vector3d> ch_a, ch_b;
+    std::vector<Ravelin::Vector3d> isect;
+    if(ch_vectors_a.size()==1)
+    {
+      isect.push_back(ch_vectors_a[0]);
+    }
+    else if(ch_vectors_a.size()== 2)
+    {
+
+      Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(min_axis);
+      double offset_3d = CompGeom::determine_3D_to_2D_offset(ch_vectors_a[0], _2DT3D);
+      std::vector<Ravelin::Origin2d> ch_2D_a, ch_2D_b;
+      for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_a.begin(); chvi != ch_vectors_a.end(); ++chvi)
+      {
+        ch_2D_a.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+      }
+      for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_b.begin(); chvi != ch_vectors_b.end(); ++chvi)
+      {
+        ch_2D_b.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+      }
+
+      LineSeg2 seg_a(Point2d(ch_2D_a[0],GLOBAL_2D), Point2d(ch_2D_a[1],GLOBAL_2D));
+
+      std::vector<Point2d> ch_b;
+      std::vector<LineSeg2> isect2;
+      CompGeom::calc_convex_hull(ch_2D_b.begin(), ch_2D_b.end(), ch_b.begin());
+      
+      if(!CompGeom::ccw(ch_b.begin(),ch_b.end())){
+        std::reverse(ch_b.begin(),ch_b.end());
+      }
+      CompGeom::intersect_seg_polygon(ch_b.begin(), ch_b.end(), seg_a, isect2.begin());
+
+      for(std::vector<LineSeg2>::iterator chvi = isect2.begin(); chvi != isect2.end(); ++chvi)
+      {
+        LineSeg2 l = *chvi;
+        Ravelin::Vector2d v=l.first;
+        Ravelin::Origin2d o(v.x(),v.y());
+        isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
+        v = l.second;
+        o = Ravelin::Origin2d(v.x(),v.y());
+        isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
+      }
+
+    }
+    else
+    {
+      if(ch_vectors_b.size()==1)
+      {
+        isect.push_back(ch_vectors_b[0]);
+      }
+      else if(ch_vectors_b.size()== 2)
+      {
+
+        Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(min_axis);
+        double offset_3d = CompGeom::determine_3D_to_2D_offset(ch_vectors_b[0], _2DT3D);
+        std::vector<Ravelin::Origin2d> ch_2D_a, ch_2D_b;
+        for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_a.begin(); chvi != ch_vectors_a.end(); ++chvi)
+        {
+          ch_2D_a.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+        }
+        for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_b.begin(); chvi != ch_vectors_b.end(); ++chvi)
+        {
+          ch_2D_b.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+        }
+
+        LineSeg2 seg_b(Point2d(ch_2D_b[0],GLOBAL_2D), Point2d(ch_2D_b[1],GLOBAL_2D));
+
+        std::vector<Point2d> ch_a;
+        std::vector<LineSeg2> isect2;
+        CompGeom::calc_convex_hull(ch_2D_a.begin(), ch_2D_a.end(), ch_a.begin());
+        
+        if(!CompGeom::ccw(ch_a.begin(),ch_a.end())){
+          std::reverse(ch_a.begin(),ch_a.end());
+        }
+        CompGeom::intersect_seg_polygon(ch_a.begin(), ch_a.end(), seg_b, isect2.begin());
+
+        for(std::vector<LineSeg2>::iterator chvi = isect2.begin(); chvi != isect2.end(); ++chvi)
+        {
+          LineSeg2 l = *chvi;
+          Ravelin::Vector2d v=l.first;
+          Ravelin::Origin2d o(v.x(),v.y());
+          isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
+          v = l.second;
+          o = Ravelin::Origin2d(v.x(),v.y());
+          isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
+        }
+
+      }
+      else{
+        CompGeom::calc_convex_hull(ch_vectors_a.begin(), ch_vectors_a.end(), min_axis, std::back_inserter(ch_a));
+        CompGeom::calc_convex_hull(ch_vectors_b.begin(), ch_vectors_b.end(), min_axis, std::back_inserter(ch_b));
+        CompGeom::intersect_convex_polygons(ch_vectors_a.begin(), ch_vectors_a.end(), ch_vectors_b.begin(), ch_vectors_b.end(), min_axis, isect.begin());
+      }
+    }
+
+    for (unsigned i=0; i< isect.size(); i++)
+        *output_begin++ = create_contact(cgA, cgB, isect[i], min_axis, -min_overlap);
+
+    return output_begin;
+
+  }
+
+
+
+
+
+    
     // get the halfspaces
-    PolyhedralPrimitive::get_halfspaces(polyA, poseA, wTa, std::back_inserter(hs));
+   /* PolyhedralPrimitive::get_halfspaces(polyA, poseA, wTa, std::back_inserter(hs));
     PolyhedralPrimitive::get_halfspaces(polyB, poseB, wTb, std::back_inserter(hs));
 
     // find the interior point
@@ -313,6 +608,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         *output_begin++ = create_contact(cgA, cgB, isect[i], n, 0.0);
 
       return output_begin;
+      
     }
 
     // setup minimum distance, contact normal, and the contact plane offset
@@ -420,275 +716,275 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     }
 
     return output_begin;
-  }
+  }*/
 
   // case #3: use closest features
   // get the type of the first feature
-  if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
-  {
-    featA = eVertex;
-    boost::shared_ptr<const Polyhedron::Vertex> vA_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
-    vA = boost::const_pointer_cast<Polyhedron::Vertex>(vA_const);
-  }
-  else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
-  {
-    featA = eEdge;
-    boost::shared_ptr<const Polyhedron::Edge> eA_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
-    eA = boost::const_pointer_cast<Polyhedron::Edge>(eA_const);
-  }
-  else 
-  {
-    featA = eFace;
-    boost::shared_ptr<const Polyhedron::Face> fA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
-    fA = boost::const_pointer_cast<Polyhedron::Face>(fA_const);
-  }
+    if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
+    {
+      featA = eVertex;
+      boost::shared_ptr<const Polyhedron::Vertex> vA_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+      vA = boost::const_pointer_cast<Polyhedron::Vertex>(vA_const);
+    }
+    else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
+    {
+      featA = eEdge;
+      boost::shared_ptr<const Polyhedron::Edge> eA_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+      eA = boost::const_pointer_cast<Polyhedron::Edge>(eA_const);
+    }
+    else 
+    {
+      featA = eFace;
+      boost::shared_ptr<const Polyhedron::Face> fA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+      fA = boost::const_pointer_cast<Polyhedron::Face>(fA_const);
+    }
 
   // get the type of the second feature
-  if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
-  {
-    featB = eVertex;
-    boost::shared_ptr<const Polyhedron::Vertex> vB_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
-    vB = boost::const_pointer_cast<Polyhedron::Vertex>(vB_const);
-  }
-  else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
-  {
-    featB = eEdge;
-    boost::shared_ptr<const Polyhedron::Edge> eB_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
-    eB = boost::const_pointer_cast<Polyhedron::Edge>(eB_const);
-  }
-  else 
-  {
-    featB = eFace;
-    boost::shared_ptr<const Polyhedron::Face> fB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
-    fB = boost::const_pointer_cast<Polyhedron::Face>(fB_const);
-  }
+    if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
+    {
+      featB = eVertex;
+      boost::shared_ptr<const Polyhedron::Vertex> vB_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+      vB = boost::const_pointer_cast<Polyhedron::Vertex>(vB_const);
+    }
+    else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
+    {
+      featB = eEdge;
+      boost::shared_ptr<const Polyhedron::Edge> eB_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+      eB = boost::const_pointer_cast<Polyhedron::Edge>(eB_const);
+    }
+    else 
+    {
+      featB = eFace;
+      boost::shared_ptr<const Polyhedron::Face> fB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+      fB = boost::const_pointer_cast<Polyhedron::Face>(fB_const);
+    }
 
   // now handle on a case by case basis
-  if (featA == eVertex)
-  {
-    if (featB == eVertex)
-      return find_contacts_vertex_vertex(cgA, cgB, vA, vB, dist, output_begin);
-    else if (featB == eEdge)
-      return find_contacts_vertex_edge(cgA, cgB, vA, eB, dist, output_begin);
+    if (featA == eVertex)
+    {
+      if (featB == eVertex)
+        return find_contacts_vertex_vertex(cgA, cgB, vA, vB, dist, output_begin);
+      else if (featB == eEdge)
+        return find_contacts_vertex_edge(cgA, cgB, vA, eB, dist, output_begin);
+      else
+        return find_contacts_vertex_face(cgA, cgB, vA, fB, dist, output_begin);
+    }
+    else if (featA == eEdge)
+    {
+      if (featB == eVertex)
+        return find_contacts_vertex_edge(cgB, cgA, vB, eA, dist, output_begin);
+      else if (featB == eEdge)
+        return find_contacts_edge_edge(cgA, cgB, eA, eB, dist, output_begin);
+      else
+        return find_contacts_edge_face(cgA, cgB, eA, fB, dist, output_begin);
+    }
     else
-      return find_contacts_vertex_face(cgA, cgB, vA, fB, dist, output_begin);
+    {
+      if (featB == eVertex)
+        return find_contacts_vertex_face(cgB, cgA, vB, fA, dist, output_begin);
+      else if (featB == eEdge)
+        return find_contacts_edge_face(cgB, cgA, eB, fA, dist, output_begin);
+      else
+        return find_contacts_face_face(cgA, cgB, fA, fB, dist, output_begin);
+    }
   }
-  else if (featA == eEdge)
-  {
-    if (featB == eVertex)
-      return find_contacts_vertex_edge(cgB, cgA, vB, eA, dist, output_begin);
-    else if (featB == eEdge)
-      return find_contacts_edge_edge(cgA, cgB, eA, eB, dist, output_begin);
-    else
-      return find_contacts_edge_face(cgA, cgB, eA, fB, dist, output_begin);
-  }
-  else
-  {
-    if (featB == eVertex)
-      return find_contacts_vertex_face(cgB, cgA, vB, fA, dist, output_begin);
-    else if (featB == eEdge)
-      return find_contacts_edge_face(cgB, cgA, eB, fA, dist, output_begin);
-    else
-      return find_contacts_face_face(cgA, cgB, fA, fB, dist, output_begin);
-  }
-}
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
+  OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
-  return output_begin;
-}
+    return output_begin;
+  }
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin){
+  OutputIterator CCD::find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
-  return output_begin;
-}
+    return output_begin;
+  }
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
+  OutputIterator CCD::find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
   //convert the vertex point to a Vector3d
-  Ravelin::Vector3d p(vA->o, cgA->get_pose());
+    Ravelin::Vector3d p(vA->o, cgA->get_pose());
   //converted 
   //normal will point away from B
-  Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
+    Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
 
-  *output_begin++ = create_contact(cgA, cgB, p, normal, signed_dist);
-  return output_begin;
-}
+    *output_begin++ = create_contact(cgA, cgB, p, normal, signed_dist);
+    return output_begin;
+  }
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin){
+  OutputIterator CCD::find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
-  return output_begin;
-}
+    return output_begin;
+  }
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
+  OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
 
   // set global frame (in 2D)
-  const boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
+    const boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
 
   //1. calc normal of face
-  Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
-  
+    Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
+
   //We calculate the transform from cgB to GLOBAL for later use
-  Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
-  
+    Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
+
   //transform the normal to the global frame
-  Ravelin::Vector3d normal0=wTB.transform_vector(normal);
+    Ravelin::Vector3d normal0=wTB.transform_vector(normal);
 
-  Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(normal0);
-  
+    Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(normal0);
+
   //2. get all vertex from face
-  Polyhedron::VertexFaceIterator vfi(fB,true);
-  std::vector<Point2d> v2d;
-  while(vfi.has_next()){
-    boost::shared_ptr<Polyhedron::Vertex> v=*vfi;
-    vfi.advance();
-    Ravelin::Vector3d p(v->o, cgB->get_pose());
-    Ravelin::Vector3d p0=wTB.transform_point(p);
-    v2d.push_back(Point2d(CompGeom::to_2D(p0,R2D), GLOBAL_2D));
+    Polyhedron::VertexFaceIterator vfi(fB,true);
+    std::vector<Point2d> v2d;
+    while(vfi.has_next()){
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfi;
+      vfi.advance();
+      Ravelin::Vector3d p(v->o, cgB->get_pose());
+      Ravelin::Vector3d p0=wTB.transform_point(p);
+      v2d.push_back(Point2d(CompGeom::to_2D(p0,R2D), GLOBAL_2D));
 
-  }
-  
+    }
+
   //checking if the points are CCW. If not reverse it
-  if(!CompGeom::ccw(v2d.begin(),v2d.end())){
-    std::reverse(v2d.begin(),v2d.end());
-  }
+    if(!CompGeom::ccw(v2d.begin(),v2d.end())){
+      std::reverse(v2d.begin(),v2d.end());
+    }
 
   //Finding transform matrix for the edge
-  Ravelin::Transform3d wTA = Ravelin::Pose3d::calc_relative_pose(cgA->get_pose(),GLOBAL);
+    Ravelin::Transform3d wTA = Ravelin::Pose3d::calc_relative_pose(cgA->get_pose(),GLOBAL);
 
   //Transforming v1
-  Ravelin::Vector3d v1(Ravelin::Origin3d(eA->v1->o), cgA->get_pose());
-  Ravelin::Vector3d v10=wTA.transform_point(v1);
-  Ravelin::Origin2d o1_2d=CompGeom::to_2D(v10,R2D);
-  
+    Ravelin::Vector3d v1(Ravelin::Origin3d(eA->v1->o), cgA->get_pose());
+    Ravelin::Vector3d v10=wTA.transform_point(v1);
+    Ravelin::Origin2d o1_2d=CompGeom::to_2D(v10,R2D);
+
   //Transforming v2
-  Ravelin::Vector3d v2(Ravelin::Origin3d(eA->v2->o), cgA->get_pose());
-  Ravelin::Vector3d v20=wTA.transform_point(v1);
-  Ravelin::Origin2d o2_2d=CompGeom::to_2D(v20,R2D);
+    Ravelin::Vector3d v2(Ravelin::Origin3d(eA->v2->o), cgA->get_pose());
+    Ravelin::Vector3d v20=wTA.transform_point(v1);
+    Ravelin::Origin2d o2_2d=CompGeom::to_2D(v20,R2D);
 
   //creating segment
-  Ravelin::Vector2d v1_2d(o1_2d, GLOBAL_2D);
-  Ravelin::Vector2d v2_2d(o2_2d, GLOBAL_2D);  
-  LineSeg2 line(v1_2d,v2_2d);
+    Ravelin::Vector2d v1_2d(o1_2d, GLOBAL_2D);
+    Ravelin::Vector2d v2_2d(o2_2d, GLOBAL_2D);  
+    LineSeg2 line(v1_2d,v2_2d);
 
   //creacting result holders
-  double te,tl;
+    double te,tl;
 
   //intersecting line to face
-  CompGeom::intersect_seg_convex_polygon(v2d.begin(),v2d.end(),line,te,tl);
-  
+    CompGeom::intersect_seg_convex_polygon(v2d.begin(),v2d.end(),line,te,tl);
+
   //5. calc 2 contact points
-  Ravelin::Vector3d c1=v10*(1-te)+v20*te;
-  Ravelin::Vector3d c2=v10*(1-tl)+v20*tl;
+    Ravelin::Vector3d c1=v10*(1-te)+v20*te;
+    Ravelin::Vector3d c2=v10*(1-tl)+v20*tl;
 
   //adding output
-  *output_begin++ = create_contact(cgA, cgB, c1, normal0, signed_dist);
-  *output_begin++ = create_contact(cgA, cgB, c2, normal0, signed_dist);
-  return output_begin;
-}
+    *output_begin++ = create_contact(cgA, cgB, c1, normal0, signed_dist);
+    *output_begin++ = create_contact(cgA, cgB, c2, normal0, signed_dist);
+    return output_begin;
+  }
 
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Face> fA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
-  
+  OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Face> fA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
+
   //Face A:
   //calc normal of face
-  Ravelin::Vector3d normal(Ravelin::Origin3d(fA->get_plane().get_normal()), cgA->get_pose());
-  
+    Ravelin::Vector3d normal(Ravelin::Origin3d(fA->get_plane().get_normal()), cgA->get_pose());
+
   //We calculate the transform from cgB to GLOBAL for later use
-  Ravelin::Transform3d wTA = Ravelin::Pose3d::calc_relative_pose(cgA->get_pose(),GLOBAL);
-  
+    Ravelin::Transform3d wTA = Ravelin::Pose3d::calc_relative_pose(cgA->get_pose(),GLOBAL);
+
   //transform the normal to the global frame
-  Ravelin::Vector3d normal_0=wTA.transform_vector(normal);
+    Ravelin::Vector3d normal_0=wTA.transform_vector(normal);
 
   //get all vertex from face
-  Polyhedron::VertexFaceIterator vfiA(fA,true);
-  std::vector<Ravelin::Vector3d> v3dA;
-  while(vfiA.has_next()){
-    boost::shared_ptr<Polyhedron::Vertex> v=*vfiA;
-    vfiA.advance();
-    Ravelin::Vector3d p(v->o, cgA->get_pose());
-    Ravelin::Vector3d p0=wTA.transform_point(p);
-    v3dA.push_back(p0);
-  }
+    Polyhedron::VertexFaceIterator vfiA(fA,true);
+    std::vector<Ravelin::Vector3d> v3dA;
+    while(vfiA.has_next()){
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiA;
+      vfiA.advance();
+      Ravelin::Vector3d p(v->o, cgA->get_pose());
+      Ravelin::Vector3d p0=wTA.transform_point(p);
+      v3dA.push_back(p0);
+    }
 
   //Face B:
   //We calculate the transform from cgB to GLOBAL for later use
-  Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
-  
+    Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
+
   //2. get all vertex from face
-  Polyhedron::VertexFaceIterator vfiB(fB,true);
-  std::vector<Ravelin::Vector3d> v3dB;
-  while(vfiB.has_next()){
-    boost::shared_ptr<Polyhedron::Vertex> v=*vfiB;
-    vfiB.advance();
-    Ravelin::Vector3d p(v->o, cgB->get_pose());
-    Ravelin::Vector3d p0=wTB.transform_point(p);
-    v3dB.push_back(p0);
-  }
-  
+    Polyhedron::VertexFaceIterator vfiB(fB,true);
+    std::vector<Ravelin::Vector3d> v3dB;
+    while(vfiB.has_next()){
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiB;
+      vfiB.advance();
+      Ravelin::Vector3d p(v->o, cgB->get_pose());
+      Ravelin::Vector3d p0=wTB.transform_point(p);
+      v3dB.push_back(p0);
+    }
+
   //intersectiong 2 faces
-  std::vector<Point3d> isect;
-  CompGeom::intersect_convex_polygons(v3dA.begin(),v3dA.end(),v3dB.begin(),v3dB.end(),normal_0,std::back_inserter(isect));
+    std::vector<Point3d> isect;
+    CompGeom::intersect_convex_polygons(v3dA.begin(),v3dA.end(),v3dB.begin(),v3dB.end(),normal_0,std::back_inserter(isect));
   //adding output
-  for(unsigned i=0;i<isect.size();i++){
-    *output_begin++ = create_contact(cgA, cgB, isect[i], -normal_0, signed_dist);  
+    for(unsigned i=0;i<isect.size();i++){
+      *output_begin++ = create_contact(cgA, cgB, isect[i], -normal_0, signed_dist);  
+    }
+    return output_begin;
   }
-  return output_begin;
-}
 
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
-{
-  std::vector<Point3d> vA, vB;
-  double dist;
-  std::vector<Ravelin::Vector3d> n;
+  OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+  {
+    std::vector<Point3d> vA, vB;
+    double dist;
+    std::vector<Ravelin::Vector3d> n;
 
   // get the vertices from A and B
-  cgA->get_vertices(vA);
-  cgB->get_vertices(vB);
+    cgA->get_vertices(vA);
+    cgB->get_vertices(vB);
 
   // examine all points from A against B
-  for (unsigned i=0; i< vA.size(); i++)
-  {
-    // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
+    for (unsigned i=0; i< vA.size(); i++)
     {
+    // see whether the point is inside the primitive
+      if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
+      {
       // add the contact points
-      for (unsigned j=0; j< n.size(); j++)
-        *output_begin++ = create_contact(cgA, cgB, vA[i], n[j], dist);
+        for (unsigned j=0; j< n.size(); j++)
+          *output_begin++ = create_contact(cgA, cgB, vA[i], n[j], dist);
+      }
     }
-  }
 
   // examine all points from B against A
-  for (unsigned i=0; i< vB.size(); i++)
-  {
-    // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
+    for (unsigned i=0; i< vB.size(); i++)
     {
+    // see whether the point is inside the primitive
+      if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
+      {
       // add the contact points
-      for (unsigned j=0; j< n.size(); j++)
-        *output_begin++ = create_contact(cgA, cgB, vB[i], -n[j], dist);
+        for (unsigned j=0; j< n.size(); j++)
+          *output_begin++ = create_contact(cgA, cgB, vB[i], -n[j], dist);
+      }
     }
-  }
 
-  return output_begin;
-}
+    return output_begin;
+  }
 
 
 // find the contacts between a plane and a generic shape
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
-{
-  Ravelin::Vector3d normal;
+  OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
+  {
+    Ravelin::Vector3d normal;
   Point3d p; // this is plane
 
   // Set intitial value of distance to contact
@@ -716,8 +1012,8 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
 
   // cN is the cylinder axis with respect to the plane
   Ravelin::Vector3d cN = Ravelin::Vector3d(
-                           Ravelin::Matrix3d(pPc.q).get_column(Y),
-                           Pplane);
+   Ravelin::Matrix3d(pPc.q).get_column(Y),
+   Pplane);
   cN.normalize();
 
   // Plane Normal
@@ -779,10 +1075,10 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     FILE_LOG(LOG_COLDET) << " -- Cylinder edge is closest to plane"<< std::endl;
     //(axis_cylinder x (n_plane x axis_cylinder))
     Ravelin::Vector3d radial_dir =
-        Ravelin::Vector3d::cross(
-          axial_dir,
-          Ravelin::Vector3d::cross(axial_dir,n)
-        );
+    Ravelin::Vector3d::cross(
+      axial_dir,
+      Ravelin::Vector3d::cross(axial_dir,n)
+      );
     radial_dir.normalize();
 
     Point3d x = (H/2.0)*axial_dir + R*radial_dir + c0;
@@ -935,6 +1231,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
+
   const unsigned X = 0, Z = 2;
 
   // get the output iterator
@@ -1039,354 +1336,354 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
     }
 
   // create the normal pointing from B to A
-  return std::copy(contacts.begin(), contacts.end(), o);
-}
+    return std::copy(contacts.begin(), contacts.end(), o);
+  }
 
 /// Finds contacts for a convex shape and a heightmap
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
-{
-  const unsigned X = 0, Y = 1, Z = 2;
+  OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+  {
+    const unsigned X = 0, Y = 1, Z = 2;
 
   // get the output iterator
-  OutputIterator o = output_begin;
+    OutputIterator o = output_begin;
 
   // setup a vector of contacts
-  std::vector<Constraint> contacts;
+    std::vector<Constraint> contacts;
 
   // get the convex primitive and heightmap
-  PrimitivePtr sA = cgA->get_geometry();
-  boost::shared_ptr<HeightmapPrimitive> hmB = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgB->get_geometry());
+    PrimitivePtr sA = cgA->get_geometry();
+    boost::shared_ptr<HeightmapPrimitive> hmB = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgB->get_geometry());
 
   // get the two poses for the primitives
-  boost::shared_ptr<const Ravelin::Pose3d> pA = sA->get_pose(cgA);
-  boost::shared_ptr<const Ravelin::Pose3d> pB = hmB->get_pose(cgB);
+    boost::shared_ptr<const Ravelin::Pose3d> pA = sA->get_pose(cgA);
+    boost::shared_ptr<const Ravelin::Pose3d> pB = hmB->get_pose(cgB);
 
   // get the transform from the primitive pose to the heightmap
-  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(pA, pB);
+    Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(pA, pB);
 
   // intersect vertices from the convex primitive against the heightmap
-  std::vector<Point3d> cverts;
-  sA->get_vertices(pA, cverts);
-  for (unsigned i=0; i< cverts.size(); i++)
-  {
-    Point3d pt = T.transform_point(cverts[i]);
-    const double HEIGHT = hmB->calc_height(pt);
-    if (HEIGHT < TOL)
+    std::vector<Point3d> cverts;
+    sA->get_vertices(pA, cverts);
+    for (unsigned i=0; i< cverts.size(); i++)
     {
+      Point3d pt = T.transform_point(cverts[i]);
+      const double HEIGHT = hmB->calc_height(pt);
+      if (HEIGHT < TOL)
+      {
       // setup the contact point
-      Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, pt);
+        Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, pt);
 
       // setup the normal
-      Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
-      if (HEIGHT >= 0.0)
-      {
-        double gx, gz;
-        hmB->calc_gradient(pt, gx, gz);
-        normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
-        normal.normalize();
+        Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
+        if (HEIGHT >= 0.0)
+        {
+          double gx, gz;
+          hmB->calc_gradient(pt, gx, gz);
+          normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
+          normal.normalize();
+        }
+        normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
+        contacts.push_back(create_contact(cgA, cgB, point, normal, HEIGHT));
       }
-      normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
-      contacts.push_back(create_contact(cgA, cgB, point, normal, HEIGHT));
     }
-  }
 
   // get the bounding volume for the primitive
-  BVPtr bv = sA->get_BVH_root(cgA);
+    BVPtr bv = sA->get_BVH_root(cgA);
 
   // get the lower and upper bounds of the BV
-  Point3d bv_lo = bv->get_lower_bounds();
-  Point3d bv_hi = bv->get_upper_bounds();
+    Point3d bv_lo = bv->get_lower_bounds();
+    Point3d bv_hi = bv->get_upper_bounds();
 
   // create an OBB
-  OBB obb;
-  obb.l[X] = (bv_hi[X] - bv_lo[X])*0.5;
-  obb.l[Y] = (bv_hi[Y] - bv_lo[Y])*0.5;
-  obb.l[Z] = (bv_hi[Z] - bv_lo[Z])*0.5;
-  obb.R = T.q;
-  obb.center = Point3d(T.x, T.target);
+    OBB obb;
+    obb.l[X] = (bv_hi[X] - bv_lo[X])*0.5;
+    obb.l[Y] = (bv_hi[Y] - bv_lo[Y])*0.5;
+    obb.l[Z] = (bv_hi[Z] - bv_lo[Z])*0.5;
+    obb.R = T.q;
+    obb.center = Point3d(T.x, T.target);
 
   // get the AABB points in heightmap space
-  bv_lo = obb.get_lower_bounds();
-  bv_hi = obb.get_upper_bounds();
+    bv_lo = obb.get_lower_bounds();
+    bv_hi = obb.get_upper_bounds();
 
   // get the heightmap width, depth, and heights
-  double width = hmB->get_width();
-  double depth = hmB->get_depth();
-  const Ravelin::MatrixNd& heights = hmB->get_heights();
+    double width = hmB->get_width();
+    double depth = hmB->get_depth();
+    const Ravelin::MatrixNd& heights = hmB->get_heights();
 
   // get the lower i and j indices
-  unsigned lowi = constrain_unsigned((bv_lo[X]+width*0.5)*(heights.rows()-1)/width,heights.rows()-1);
-  unsigned lowj = constrain_unsigned((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth,heights.columns()-1);
+    unsigned lowi = constrain_unsigned((bv_lo[X]+width*0.5)*(heights.rows()-1)/width,heights.rows()-1);
+    unsigned lowj = constrain_unsigned((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth,heights.columns()-1);
 
   // get the upper i and j indices
-  unsigned upi = constrain_unsigned(((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1,heights.rows()-1);
-  unsigned upj = constrain_unsigned(((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1,heights.columns()-1);
+    unsigned upi = constrain_unsigned(((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1,heights.rows()-1);
+    unsigned upj = constrain_unsigned(((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1,heights.columns()-1);
 
   // iterate over all points in the bounding region
-  for (unsigned i=lowi; i<= upi; i++)
-    for (unsigned j=lowj; j< upj; j++)
-    {
+    for (unsigned i=lowi; i<= upi; i++)
+      for (unsigned j=lowj; j< upj; j++)
+      {
       // compute the point on the heightmap
-      double x = -width*0.5+width*i/(heights.rows()-1);
-      double z = -depth*0.5+depth*j/(heights.columns()-1);
-      Point3d p(x, heights(i,j), z, pB);
+        double x = -width*0.5+width*i/(heights.rows()-1);
+        double z = -depth*0.5+depth*j/(heights.columns()-1);
+        Point3d p(x, heights(i,j), z, pB);
 
       // get the distance from the primitive
-      Point3d p_A = Ravelin::Pose3d::transform_point(pA, p);
-      double dist = sA->calc_signed_dist(p_A);
+        Point3d p_A = Ravelin::Pose3d::transform_point(pA, p);
+        double dist = sA->calc_signed_dist(p_A);
 
       // ignore distance if it isn't sufficiently close
-      if (dist > TOL)
-        continue;
+        if (dist > TOL)
+          continue;
 
       // setup the contact point
-      Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
+        Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
 
       // setup the normal
-      Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
-      if (dist >= 0.0)
-      {
-        double gx, gz;
-        hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, p_A), gx, gz);
-        normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
-        normal.normalize();
+        Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
+        if (dist >= 0.0)
+        {
+          double gx, gz;
+          hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, p_A), gx, gz);
+          normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
+          normal.normalize();
+        }
+        normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
+        contacts.push_back(create_contact(cgA, cgB, point, normal, dist));
       }
-      normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
-      contacts.push_back(create_contact(cgA, cgB, point, normal, dist));
-    }
 
   // create the normal pointing from B to A
-  return std::copy(contacts.begin(), contacts.end(), o);
-}
+      return std::copy(contacts.begin(), contacts.end(), o);
+    }
 
 /// Finds contacts for two spheres (one piece of code works for both separated and non-separated spheres)
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   // get the output iterator
-  OutputIterator o = output_begin;
+      OutputIterator o = output_begin;
 
   // get the two spheres
-  boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
-  boost::shared_ptr<SpherePrimitive> sB = boost::dynamic_pointer_cast<SpherePrimitive>(cgB->get_geometry());
+      boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
+      boost::shared_ptr<SpherePrimitive> sB = boost::dynamic_pointer_cast<SpherePrimitive>(cgB->get_geometry());
 
   // setup new pose for primitive A that refers to the underlying geometry
-  boost::shared_ptr<Ravelin::Pose3d> PoseA(new Ravelin::Pose3d(*sA->get_pose()));
-  PoseA->rpose = cgA->get_pose();
+      boost::shared_ptr<Ravelin::Pose3d> PoseA(new Ravelin::Pose3d(*sA->get_pose()));
+      PoseA->rpose = cgA->get_pose();
 
   // setup new pose for primitive B that refers to the underlying geometry
-  boost::shared_ptr<Ravelin::Pose3d> PoseB(new Ravelin::Pose3d(*sB->get_pose()));
-  PoseB->rpose = cgB->get_pose();
+      boost::shared_ptr<Ravelin::Pose3d> PoseB(new Ravelin::Pose3d(*sB->get_pose()));
+      PoseB->rpose = cgB->get_pose();
 
   // get the two sphere centers in the global frame
-  PoseA->update_relative_pose(GLOBAL);
-  PoseB->update_relative_pose(GLOBAL);
-  Point3d cA0(PoseA->x, GLOBAL);
-  Point3d cB0(PoseB->x, GLOBAL);
+      PoseA->update_relative_pose(GLOBAL);
+      PoseB->update_relative_pose(GLOBAL);
+      Point3d cA0(PoseA->x, GLOBAL);
+      Point3d cB0(PoseB->x, GLOBAL);
 
   // determine the distance between the two spheres
-  Ravelin::Vector3d d = cA0 - cB0;
-  double dist = d.norm() - sA->get_radius() - sB->get_radius();
-  if (dist > TOL)
-    return o;
+      Ravelin::Vector3d d = cA0 - cB0;
+      double dist = d.norm() - sA->get_radius() - sB->get_radius();
+      if (dist > TOL)
+        return o;
 
   // get the closest points on the two spheres
-  Ravelin::Vector3d n = Ravelin::Vector3d::normalize(d);
-  Point3d closest_A = cA0 - n*sA->get_radius();
-  Point3d closest_B = cB0 + n*sB->get_radius();
+      Ravelin::Vector3d n = Ravelin::Vector3d::normalize(d);
+      Point3d closest_A = cA0 - n*sA->get_radius();
+      Point3d closest_B = cB0 + n*sB->get_radius();
 
   // create the contact point halfway between the closest points
-  Point3d p = (closest_A + closest_B)*0.5;
+      Point3d p = (closest_A + closest_B)*0.5;
 
   // create the normal pointing from B to A
-  *o++ = create_contact(cgA, cgB, p, n, dist);
+      *o++ = create_contact(cgA, cgB, p, n, dist);
 
-  return o;
-}
+      return o;
+    }
 
 /// Gets contact points between a box and a sphere
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
-{
+    OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
+    {
   // get the box and the sphere
-  boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
-  boost::shared_ptr<SpherePrimitive> sB = boost::dynamic_pointer_cast<SpherePrimitive>(cgB->get_geometry());
+      boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
+      boost::shared_ptr<SpherePrimitive> sB = boost::dynamic_pointer_cast<SpherePrimitive>(cgB->get_geometry());
 
   // get the relevant poses for both
-  boost::shared_ptr<const Ravelin::Pose3d> box_pose = bA->get_pose(cgA);
-  boost::shared_ptr<const Ravelin::Pose3d> sphere_pose = sB->get_pose(cgB);
+      boost::shared_ptr<const Ravelin::Pose3d> box_pose = bA->get_pose(cgA);
+      boost::shared_ptr<const Ravelin::Pose3d> sphere_pose = sB->get_pose(cgB);
 
   // find closest points
-  Point3d psph(sphere_pose), pbox(box_pose);
-  double dist = bA->calc_closest_points(sB, pbox, psph);
-  if (dist > TOL)
-    return o;
+      Point3d psph(sphere_pose), pbox(box_pose);
+      double dist = bA->calc_closest_points(sB, pbox, psph);
+      if (dist > TOL)
+        return o;
 
   // NOTE: we aren't actually finding the deepest point of interpenetration
   // from the sphere into the box...
 
   // if the distance between them is greater than zero, return the midpoint
   // of the two points as the contact point
-  Point3d p;
-  Ravelin::Vector3d normal;
-  if (dist > 0.0)
-  {
-    Point3d psph_global = Ravelin::Pose3d::transform_point(GLOBAL, psph);
-    Point3d pbox_global = Ravelin::Pose3d::transform_point(GLOBAL, pbox);
-    p = (psph_global + pbox_global)*0.5;
-    normal = pbox_global - psph_global;
-    double nrm = normal.norm();
-    if (nrm > NEAR_ZERO)
-      normal /= nrm;
-    else
-    {
-      normal = Ravelin::Pose3d::transform_vector(GLOBAL, psph);
-      normal.normalize();
-    }
-  }
-  else
-  {
-    p = Ravelin::Pose3d::transform_point(GLOBAL, psph);
-    normal = Ravelin::Pose3d::transform_vector(GLOBAL, psph);
-    normal.normalize();
-  }
+      Point3d p;
+      Ravelin::Vector3d normal;
+      if (dist > 0.0)
+      {
+        Point3d psph_global = Ravelin::Pose3d::transform_point(GLOBAL, psph);
+        Point3d pbox_global = Ravelin::Pose3d::transform_point(GLOBAL, pbox);
+        p = (psph_global + pbox_global)*0.5;
+        normal = pbox_global - psph_global;
+        double nrm = normal.norm();
+        if (nrm > NEAR_ZERO)
+          normal /= nrm;
+        else
+        {
+          normal = Ravelin::Pose3d::transform_vector(GLOBAL, psph);
+          normal.normalize();
+        }
+      }
+      else
+      {
+        p = Ravelin::Pose3d::transform_point(GLOBAL, psph);
+        normal = Ravelin::Pose3d::transform_vector(GLOBAL, psph);
+        normal.normalize();
+      }
 
   // create the contact
-  *o++ = create_contact(cgA, cgB, p, normal, dist);
+      *o++ = create_contact(cgA, cgB, p, normal, dist);
 
-  return o;
-}
+      return o;
+    }
 
 /// Gets contact points between a torus and a plane 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
-{
-  const unsigned Z = 2;
-  const double EPS = NEAR_ZERO * 100.0;
-  const unsigned MAX_CONTACTS = 4;
+    OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
+    {
+      const unsigned Z = 2;
+      const double EPS = NEAR_ZERO * 100.0;
+      const unsigned MAX_CONTACTS = 4;
 
-  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_torus_plane(.) entered" << std::endl;
+      FILE_LOG(LOG_COLDET) << "CCD::find_contacts_torus_plane(.) entered" << std::endl;
 
   // get the plane and torus primitives
-  PrimitivePtr plane_geom = boost::dynamic_pointer_cast<Primitive>(cgB->get_geometry());
-  boost::shared_ptr<TorusPrimitive> torus_geom = boost::dynamic_pointer_cast<TorusPrimitive>(cgA->get_geometry());
+      PrimitivePtr plane_geom = boost::dynamic_pointer_cast<Primitive>(cgB->get_geometry());
+      boost::shared_ptr<TorusPrimitive> torus_geom = boost::dynamic_pointer_cast<TorusPrimitive>(cgA->get_geometry());
 
   // get the major and minor radii
-  const double R = torus_geom->get_major_radius(); 
-  const double r = torus_geom->get_minor_radius(); 
+      const double R = torus_geom->get_major_radius(); 
+      const double r = torus_geom->get_minor_radius(); 
 
   // get the poses for the primitives
-  boost::shared_ptr<const Ravelin::Pose3d> Pplane = plane_geom->get_pose(cgB);
-  boost::shared_ptr<const Ravelin::Pose3d> Ptorus = torus_geom->get_pose(cgA); 
+      boost::shared_ptr<const Ravelin::Pose3d> Pplane = plane_geom->get_pose(cgB);
+      boost::shared_ptr<const Ravelin::Pose3d> Ptorus = torus_geom->get_pose(cgA); 
 
   // get the transformation from the torus's space to the plane's space
-  Ravelin::Transform3d tPp = Ravelin::Pose3d::calc_relative_pose(Pplane, Ptorus);
+      Ravelin::Transform3d tPp = Ravelin::Pose3d::calc_relative_pose(Pplane, Ptorus);
 
   // Z column of rotation matrix (plane to torus)
   // is plane normal in torus frame
-  Ravelin::Vector3d n_plane = tPp.transform_vector(Ravelin::Vector3d(0.0, 1.0, 0.0, Pplane));
-  n_plane.normalize();
+      Ravelin::Vector3d n_plane = tPp.transform_vector(Ravelin::Vector3d(0.0, 1.0, 0.0, Pplane));
+      n_plane.normalize();
 
   // Convert to global coords for output
-  Ravelin::Vector3d normal = Ravelin::Pose3d::transform_vector(GLOBAL,n_plane);
+      Ravelin::Vector3d normal = Ravelin::Pose3d::transform_vector(GLOBAL,n_plane);
 
   // Torus axis is z-axis in torus frame
-  Ravelin::Vector3d k(0,0,1,Ptorus);
+      Ravelin::Vector3d k(0,0,1,Ptorus);
 
   // Set intitial value of distance to contact
-  double d = std::numeric_limits<double>::infinity();
+      double d = std::numeric_limits<double>::infinity();
 
   // if Torus is aligned with plane:
   // Return distance torus origin to
   // closest point on plane less pipe r
-  double n_dot_k = n_plane.dot(k);
-  if (std::fabs(n_dot_k) > 1.0-EPS){
+      double n_dot_k = n_plane.dot(k);
+      if (std::fabs(n_dot_k) > 1.0-EPS){
     // d = depth
     // p0 = plane origin, p = plane normal
     // l0 = line origin, l = line direction
 
     // plane origin: plane origin in torus frame
     // line origin: torus origin in torus frame
-    Point3d p0(tPp.x,Ptorus), l0(0,0,0,Ptorus);
+        Point3d p0(tPp.x,Ptorus), l0(0,0,0,Ptorus);
 
     // plane normal: plane normal in torus frame
     // line direction: torus k axis
-    Ravelin::Vector3d n = n_plane,l = k;
+        Ravelin::Vector3d n = n_plane,l = k;
 
     // distance torus to closest point on plane is:
     // distance torus origin to closest point on plane
     // - distance torus edge to torus origin
-    d = (p0 - l0).dot(n)/(l.dot(n)) - r;
-    if (d > TOL)
-      return o;
+        d = (p0 - l0).dot(n)/(l.dot(n)) - r;
+        if (d > TOL)
+          return o;
 
     // iterate over maximum number of contacts 
-    for (unsigned i=0; i< MAX_CONTACTS; i++)
-    { 
-      double t = (double) i/MAX_CONTACTS * (2.0 * M_PI) - M_PI;
-      Point3d p_torus(R*std::cos(t),R*std::sin(t),-r,Ptorus);
-      Point3d point = Ravelin::Pose3d::transform_point(GLOBAL,p_torus);
-      FILE_LOG(LOG_COLDET) << " -- Torus is parallel to plane"<< std::endl;
-      FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
-      FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
-      FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
-      FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+        for (unsigned i=0; i< MAX_CONTACTS; i++)
+        { 
+          double t = (double) i/MAX_CONTACTS * (2.0 * M_PI) - M_PI;
+          Point3d p_torus(R*std::cos(t),R*std::sin(t),-r,Ptorus);
+          Point3d point = Ravelin::Pose3d::transform_point(GLOBAL,p_torus);
+          FILE_LOG(LOG_COLDET) << " -- Torus is parallel to plane"<< std::endl;
+          FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+          FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+          FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+          FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
       // create the contact
-      *o++ = create_contact(cgA, cgB, point, normal, d);
-    }
+          *o++ = create_contact(cgA, cgB, point, normal, d);
+        }
 
-    return o;
-  }
+        return o;
+      }
 
   //((n_plane x axis_torus) x axis_torus)
-  Ravelin::Vector3d d_ring = Ravelin::Vector3d::cross(Ravelin::Vector3d::cross(n_plane,k), k);
-  d_ring.normalize();
+      Ravelin::Vector3d d_ring = Ravelin::Vector3d::cross(Ravelin::Vector3d::cross(n_plane,k), k);
+      d_ring.normalize();
 
   // if Torus is _|_ with plane:
   // Return distance torus to plane less pipe r and ring R
-  if(std::fabs(n_dot_k) < EPS){
+      if(std::fabs(n_dot_k) < EPS){
     // d = depth
     // p0 = plane origin, p = plane normal
     // l0 = line origin, l = line direction
 
     // plane origin: plane origin in torus frame
     // line origin: torus origin in torus frame
-    Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane));
-    Point3d l0(0,0,0,Ptorus);
+        Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane));
+        Point3d l0(0,0,0,Ptorus);
 
     // plane normal: plane normal in torus frame
     // line direction: on xy-plane of torus
     //   parallel to plane normal in torus frame
-    Ravelin::Vector3d n = n_plane,l = d_ring;
-    d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
-    if (d > TOL)
-      return o;
+        Ravelin::Vector3d n = n_plane,l = d_ring;
+        d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
+        if (d > TOL)
+          return o;
 
-    Point3d p_torus = l*(d + r + R) + l0;
-    Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
-    FILE_LOG(LOG_COLDET) << " -- Torus is perpendicular to plane"<< std::endl;
-    FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
-    FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
-    FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
-    FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+        Point3d p_torus = l*(d + r + R) + l0;
+        Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
+        FILE_LOG(LOG_COLDET) << " -- Torus is perpendicular to plane"<< std::endl;
+        FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+        FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+        FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+        FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
     // create the contact
-    *o++ = create_contact(cgA, cgB, point, normal, d);
+        *o++ = create_contact(cgA, cgB, point, normal, d);
 
-    return o;
-  }
+        return o;
+      }
 
   //   ((d_ring x axis_torus) x n_plane ) x (d_ring x axis_torus)
   //    ^ tangent to pipe   ^
   //   ^ _|_ to plane normal            ^
   //   ^ toward plane on torus pipe                             ^
-  Ravelin::Vector3d d_pipe = Ravelin::Vector3d::cross(
-                      Ravelin::Vector3d::cross(Ravelin::Vector3d::cross(d_ring,k),n_plane),
-                      Ravelin::Vector3d::cross(-d_ring,k)
-                      );
-  d_pipe.normalize();
+      Ravelin::Vector3d d_pipe = Ravelin::Vector3d::cross(
+        Ravelin::Vector3d::cross(Ravelin::Vector3d::cross(d_ring,k),n_plane),
+        Ravelin::Vector3d::cross(-d_ring,k)
+        );
+      d_pipe.normalize();
 
   // d = depth
   // p0 = plane origin, p = plane normal
@@ -1394,56 +1691,56 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
 
   // plane origin: plane origin in torus frame
   // line origin: torus origin in torus frame
-  Point3d p0(tPp.x,Ptorus), l0 = R * d_ring;
+      Point3d p0(tPp.x,Ptorus), l0 = R * d_ring;
 
   // plane normal: plane normal in torus frame
   // line direction: on xy-plane of torus
   //   parallel to plane normal in torus frame
-  Ravelin::Vector3d n = n_plane,l = d_pipe;
-  d = (p0 - l0).dot(n)/(l.dot(n)) - r;
-  if (d > TOL)
-    return o;
+      Ravelin::Vector3d n = n_plane,l = d_pipe;
+      d = (p0 - l0).dot(n)/(l.dot(n)) - r;
+      if (d > TOL)
+        return o;
 
   //point on torus closest to plane;
-  Point3d p_torus = R * d_ring + r * d_pipe;
-  p_torus.pose = Ptorus;
+      Point3d p_torus = R * d_ring + r * d_pipe;
+      p_torus.pose = Ptorus;
   // TODO: find the point in the torus's space such that
   //       tPp.transform_point(.) results in the value of y closest to
   //       negative infinity
-  Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
+      Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
 
   // create the contact
-  *o++ = create_contact(cgA, cgB, point, normal, d);
+      *o++ = create_contact(cgA, cgB, point, normal, d);
 
-  FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
-  FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
-  FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
-  FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+      FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+      FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+      FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+      FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
-  return o;
-}
+      return o;
+    }
 
 /// Does insertion sort -- custom comparison function not supported (uses operator<)
 template <class BidirectionalIterator>
-void CCD::insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
-{
+    void CCD::insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
+    {
   // safety check; exit if nothing to do
-  if (first == last)
-    return;
+      if (first == last)
+        return;
 
-  BidirectionalIterator min = first;
+      BidirectionalIterator min = first;
 
   // loop
-  BidirectionalIterator i = first;
-  i++;
-  for (; i != last; i++)
-    if (*i < *min)
-      min = i;
+      BidirectionalIterator i = first;
+      i++;
+      for (; i != last; i++)
+        if (*i < *min)
+          min = i;
 
   // swap the iterators
-  std::iter_swap(first, min);
-  while (++first != last)
-    for (BidirectionalIterator j = first; *j < *(j-1); --j)
-      std::iter_swap((j-1), j);
-}
+        std::iter_swap(first, min);
+        while (++first != last)
+          for (BidirectionalIterator j = first; *j < *(j-1); --j)
+            std::iter_swap((j-1), j);
+        }
 
