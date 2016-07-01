@@ -99,12 +99,10 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
     o.R.set_column(Z, d3);
     o.l[X] = (max_proj - min_proj) * 0.5 + TOL;
     o.l[Y] = o.l[Z] = (double) 0.0;
-    o.center = lowest + d1*o.l[X];
+    o.center = lowest + d1 * ((max_proj - min_proj) * 0.5);
 
-    #ifndef NDEBUG
-    for (ForwardIterator i = begin; i != end; i++)
-      assert(!OBB::outside(o, *i, NEAR_ZERO));
-    #endif
+    // expand it as necessary
+    o.expand_to_fit(begin, end);
 
     return o;
   }
@@ -155,10 +153,8 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
       o.center = center;
       o.l[X] = o.l[Y] = o.l[Z] = (double) 0.0;
 
-      #ifndef NDEBUG
-      for (ForwardIterator i = begin; i != end; i++)
-        assert(!OBB::outside(o, *i, std::sqrt(NEAR_ZERO)));
-      #endif
+      // expand it as necessary
+      o.expand_to_fit(begin, end);
 
       return o;
     }
@@ -667,7 +663,7 @@ void OBB::expand_to_fit(ForwardIterator begin, ForwardIterator end)
   // process all points
   for (ForwardIterator i=begin; i != end; i++)
   {
-    Point3d pt = R.transpose_mult(*i - this->center);
+    Ravelin::Origin3d pt = R.transpose_mult(Ravelin::Origin3d(*i) - Ravelin::Origin3d(this->center));
     for (unsigned i=0; i< THREE_D; i++)
       if (pt[i] < lo[i])
         lo[i] = pt[i];

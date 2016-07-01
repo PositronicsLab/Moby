@@ -14,6 +14,11 @@
 #include <stack>
 #include <queue>
 #include <boost/tuple/tuple.hpp>
+#include <Ravelin/PrismaticJointd.h>
+#include <Ravelin/SphericalJointd.h>
+#include <Ravelin/UniversalJointd.h>
+#include <Ravelin/RevoluteJointd.h>
+#include <Ravelin/FixedJointd.h>
 #include <Moby/Constraint.h>
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
@@ -117,6 +122,37 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
   return maxt;
 }
 */
+
+/// Gets a counter-clockwise oriented triangle from a Polyhedron::Face
+Triangle CCD::get_triangle(shared_ptr<Polyhedron::Face> f, const Transform3d& wTf)
+{
+  shared_ptr<Polyhedron::Vertex> v;
+
+  // setup a counter clockwise iterator
+  Polyhedron::VertexFaceIterator vfi(f, true);
+
+  // get first vertex 
+  assert(vfi.has_next());
+  v = *vfi;
+  Point3d a = wTf.transform_point(Point3d(v->o, wTf.source)); 
+
+  // get second vertex
+  vfi.advance();
+  v = *vfi;
+  Point3d b = wTf.transform_point(Point3d(v->o, wTf.source)); 
+
+  // get third vertex
+  assert(vfi.has_next());
+  vfi.advance();
+  v = *vfi;
+  Point3d c = wTf.transform_point(Point3d(v->o, wTf.source));   
+
+  // verify that the triangle has only three vertices
+  assert(!vfi.has_next());
+
+  // setup the triangle
+  return Triangle(a, b, c);
+}
 
 /// Method for conservative step calculation
 /**
@@ -334,13 +370,76 @@ double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralP
 /// Computes the maximum velocity along a particular direction (n)
 double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
+  static map<ArticulatedBodyPtr, vector<double> > link_length_map;
+
   // get the base link
   RigidBodyPtr base = dynamic_pointer_cast<RigidBody>(ab->get_base_link());
+
+  // get the explicit joints in the articulated body
+  const vector<shared_ptr<Jointd> >& joints = ab->get_explicit_joints(); 
+
+  // see whether the articulated body has been processed into the link length
+  // map already
+  vector<double>& link_lengths = link_length_map[ab];
+  if (link_lengths.size() != joints.size())
+  {
+    // resize link lengths
+    link_lengths.resize(joints.size());
+
+    // store the multibody's current configuration
+    VectorNd q, qzero;
+    ab->get_generalized_coordinates_euler(q);
+
+    // set the multibody to a zero configuration
+    qzero.set_zero(q.size());
+    ab->set_generalized_coordinates_euler(qzero);
+
+    // process all joints 
+    for (unsigned i=0; i< joints.size(); i++)
+    {
+      // get the joint index
+      unsigned j = joints[i]->get_index();
+
+      // get the joint pose in the global frame
+      Pose3d joint_pose = *joints[i]->get_pose(); 
+      joint_pose.update_relative_pose(GLOBAL);
+
+      // get the inboard link; if the inboard link is the base, compute the
+      // distance from the joint to the base c.o.m. 
+      shared_ptr<RigidBodyd> inboard = joints[i]->get_inboard_link();
+      if (inboard == ab->get_base_link())
+      {
+        // update the length from the floating-base
+        Pose3d base_x = *base->get_pose();
+        base_x.update_relative_pose(GLOBAL);
+        link_lengths[j] = (joint_pose.x - base_x.x).norm(); 
+        continue;
+      }
+
+      // get the preceding joint
+      shared_ptr<Jointd> prec_joint = inboard->get_inner_joint_explicit();
+
+      // get the poses for both joints
+      Pose3d prec_joint_pose = *prec_joint->get_pose(); 
+      prec_joint_pose.update_relative_pose(GLOBAL);
+
+      // get the distance between the joint positions 
+      link_lengths[j] = (joint_pose.x - prec_joint_pose.x).norm(); 
+    }
+
+    // restore the multibody's previous configuration
+    ab->set_generalized_coordinates_euler(q);
+  }
 
   // get the base link's velocity
   const SVelocityd& base_v = Pose3d::transform(base->get_gc_pose(), base->get_velocity());
   Vector3d base_xd = base_v.get_linear();
   Vector3d base_omega = base_v.get_angular();
+
+  // limit the base omega
+  double base_omega_nrm = base_omega.norm();
+  if (base_omega_nrm > 2.0*M_PI)
+    base_omega *= 2.0*M_PI/base_omega_nrm;
 
   // transform n
   Vector3d n0 = Pose3d::transform_vector(base->get_gc_pose(), n);
@@ -355,38 +454,53 @@ double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d
   double len = 2.0 * rmax;
 
   // compute the movement for the rigid body
-  mvmt += len * inner->qd.norm();
-
-  // get the joint pose
-  Pose3d joint_pose = *inner->get_pose();
-  joint_pose.update_relative_pose(GLOBAL);
+  if (dynamic_pointer_cast<PrismaticJointd>(inner))
+    mvmt += len + std::fabs(inner->q[0]) + std::fabs(inner->qd[0]);
+  else
+  {
+    assert(dynamic_pointer_cast<SphericalJointd>(inner) ||
+           dynamic_pointer_cast<UniversalJointd>(inner) ||
+           dynamic_pointer_cast<RevoluteJointd>(inner) ||
+           dynamic_pointer_cast<FixedJointd>(inner));
+    mvmt += len * inner->qd.norm();
+  }
 
   // keep looping until we arrive at the base link
   while (true)
   {
+    // get the inboard link
     rb = inner->get_inboard_link();
-    if (rb == base)
-      break;
 
-    // update the length
+    // handle the base specially
+    if (rb == base)
+    {
+      // add in base angular velocity
+      mvmt += link_lengths[inner->get_index()] * base_omega.norm();
+      break;
+    }
+
+    // update the poses 
     JointPtr next_inner = rb->get_inner_joint_explicit();
-    Pose3d next_joint_pose = *next_inner->get_pose();
-    next_joint_pose.update_relative_pose(GLOBAL);
-    len += (next_joint_pose.x - joint_pose.x).norm();
 
     // update the movement
-    mvmt += len * next_inner->qd.norm(); 
-    joint_pose = next_joint_pose;
+    if (dynamic_pointer_cast<PrismaticJointd>(next_inner))
+    {
+      len += std::fabs(next_inner->q[0]) + std::fabs(next_inner->qd[0]);
+      mvmt += std::fabs(next_inner->qd[0]);
+    }
+    else
+    {
+      len += link_lengths[inner->get_index()]; 
+      assert(dynamic_pointer_cast<SphericalJointd>(next_inner) ||
+             dynamic_pointer_cast<UniversalJointd>(next_inner) ||
+             dynamic_pointer_cast<RevoluteJointd>(next_inner) ||
+             dynamic_pointer_cast<FixedJointd>(next_inner));
+      mvmt += len * next_inner->qd.norm();
+    }
+
+    // update the joint 
     inner = next_inner;
   }
-
-  // update the length from the floating-base
-  Pose3d base_x = *base->get_pose();
-  base_x.update_relative_pose(GLOBAL);
-  len += (joint_pose.x - base_x.x).norm(); 
-
-  // add in base angular velocity
-  mvmt += len * base_omega.norm();
 
   return mvmt; 
 }
@@ -413,6 +527,12 @@ double CCD::calc_max_dist(RigidBodyPtr rb, const Vector3d& n, double rmax)
   FILE_LOG(LOG_COLDET) << "  w0 = " << w0 << std::endl;
   FILE_LOG(LOG_COLDET) << "  <n, xd0> = " << n.dot(xd0) << std::endl;
   FILE_LOG(LOG_COLDET) << "  ||w0 x n|| * r = " << Vector3d::cross(w0, n).norm()*rmax << std::endl;
+
+  // limit the angular velocity 
+  double w0_nrm = w0.norm();
+  if (w0_nrm > 2.0*M_PI)
+    w0 *= 2.0*M_PI/w0_nrm;
+
   return n.dot(xd0) + Vector3d::cross(w0, n).norm()*rmax;
 }
 
