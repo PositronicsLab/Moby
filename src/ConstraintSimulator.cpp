@@ -55,6 +55,9 @@ ConstraintSimulator::ConstraintSimulator()
 
   // setup the collision detector
   _coldet = shared_ptr<CollisionDetection>(new CCD);
+
+  // setup the contact distance threshold
+  contact_dist_thresh = 1e-6;
 }
 
 /// Gets the contact data between a pair of geometries (if any)
@@ -330,7 +333,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   }
 
   // set simulator pointer
-  _impact_constraint_handler._simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
+  impact_constraint_handler._simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
 
   // add all implicit joint constraints from bodies
   for (unsigned i=0; i< _bodies.size(); i++)
@@ -371,7 +374,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   try
   {
     double inv_dt = (dt < NEAR_ZERO) ? 0.0 : 1.0/dt;
-    _impact_constraint_handler.process_constraints(_rigid_constraints, inv_dt);
+    impact_constraint_handler.process_constraints(_rigid_constraints, inv_dt);
   }
   catch (ImpactToleranceException e)
   {
@@ -467,6 +470,9 @@ void ConstraintSimulator::calc_pairwise_distances()
   // clear the vector
   _pairwise_distances.clear();
 
+  // setup the pointer to the simulator
+  _coldet->set_simulator(dynamic_pointer_cast<ConstraintSimulator>(shared_from_this()));
+
   for (unsigned i=0; i< _pairs_to_check.size(); i++)
   {
     PairwiseDistInfo pdi;
@@ -535,12 +541,12 @@ void ConstraintSimulator::find_unilateral_constraints()
     double dist_thresh = pdi.a->compliant_layer_depth + 
                          pdi.b->compliant_layer_depth;
 
-    if (pdi.dist <= dist_thresh + NEAR_ZERO)
+    if (pdi.dist <= dist_thresh + contact_dist_thresh)
     {
       // find contacts with the given distance threshold 
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
-      _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, dist_thresh + NEAR_ZERO);
+      _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, dist_thresh + contact_dist_thresh);
     }
   }
 

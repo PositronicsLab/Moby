@@ -58,9 +58,9 @@ class PendulumColdetPlugin : public CCD
     }
 
     /// Computes a conservative advancement step for Euler integration
-    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
+    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon)
     {
-      return CCD::calc_CA_Euler_step(pdi);
+      return CCD::calc_CA_Euler_step(pdi, epsilon);
     }
 
     /// Calculates signed distance between a l1 and a plane

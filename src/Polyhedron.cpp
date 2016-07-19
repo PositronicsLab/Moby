@@ -1548,6 +1548,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
         if(is_one_face_penetration(closestA, pB, closestB, aTb))
         { 
           FILE_LOG(LOG_COLDET) << "Quick Case" << std::endl;
+          return -1.0;
           find_deepest_feature(closestA, closestB, fB, aTb);
           dist = calc_dist(fA, fB, closestA, closestB, aTb);
         }

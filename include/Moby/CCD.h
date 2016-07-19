@@ -42,7 +42,7 @@ class CCD : public CollisionDetection
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi);
+    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon);
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<Constraint>& contacts, double TOL = NEAR_ZERO)
     {
       find_contacts(cgA, cgB, std::back_inserter(contacts), TOL);
@@ -67,11 +67,14 @@ class CCD : public CollisionDetection
     enum AxisType { eXAxis, eYAxis, eZAxis };
 
     static double sqr(double x) { return x*x; }
+    double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon);
     double calc_next_CA_Euler_step_polyhedron_plane(boost::shared_ptr<PolyhedralPrimitive> p, const Ravelin::SVelocityd& rv, boost::shared_ptr<const Ravelin::Pose3d> P, const Ravelin::Vector3d& normal, double offset);
     double calc_next_CA_Euler_step_polyhedron_polyhedron(boost::shared_ptr<PolyhedralPrimitive> pA, boost::shared_ptr<PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, const Ravelin::SVelocityd& rvA, const Ravelin::SVelocityd& rvB, const Ravelin::Vector3d& n0, double offset);
     static double calc_max_dist(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Ravelin::Vector3d& n, double rmaxA, double rmaxB, double dist);
     static Triangle get_triangle(boost::shared_ptr<Polyhedron::Face> f, const Ravelin::Transform3d& wTf);
+    double calc_next_CA_Euler_step_polyhedron_plane(const PairwiseDistInfo& pdi, double epsilon);
+    double calc_next_CA_Euler_step_polyhedron_polyhedron(const PairwiseDistInfo& pdi, double epsilon);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct

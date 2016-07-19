@@ -36,6 +36,9 @@ class ConstraintSimulator : public Simulator
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     const std::vector<PairwiseDistInfo>& get_pairwise_distances() const { return _pairwise_distances; }
 
+    /// The distance threshold to determine contact constraints
+    double contact_dist_thresh;
+
     /// The constraint stabilization mechanism
     ConstraintStabilization cstab;
 
@@ -80,6 +83,9 @@ class ConstraintSimulator : public Simulator
     /// Gets the collision detection mechanism
     boost::shared_ptr<CollisionDetection> get_collision_detection() const { return _coldet; }
 
+    /// Object for handling impact constraints
+    ImpactConstraintHandler impact_constraint_handler;
+
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
     void find_unilateral_constraints();
@@ -88,9 +94,6 @@ class ConstraintSimulator : public Simulator
     void broad_phase(double dt);
     void calc_pairwise_distances();
     void visualize_contact( Constraint& constraint );
-
-    /// Object for handling impact constraints
-    ImpactConstraintHandler _impact_constraint_handler;
 
     /// The vector of rigid constraints
     std::vector<Constraint> _rigid_constraints;

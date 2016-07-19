@@ -36,6 +36,7 @@
 #include <Moby/PlanePrimitive.h>
 #include <Moby/GaussianMixture.h>
 #include <Moby/CSG.h>
+#include <Moby/ConstraintSimulator.h>
 #include <Moby/CCD.h>
 
 using boost::dynamic_pointer_cast;
@@ -154,12 +155,532 @@ Triangle CCD::get_triangle(shared_ptr<Polyhedron::Face> f, const Transform3d& wT
   return Triangle(a, b, c);
 }
 
+/// Conversative advancement approach for when two bodies are touching
+double CCD::calc_next_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon)
+{
+  // get the primitive types
+  CollisionGeometryPtr cgA = pdi.a; 
+  CollisionGeometryPtr cgB = pdi.b;
+  PrimitivePtr pA = cgA->get_geometry();
+  PrimitivePtr pB = cgB->get_geometry();
+
+  // look for polyhedron vs. half-space or vs. polyhedron
+  if (boost::dynamic_pointer_cast<PlanePrimitive>(pA))
+  {
+    // shouldn't be a half-space but you never know...
+    if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+      return 0.0;
+    else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
+    {
+      PairwiseDistInfo pdi2;
+      pdi2.a = pdi.b;
+      pdi2.b = pdi.a;
+      pdi2.dist = pdi.dist;
+      pdi2.pa = pdi.pb;
+      pdi2.pb = pdi.pa;
+      return calc_next_CA_Euler_step_polyhedron_plane(pdi2, epsilon);
+    }
+  }
+  else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pA))
+  {
+    // look for polyhedron vs. half-space
+    if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+      return calc_next_CA_Euler_step_polyhedron_plane(pdi, epsilon);
+    else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
+      return calc_next_CA_Euler_step_polyhedron_polyhedron(pdi, epsilon);
+  }
+
+  // still here? Bodies are too close- return 0
+  return 0.0;
+}
+
+/// Computes the Euler step for a polyhedron vs. a plane
+double CCD::calc_next_CA_Euler_step_polyhedron_plane(const PairwiseDistInfo& pdi, double epsilon)
+{
+  const unsigned Y = 1;
+  vector<unsigned> contact_points, high_points;
+  vector<double> dists;
+
+  // get the primitive types
+  CollisionGeometryPtr cgA = pdi.a; 
+  CollisionGeometryPtr cgB = pdi.b;
+
+  // get the polyhedron primitive
+  shared_ptr<PolyhedralPrimitive> ppoly = dynamic_pointer_cast<PolyhedralPrimitive>(cgA->get_geometry());
+
+  // get the plane primitive 
+  shared_ptr<PlanePrimitive> pplane = dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
+
+  // get the two poses
+  boost::shared_ptr<const Ravelin::Pose3d> poly_pose = ppoly->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> plane_pose = pplane->get_pose(cgB);
+
+  // get the transforms from polyhedron pose to plane pose and from plane
+  // pose to global frame
+  Transform3d planeTpoly = Pose3d::calc_relative_pose(poly_pose, plane_pose); 
+  Transform3d wTplane = Pose3d::calc_relative_pose(plane_pose, GLOBAL); 
+
+  // get the polyhedron
+  const Polyhedron& poly = ppoly->get_polyhedron();
+
+  // get all vertices from the polyhedron
+  const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& v = poly.get_vertices();
+
+  // setup minimum distance 
+  double min_dist = std::numeric_limits<double>::max(); 
+
+  // get the normal to the plane in the global frame
+  Vector3d y_vec(0.0, 1.0, 0.0, plane_pose);
+  Vector3d n0 = wTplane.transform_vector(y_vec);
+
+  // prepare for separating bodies
+  bool separating = false;
+  double max_step = std::numeric_limits<double>::max();
+
+  // process all vertices from the polyhedron
+  for (unsigned i=0; i< v.size(); i++)
+  {
+    // transform the vertex to the half-space pose
+    Point3d p = planeTpoly.transform_point(Point3d(v[i]->o, poly_pose));
+
+    // get the distance from the plane
+    double dist = p[Y]; 
+
+    // if the distance is less than the minimum, save it
+    if (dist < min_dist)
+      min_dist = dist;
+    
+    // if distance is within tolerance, it's a contact point- measure the
+    // current projected velocity
+    if (dist < epsilon)
+    {
+      // get the contact in the global frame
+      Point3d p0 = wTplane.transform_point(p);
+
+      // create a unilateral constraint
+      Constraint c = create_contact(cgA, cgB, p0, n0, dist);
+
+      // output the velocity
+      FILE_LOG(LOG_CONSTRAINT) << "Contact point found: " << p0 << " velocity: " << c.calc_constraint_vel(0) << std::endl;
+
+      // if velocity at a point of contact is greater than zero, return 0.0
+      // (let simulator take minimum size) 
+      double cv = c.calc_constraint_vel(0);
+      if (cv > NEAR_ZERO)
+      {
+        separating = true;
+        max_step = std::min(max_step, epsilon - dist)/cv; 
+        continue;
+      }
+
+      // save the index of the contact point
+      contact_points.push_back(i);
+    }
+    // else the vertex is away from the plane
+    else
+    {
+      // save the distance to the plane, and the index of the point
+      dists.push_back(dist);
+      high_points.push_back(i);
+    }
+  }
+
+  // look for separating condition
+  if (separating)
+    return max_step;
+
+  // get the rigid body corresponding to the polyhedron
+  RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  
+  // at least one vertex must be in contact, or why are we here? 
+  assert(min_dist < epsilon);
+
+  // get the angular velocity vector in the half-space pose
+  Vector3d omega = Pose3d::transform(plane_pose, rb->get_velocity()).get_angular();  
+
+  // setup the divisor
+  double divisor = 0.0;
+
+  // if rb is part of an articulated body
+  shared_ptr<ArticulatedBodyd> ab = rb->get_articulated_body();
+  if (ab)
+  {
+    double omega = 0.0;
+
+    // compute the angular velocity of every joint up to the base
+    shared_ptr<Jointd> inner = rb->get_inner_joint_explicit();
+    while (inner)
+    {
+      omega += inner->qd.norm();
+      shared_ptr<RigidBodyd> inboard = inner->get_inboard_link();
+      if (inboard->is_base() && ab->is_floating_base())
+        omega += inboard->get_velocity().get_angular().norm();
+      inner = inboard->get_inner_joint_explicit();
+    }
+
+    // update the divisor
+    divisor += omega;
+  }
+  else
+  {
+    // else, get the angular velocity vector in the global frame
+    Vector3d omega = Pose3d::transform(GLOBAL, rb->get_velocity()).get_angular();  
+  
+    // update the divisor with the cross product of the norm and the angular
+    // velocity
+    divisor += Vector3d::cross(omega, n0).norm();
+  }
+ 
+  // setup a minimum time
+  double min_t = std::numeric_limits<double>::max();
+
+  // loop through all vertices above the half-space
+  for (unsigned i=0; i< high_points.size(); i++)
+  {
+    // setup a maximum distance
+    double max_dist = 0.0;
+
+    // loop through all contact points
+    for (unsigned j=0; j< contact_points.size(); j++)
+    {
+      // get the distance between the two points
+      double dist = (v[high_points[i]]->o - v[contact_points[j]]->o).norm();
+      if (dist > max_dist)
+        max_dist = dist; 
+    }
+
+    FILE_LOG(LOG_CONSTRAINT) << "Distance from adjacent vertex " << v[high_points[i]]->o << " to contact point: " << max_dist << std::endl;
+
+    // compute the conservative time
+    double t = dists[i]/max_dist;
+    FILE_LOG(LOG_CONSTRAINT) << "t for this point: " << (t / divisor) << std::endl;
+    if (t < min_t)
+      min_t = t;
+  }
+
+  // divide min_t by the cross term
+  min_t /= divisor; 
+
+  return min_t;
+}
+
+/// Computes the next Euler step for a polyhedron vs. a polyhedron 
+double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(const PairwiseDistInfo& pdi, double epsilon)
+{
+  vector<unsigned> contact_pointsA, contact_pointsB;
+  vector<unsigned> high_pointsA, high_pointsB;
+  vector<double> distsA, distsB;
+  const unsigned Y = 1;
+
+  // get the primitive types
+  CollisionGeometryPtr cgA = pdi.a; 
+  CollisionGeometryPtr cgB = pdi.b;
+
+  // get the polyhedron primitives
+  shared_ptr<PolyhedralPrimitive> ppA = dynamic_pointer_cast<PolyhedralPrimitive>(cgA->get_geometry());
+  shared_ptr<PolyhedralPrimitive> ppB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
+
+  // get the two poses
+  boost::shared_ptr<const Ravelin::Pose3d> poseA = ppA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> poseB = ppB->get_pose(cgB);
+
+  // get the transforms from two polyhedra to global frame 
+  // pose to global frame
+  Transform3d wTA = Pose3d::calc_relative_pose(poseA, GLOBAL); 
+  Transform3d wTB = Pose3d::calc_relative_pose(poseB, GLOBAL); 
+
+  // get the polyhedra
+  const Polyhedron& polyA = ppA->get_polyhedron();
+  const Polyhedron& polyB = ppB->get_polyhedron();
+
+  // get all vertices from the polyhedra
+  const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vA = polyA.get_vertices();
+  const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vB = polyB.get_vertices();
+
+  // get last contacts for these geometries
+  bool normal_set = false;
+  Vector3d n0;  // plane defined by <n0, x> - d = 0
+  double d;
+  shared_ptr<ConstraintSimulator> sim(_simulator);
+  vector<Constraint>& c = sim->impact_constraint_handler.last_constraints;
+
+  // loop may have to go multiple times
+  double eps_plus = epsilon; 
+  for (unsigned j=0; j< 10; j++, eps_plus *= 10.0)
+  {
+    // loop through 
+    for (unsigned i=0; i< c.size(); i++)
+    {
+      // only look for contact constraints
+      if (c[i].constraint_type != Constraint::eContact)
+        continue;
+
+      // look for contact between the two geometries
+      if (c[i].contact_geom1 == cgA && c[i].contact_geom2 == cgB)
+      { 
+        // if the normal has already been set, verify it's the same
+        if (normal_set)
+          assert(std::fabs(n0.dot(c[i].contact_normal) - 1.0) < NEAR_ZERO);
+        // otherwise, save the normal and compute the point on the plane
+        else
+        {
+          n0 = c[i].contact_normal;
+          d = n0.dot(c[i].contact_point);
+          normal_set = true;
+        }
+      }
+      else if (c[i].contact_geom1 == cgB && c[i].contact_geom2 == cgA)
+      {
+        // if the normal has already been set, verify it's the same
+        if (normal_set)
+          assert(std::fabs(n0.dot(-c[i].contact_normal) - 1.0) < NEAR_ZERO);
+        // otherwise, save the reverse of the normal
+        else
+        {
+          n0 = -c[i].contact_normal;
+          d = n0.dot(c[i].contact_point);
+          normal_set = true;
+        }
+      }
+    }
+
+    // if the normal has not been set, compute constraints
+    if (!normal_set)
+    {
+      // compute constraints
+      find_contacts(cgA, cgB, std::back_inserter(c), eps_plus);
+    
+      // redo the calculations
+      continue; 
+    }
+    else
+      break;
+  }
+
+  // verify that the normal has been set
+  if (!normal_set)
+  {
+    FILE_LOG(LOG_CONSTRAINT) << "CCD::calc_next_CA_Euler_step_polyhedron_polyhedron()- warning! interpenetration indicated but no contact points found!" << std::endl;
+    return std::numeric_limits<double>::max();
+  }
+
+  // prepare for separating bodies
+  bool separating = false;
+  double max_step = std::numeric_limits<double>::max();
+
+  // process all vertices from the first polyhedron
+  for (unsigned i=0; i< vA.size(); i++)
+  {
+    // get the vertex in the global frame 
+    Point3d p0 = wTA.transform_point(Point3d(vA[i]->o, poseA));
+
+    // get the distance from the plane
+    double dist = p0.dot(n0) - d; 
+
+    // if distance is within tolerance, it's a contact point- measure the
+    // current projected velocity
+    if (dist < epsilon)
+    {
+      // create a unilateral constraint
+      Constraint c = create_contact(cgA, cgB, p0, n0, dist);
+
+      // if velocity at a point of contact is greater than zero, return 0.0
+      // (let simulator take minimum size) 
+      double cv = c.calc_constraint_vel(0);
+      FILE_LOG(LOG_CONSTRAINT) << "Contact point found: " << p0 << " velocity: " << cv << std::endl;
+      if (cv > NEAR_ZERO)
+      {
+        separating = true;
+        max_step = std::min(max_step, epsilon - dist)/cv; 
+        continue;
+      }
+
+      // save the index of the contact point
+      contact_pointsA.push_back(i);
+    }
+    // else the vertex is away from the plane
+    else
+    {
+      // save the distance to the plane, and the index of the point
+      distsA.push_back(dist);
+      high_pointsA.push_back(i);
+    }
+  }
+
+  // process all vertices from the second polyhedron
+  for (unsigned i=0; i< vB.size(); i++)
+  {
+    // get the vertex in the global frame 
+    Point3d p0 = wTB.transform_point(Point3d(vB[i]->o, poseB));
+
+    // get the distance from the plane
+    double dist = p0.dot(n0) - d; 
+
+    // if distance is within tolerance, it's a contact point- measure the
+    // current projected velocity
+    if (dist < epsilon)
+    {
+      // create a unilateral constraint
+      Constraint c = create_contact(cgA, cgB, p0, n0, dist);
+
+      // if velocity at a point of contact is greater than zero, return 0.0
+      // (let simulator take minimum size) 
+      double cv = c.calc_constraint_vel(0);
+      FILE_LOG(LOG_CONSTRAINT) << "Contact point found: " << p0 << " velocity: " << cv << std::endl;
+      if (cv > NEAR_ZERO)
+      {
+        separating = true;
+        max_step = std::min(max_step, epsilon - dist)/cv; 
+        continue;
+      }
+
+      // save the index of the contact point
+      contact_pointsB.push_back(i);
+    }
+    // else the vertex is away from the plane
+    else
+    {
+      // save the distance to the plane, and the index of the point
+      distsB.push_back(dist);
+      high_pointsB.push_back(i);
+    }
+  }
+
+  // look for separating condition
+  if (separating)
+    return max_step;
+
+  // get the rigid bodies corresponding to the two polyhedra
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
+  
+  // setup the divisor
+  double divisor = 0.0;
+
+  // if rbA is part of an articulated body
+  shared_ptr<ArticulatedBodyd> abA = rbA->get_articulated_body();
+  if (abA)
+  {
+    double omega = 0.0;
+
+    // compute the angular velocity of every joint up to the base
+    shared_ptr<Jointd> inner = rbA->get_inner_joint_explicit();
+    while (inner)
+    {
+      omega += inner->qd.norm();
+      shared_ptr<RigidBodyd> inboard = inner->get_inboard_link();
+      if (inboard->is_base() && abA->is_floating_base())
+        omega += inboard->get_velocity().get_angular().norm();
+      else
+        inner = inboard->get_inner_joint_explicit();
+    }
+
+    // update the divisor
+    divisor += omega;
+  }
+  else
+  {
+    // else, get the angular velocity vector in the global frame
+    Vector3d omegaA = Pose3d::transform(GLOBAL, rbA->get_velocity()).get_angular();  
+  
+    // update the divisor with the cross product of the norm and the angular
+    // velocity
+    divisor += Vector3d::cross(omegaA, n0).norm();
+  }
+
+  // if rbB is part of an articulated body
+  shared_ptr<ArticulatedBodyd> abB = rbB->get_articulated_body();
+  if (abA)
+  {
+    double omega = 0.0;
+
+    // compute the angular velocity of every joint up to the base
+    shared_ptr<Jointd> inner = rbB->get_inner_joint_explicit();
+    while (inner)
+    {
+      omega += inner->qd.norm();
+      shared_ptr<RigidBodyd> inboard = inner->get_inboard_link();
+      if (inboard->is_base() && abB->is_floating_base())
+        omega += inboard->get_velocity().get_angular().norm();
+      else
+        inner = inboard->get_inner_joint_explicit();
+    }
+
+    // uddate the divisor
+    divisor += omega;
+  }
+  else
+  {
+    // else, get the angular velocity vector in the global frame
+    Vector3d omegaB = Pose3d::transform(GLOBAL, rbB->get_velocity()).get_angular();  
+  
+    // update the divisor with the cross product of the norm and the angular
+    // velocity
+    divisor += Vector3d::cross(omegaB, n0).norm();
+  }
+
+  // setup a minimum time
+  double min_t = std::numeric_limits<double>::max();
+
+  // loop through all vertices from A above the half-space
+  for (unsigned i=0; i< high_pointsA.size(); i++)
+  {
+    // setup a maximum distance
+    double max_dist = 0.0;
+
+    // loop through all contact points
+    for (unsigned j=0; j< contact_pointsA.size(); j++)
+    {
+      // get the distance between the two points
+      double dist = (vA[high_pointsA[i]]->o - vA[contact_pointsA[j]]->o).norm();
+      FILE_LOG(LOG_CONSTRAINT) << "Distance from adjacent vertex " << vA[high_pointsA[i]]->o << " to contact point: " << dist << std::endl;
+      if (dist > max_dist)
+        max_dist = dist; 
+    }
+
+    // compute the conservative time
+    double t = distsA[i]/max_dist;
+    FILE_LOG(LOG_CONSTRAINT) << "t for this point: " << (t / divisor) << std::endl;
+    if (t < min_t)
+      min_t = t;
+  }
+
+  // loop through all vertices from B above the half-space
+  for (unsigned i=0; i< high_pointsB.size(); i++)
+  {
+    // setup a maximum distance
+    double max_dist = 0.0;
+
+    // loop through all contact points
+    for (unsigned j=0; j< contact_pointsB.size(); j++)
+    {
+      // get the distance between the two points
+      double dist = (vB[high_pointsB[i]]->o - vB[contact_pointsB[j]]->o).norm();
+      if (dist > max_dist)
+        max_dist = dist; 
+
+      FILE_LOG(LOG_CONSTRAINT) << "Distance from adjacent vertex " << vB[high_pointsB[i]]->o << " to contact point: " << dist << std::endl;
+    }
+
+    // compute the conservative time
+    double t = distsB[i]/max_dist;
+    FILE_LOG(LOG_CONSTRAINT) << "t for this point: " << (t / divisor) << std::endl;
+    if (t < min_t)
+      min_t = t;
+  }
+
+  // compute the real min_t 
+  min_t /= divisor; 
+
+  return min_t;
+}
+
 /// Method for conservative step calculation
 /**
  * \param pdi the distance information for a pair of geometries
  * \param epsilon the (small) rigid boundary to maintain between geometries
  */
-double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
+double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon)
 {
   double maxt = std::numeric_limits<double>::max();
 
@@ -195,8 +716,8 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
 
   // get the current distance 
   double dist = pdi.dist;
-  if (dist < std::numeric_limits<double>::epsilon())
-    return 0.0;
+  if (dist < epsilon)
+    return calc_next_CA_Euler_step(pdi, epsilon);
 
   // compute the distance that body A can move toward body B
   double dist_per_tA = calc_max_dist(rbA, -n0, _rmax[cgA]);
@@ -445,7 +966,7 @@ double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d
   Vector3d n0 = Pose3d::transform_vector(base->get_gc_pose(), n);
 
   // setup the initial movement
-  double mvmt = n0.dot(base_xd);
+  double mvmt = std::fabs(n0.dot(base_xd));
 
   // get the inner joint
   JointPtr inner = rb->get_inner_joint_explicit();
@@ -533,7 +1054,7 @@ double CCD::calc_max_dist(RigidBodyPtr rb, const Vector3d& n, double rmax)
   if (w0_nrm > 2.0*M_PI)
     w0 *= 2.0*M_PI/w0_nrm;
 
-  return n.dot(xd0) + Vector3d::cross(w0, n).norm()*rmax;
+  return std::fabs(n.dot(xd0)) + Vector3d::cross(w0, n).norm()*rmax;
 }
 
 // NOTE: migration of dynamics computations to Ravelin break this function; slated for removal on 8/10/15
@@ -666,7 +1187,7 @@ void CCD::broad_phase(double dt, const vector<ControlledBodyPtr>& bodies, vector
     BOOST_FOREACH(CollisionGeometryPtr i, rbs[j]->geometries)
     {
       // get farthest distance on each geometry while we're at it
-      _rmax[i] = i->get_farthest_point_distance();
+      _rmax[i] = i->get_farthest_point_distance() + i->get_geometry()->get_pose()->x.norm();
 
       // get the primitive for the geometry
       PrimitivePtr p = i->get_geometry();

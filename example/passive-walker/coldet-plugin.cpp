@@ -15,12 +15,6 @@ class TorusPlanePlugin : public CCD
     RigidBodyPtr ground_body, left_foot_body, right_foot_body;
     CollisionGeometryPtr ground_cg, left_foot_cg, right_foot_cg;
 
-    protected:
-      virtual double calc_next_CA_Euler_step(const PairwiseDistInfo& pdi)
-      {
-        return std::numeric_limits<double>::max();
-      }
-
   public:
     TorusPlanePlugin() {}
 
@@ -92,9 +86,9 @@ class TorusPlanePlugin : public CCD
     }
 
     /// Computes a conservative advancement step for Euler integration
-    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
+    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon)
     {
-      return CCD::calc_CA_Euler_step(pdi);
+      return CCD::calc_CA_Euler_step(pdi, epsilon);
     }
 
     double fRand(double fMin, double fMax)

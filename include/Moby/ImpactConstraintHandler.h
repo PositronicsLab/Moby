@@ -56,6 +56,9 @@ class ImpactConstraintHandler
     /// Tolerance for which to solve QP problems (tolerance less than zero triggers automatic tolerance determination)
     double inequality_tolerance;
 
+    /// The last constraints processed by the impact handler
+    std::vector<Constraint> last_constraints;
+
   private:
     static unsigned num_variables(const std::vector<Constraint*>& constraints);
     static unsigned num_inequality_constraints(const std::vector<Constraint*>& constraints);

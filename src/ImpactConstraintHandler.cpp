@@ -85,6 +85,9 @@ void ImpactConstraintHandler::process_constraints(const vector<Constraint>& cons
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
   FILE_LOG(LOG_CONSTRAINT) << endl;
 
+  // store the set of constraints
+  last_constraints = constraints;
+
   // apply the method to all contacts
   apply_model(constraints, inv_dt);
 

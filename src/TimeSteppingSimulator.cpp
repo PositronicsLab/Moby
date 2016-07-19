@@ -45,7 +45,7 @@ using namespace Moby;
 /// Default constructor
 TimeSteppingSimulator::TimeSteppingSimulator()
 {
-  min_step_size = NEAR_ZERO;
+  min_step_size = 1e-7;
 }
 
 /// Steps the simulator forward by the given step size
@@ -116,6 +116,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   VectorNd q, qd, qdd;
   std::vector<VectorNd> qsave;
 
+  FILE_LOG(LOG_SIMULATOR) << "TimeSteppingSimulator::do_mini_step() - current time is " << current_time << std::endl;
+
   // init qsave to proper size and save generalized coordinates for all bodies
   qsave.resize(_bodies.size());
   for (unsigned i=0; i< _bodies.size(); i++)
@@ -134,61 +136,23 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   calc_pairwise_distances();
 
   // compute the first conservative step
-  double CA_step = calc_next_CA_Euler_step();
-
-  // set the amount stepped
-  double h = 0.0;
+  double h = calc_next_CA_Euler_step();
 
   // look for minimum step
-  if (CA_step < std::min(dt, min_step_size))
-  {
-    // integrate the positions by h
+  if (h < std::min(dt, min_step_size))
     h = std::min(dt, min_step_size);
-
-    // integrate the bodies' positions by h + conservative advancement step
-    for (unsigned i=0; i< _bodies.size(); i++)
-    {
-      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
-      db->set_generalized_coordinates_euler(qsave[i]);
-      db->get_generalized_velocity(DynamicBodyd::eEuler, q);
-      q *= h;
-      q += qsave[i];
-      db->set_generalized_coordinates_euler(q);
-    }
-  }
-  else
+  else if (h > dt)
+    h = dt;
+  
+  // integrate the bodies' positions by h 
+  for (unsigned i=0; i< _bodies.size(); i++)
   {
-    // integrate positions until a new event is detected
-    while (CA_step > min_step_size)
-    {
-      // cap out the conservative advancement step
-      CA_step = std::min(CA_step, dt-h);
-
-      // integrate the bodies' positions by h + conservative advancement step
-      for (unsigned i=0; i< _bodies.size(); i++)
-      {
-        shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
-        db->set_generalized_coordinates_euler(qsave[i]);
-        db->get_generalized_velocity(DynamicBodyd::eEuler, q);
-        q *= (h + CA_step);
-        q += qsave[i];
-        db->set_generalized_coordinates_euler(q);
-      }
-
-      // update h
-      h += CA_step;
-      if (h >= dt)
-        break;
-
-      // do broad phase collision detection
-      broad_phase(dt-h);
-
-      // compute pairwise distances
-      calc_pairwise_distances();
-
-      // get the conservative step 
-      CA_step = calc_next_CA_Euler_step();
-    }
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    db->set_generalized_coordinates_euler(qsave[i]);
+    db->get_generalized_velocity(DynamicBodyd::eEuler, q);
+    q *= h;
+    q += qsave[i];
+    db->set_generalized_coordinates_euler(q);
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;
@@ -333,7 +297,7 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step() const
       continue; 
 
       // compute an upper bound on the event time
-      double event_time = _coldet->calc_CA_Euler_step(pdi);
+      double event_time = _coldet->calc_CA_Euler_step(pdi, contact_dist_thresh);
 
       FILE_LOG(LOG_SIMULATOR) << "Next contact time between " << pdi.a->get_single_body()->body_id << " and " << pdi.b->get_single_body()->body_id << ": " << event_time << std::endl;
 

@@ -54,6 +54,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   {
     if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
       return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+      return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
   }
   else if (boost::dynamic_pointer_cast<TorusPrimitive>(pA))
   {
@@ -216,6 +218,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   // case #1: attempt to use volume of intersection
   if (dist <= 0.0)
   {
+// NOTE: this is Bjoern's SAT based code
+/*
     // initialize
     std::vector<boost::shared_ptr<Polyhedron::Edge> > edgesA = polyA.get_edges();
     std::vector<boost::shared_ptr<Polyhedron::Edge> > edgesB = polyB.get_edges();
@@ -297,7 +301,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         }
       }
     }
-
 
     // feature search for two polyhedron 
     min_axis = min_axis*direction;
@@ -410,16 +413,11 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         *output_begin++ = create_contact(cgA, cgB, isect[i], min_axis, -min_overlap);
 
     return output_begin;
+*/
 
-  }
-
-
-
-
-
-    
+    // NOTE: this is Evan's LP based implementation
     // get the halfspaces
-   /* PolyhedralPrimitive::get_halfspaces(polyA, poseA, wTa, std::back_inserter(hs));
+    PolyhedralPrimitive::get_halfspaces(polyA, poseA, wTa, std::back_inserter(hs));
     PolyhedralPrimitive::get_halfspaces(polyB, poseB, wTb, std::back_inserter(hs));
 
     // find the interior point
@@ -608,7 +606,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         *output_begin++ = create_contact(cgA, cgB, isect[i], n, 0.0);
 
       return output_begin;
-      
     }
 
     // setup minimum distance, contact normal, and the contact plane offset
@@ -716,7 +713,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     }
 
     return output_begin;
-  }*/
+  }
 
   // case #3: use closest features
   // get the type of the first feature

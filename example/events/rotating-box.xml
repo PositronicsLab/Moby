@@ -2,7 +2,7 @@
      next-time-of-contact finding. --> 
 
 <XML>
-  <DRIVER step-size=".0001">
+  <DRIVER step-size=".01">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
@@ -21,7 +21,7 @@
       <!-- the box -->
       <RigidBody id="box" enabled="true" color="1 0.125 0.125 1" position="0 0.785398163397448 0" aangle="1 0 0 0.785398163397448" angular-velocity="10 0 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b2" />
-        <CollisionGeometry primitive-id="b1" compliant-layer-depth=".0001" />
+        <CollisionGeometry primitive-id="b1" compliant-layer-depth="0" />
       </RigidBody>
 
       <!-- the ground -->
@@ -31,7 +31,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <TimeSteppingSimulator id="simulator" min-step-size="1e-5" constraint-stabilization-max-iterations="0">
+    <TimeSteppingSimulator id="simulator" constraint-stabilization-max-iterations="0" min-step-size="1e-6">
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
