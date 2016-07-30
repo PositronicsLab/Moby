@@ -34,7 +34,7 @@
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="4" stiffness="0" />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="4" stiffness="0" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>

@@ -31,7 +31,7 @@ class Constraint
 {
   public:
     enum ConstraintType { eNone, eContact, eLimit, eInverseDynamics, eSpringDamper, eImplicitJoint };
-    enum ConstraintEquationType { eInequality, eEquality, eComplementarity };
+    enum ConstraintEquationType { eInequality, eEquality };
     enum ConstraintCoeffType { eImpulsiveConstraint, eVelocityConstraint };
     enum ConstraintVelocityClass { ePositive, eZero, eNegative };
     Constraint();
@@ -54,6 +54,7 @@ class Constraint
     ConstraintEquationType get_constraint_equation_type(unsigned constraint_eqn_index) const; 
     std::vector<double>& get_constraint_coeffs(unsigned constraint_eqn_index, std::vector<double>& coeffs); 
     double get_constraint_rhs(unsigned constraint_index, double inv_dt);
+    void get_mlcp_rows(const std::vector<Constraint*>& constraints, Ravelin::MatrixNd& M, unsigned eqn_idx_start);
 
     double calc_contact_vel(const Ravelin::Vector3d& v) const;
     double calc_projected_stab_vel(unsigned var_index, double inv_dt) const;
@@ -174,6 +175,7 @@ class Constraint
     void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
 
   private:
+    static void measure_velocity_constraints(const std::vector<Constraint*>& constraints, Ravelin::VectorNd& v);
     double eval_spring() const;
     double calc_spring_damper_fmax() const; 
 

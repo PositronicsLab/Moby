@@ -15,6 +15,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ConstraintSimulator.h>
 #include <Moby/ImpactToleranceException.h>
+#include <Moby/LCPSolverException.h>
 #include <Moby/ImpactConstraintHandler.h>
 
 using namespace Ravelin;
@@ -33,377 +34,218 @@ using boost::dynamic_pointer_cast;
  * Applies Anitescu-Potra model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, const list<shared_ptr<SingleBodyd> >& single_bodies)
+void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::list<Constraint*>& constraints, const list<shared_ptr<SingleBodyd> >& single_bodies, double inv_dt)
 {
+  double ke_minus = 0.0, ke_plus = 0.0;
+
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model_to_connected_constraints() entered" << endl;
 
-  // reset problem data
-  _epd.reset();
-
-  // set the simulator
-  _epd.simulator = _simulator;
-
-  // save the constraints
-  _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
-
-  // determine sets of contact and limit constraints
-  _epd.partition_constraints();
-
-  // compute all constraint cross-terms
-  compute_problem_data(_epd, single_bodies);
-
-  // clear all impulses
-  for (unsigned i=0; i< _epd.N_CONTACTS; i++)
-    _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
-  for (unsigned i=0; i< _epd.N_LIMITS; i++)
-    _epd.limit_constraints[i]->limit_impulse = 0.0;
-
-  // solve the A-P model
-  apply_ap_model(_epd);
-
-  // determine velocities due to impulse application
-  update_constraint_velocities_from_impulses(_epd);
-
-  // get the constraint violation before applying impulses
-  double minv = calc_min_constraint_velocity(_epd);
-
-  // apply restitution
-  if (apply_restitution(_epd))
+  // compute energy before
+  if (LOGGING(LOG_CONSTRAINT))
   {
-    // determine velocities due to impulse application
-    update_constraint_velocities_from_impulses(_epd);
-
-    // check to see whether we need to solve another impact problem
-    double minv_plus = calc_min_constraint_velocity(_epd);
-    FILE_LOG(LOG_CONSTRAINT) << "Applying restitution" << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "  compression v+ minimum: " << minv << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
-    if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
+    // get the super bodies
+    vector<shared_ptr<DynamicBodyd> > supers;
+    get_super_bodies(constraints.begin(), constraints.end(), std::back_inserter(supers));
+    for (unsigned i=0; i< supers.size(); i++)
     {
-      // need to solve another impact problem
-      apply_ap_model(_epd);
+      double ke = supers[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << supers[i]->body_id << " pre-constraint handling KE: " << ke << endl;
+      ke_minus += ke;
     }
-    else
-      propagate_impulse_data(_epd);
   }
 
-  // apply impulses
-  apply_impulses(_epd);
+  // get the constraints as a vector
+  vector<Constraint*> vconstraints(constraints.begin(), constraints.end());
+
+  // apply the model
+  apply_ap_model_to_connected_constraints(vconstraints, inv_dt);
+
+  // compute energy after 
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    // get the super bodies
+    vector<shared_ptr<DynamicBodyd> > supers;
+    get_super_bodies(constraints.begin(), constraints.end(), std::back_inserter(supers));
+    for (unsigned i=0; i< supers.size(); i++)
+    {
+      double ke = supers[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << supers[i]->body_id << " post-constraint handling KE: " << ke << endl;
+      ke_plus += ke;
+    }
+    if (ke_plus > ke_minus)
+      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+  }
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model_to_connected_constraints() exiting" << endl;
 }
 
-/// Solves the Anitescu-Potra model LCP
-void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
+/// Applies the AP model to connected constraints
+void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::vector<Constraint*>& constraints, double inv_dt)
 {
-  /// Matrices and vectors for solving LCP
-  Ravelin::MatrixNd _UL, _LL, _MM, _UR, _workM;
-  Ravelin::VectorNd _qq, _workv;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model_to_connected_constraints() entered" << std::endl;
 
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model() entered" << std::endl;
+  // mark starting time
+  tms cstart;
+  clock_t start = times(&cstart);
 
-  unsigned NC = q.N_CONTACTS;
+  // determine the total number of variables
+  const unsigned N_VARS = num_variables(constraints);
 
-  // Num joint limit constraints
-  unsigned N_LIMIT = q.N_LIMITS;
+  // indicate that the LCP matrix must be constructed
+  _M.resize(0,0);
 
-  // Num friction directions + num normal directions
-  unsigned N_FRICT = NC*4 + NC;
-
-  // Total constraints
-  unsigned N_CONST = N_FRICT + N_LIMIT;
-
-  // Num friction constraints
-  unsigned NK_DIRS = 0;
-  for(unsigned i=0,j=0,r=0;i<NC;i++){
-    if (q.contact_constraints[i]->contact_NK > 4)
-      NK_DIRS+=(q.contact_constraints[i]->contact_NK+4)/4;
-    else
-      NK_DIRS+=1;
-  }
-
-  // setup sizes
-  _UL.set_zero(N_CONST, N_CONST);
-  _UR.set_zero(N_CONST, NK_DIRS);
-  _LL.set_zero(NK_DIRS, N_CONST);
-  _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
-
-  MatrixNd Cn_X_CnT, Cs_X_CnT,Ct_X_CnT,Ct_X_CsT,L_X_CnT,L_X_CsT,L_X_CtT, L_X_LT;
-  Cn_X_CnT = q.Cn_X_CnT;
-  L_X_LT = q.L_X_LT;
-  Ravelin::MatrixNd::transpose(q.Cn_X_LT,L_X_CnT);
-  Ravelin::MatrixNd::transpose(q.Cs_X_LT,L_X_CsT);
-  Ravelin::MatrixNd::transpose(q.Ct_X_LT,L_X_CtT);
-  Ravelin::MatrixNd::transpose(q.Cn_X_CsT,Cs_X_CnT);
-  Ravelin::MatrixNd::transpose(q.Cn_X_CtT,Ct_X_CnT);
-  Ravelin::MatrixNd::transpose(q.Cs_X_CtT,Ct_X_CsT);
-  /*     n          r          r           r           r
-  n  Cn_X_CnT  Cn_X_CsT  -Cn_X_CsT   Cn_X_CtT  -Cn_X_CtT
-  r  Cs_X_CnT  Cs_X_CsT  -Cs_X_CsT   Cs_X_CtT  -Cs_X_CtT
-  r -Cs_X_CnT -Cs_X_CsT   Cs_X_CsT  -Cs_X_CtT   Cs_X_CtT
-  r  Ct_X_CnT  Ct_X_CsT  -Ct_X_CsT   Ct_X_CtT  -Ct_X_CtT
-  r -Ct_X_CnT -Ct_X_CsT   Ct_X_CsT  -Ct_X_CtT   Ct_X_CtT
-  */
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_X_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cs': " << std::endl << q.Cn_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Ct': " << std::endl << q.Cn_X_CtT;
-  
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cn': " << std::endl << Cs_X_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cs': " << std::endl << q.Cs_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Ct': " << std::endl << q.Cs_X_CsT;
-  
-  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cn': " << std::endl << Ct_X_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cs': " << std::endl << Ct_X_CsT;
-
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*L': " << std::endl << q.L_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*L': " << std::endl << q.Cn_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cn': " << std::endl << L_X_CnT;
-
-  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*L': " << std::endl << q.Cs_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_X_LT;
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cs': " << std::endl << L_X_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Ct': " << std::endl << L_X_CtT;
-
-  // setup contact damping
-  const unsigned N_CONTACTS = q.contact_constraints.size();
-  ColumnIteratord Cn_X_CnT_iter = Cn_X_CnT.column_iterator_begin(); 
-  for (unsigned i=0; i< N_CONTACTS; i++, Cn_X_CnT_iter++)
-  {
-    const UnilateralConstraint& c = *q.contact_constraints[i];
-    double compliant_layer_depth = c.contact_geom1->compliant_layer_depth +
-                                   c.contact_geom2->compliant_layer_depth;
-    if (c.signed_distance + compliant_layer_depth > 0)
-      *Cn_X_CnT_iter += q.contact_constraints[i]->contact_damping;
-  }
-
-  // setup limit damping
-  const unsigned N_LIMITS = q.limit_constraints.size();
-  ColumnIteratord L_X_LT_iter = L_X_LT.column_iterator_begin(); 
-  for (unsigned i=0; i< N_LIMITS; i++, L_X_LT_iter++)
-  {
-    const UnilateralConstraint& c = *q.limit_constraints[i];
-    double compliant_layer_depth = c.limit_joint->compliant_layer_depth;
-    if (c.signed_distance + compliant_layer_depth > 0)
-      *L_X_LT_iter += q.limit_constraints[i]->limit_damping;
-  }
-
-  // Set positive submatrices
-  /*
-          n          r          r           r           r
-  n  Cn_X_CnT  Cn_X_CsT               Cn_X_CtT
-  r  Cs_X_CnT  Cs_X_CsT               Cs_X_CtT
-  r                         Cs_X_CsT               Cs_X_CtT
-  r  Ct_X_CnT  Ct_X_CsT               Ct_X_CtT
-  r                         Ct_X_CsT               Ct_X_CtT
-  */
-  _UL.set_sub_mat(0,0,Cn_X_CnT);
-
-  // setup the LCP matrix
-
-  // setup the LCP vector
-  _qq.set_zero(_MM.rows());
-  _qq.set_sub_vec(0,q.Cn_v);
-
-  // setup contact stiffness
-  for (unsigned i=0; i< N_CONTACTS; i++)
-    _qq[i] += q.contact_constraints[i]->signed_distance * q.contact_constraints[i]->contact_stiffness;
-
-  // setup limit stiffness
-  for (unsigned i=0; i< N_LIMITS; i++)
-    _qq[i+N_FRICT] += q.limit_constraints[i]->signed_distance * q.limit_constraints[i]->limit_stiffness;
-
-  _UL.set_sub_mat(NC,NC,q.Cs_X_CsT);
-  _UL.set_sub_mat(NC,0,Cs_X_CnT);
-  _UL.set_sub_mat(0,NC,q.Cn_X_CsT);
-  _UL.set_sub_mat(NC+NC,NC+NC,q.Cs_X_CsT);
-  _UL.set_sub_mat(NC+NC*2,0,Ct_X_CnT);
-  _UL.set_sub_mat(0,NC+NC*2,q.Cn_X_CtT);
-  _UL.set_sub_mat(NC+NC*2,NC,Ct_X_CsT);
-  _UL.set_sub_mat(NC+NC*3,NC+NC,Ct_X_CsT);
-  _UL.set_sub_mat(NC,NC+NC*2,q.Cs_X_CtT);
-  _UL.set_sub_mat(NC+NC,NC+NC*3,q.Cs_X_CtT);
-  _UL.set_sub_mat(NC+NC*2,NC+NC*2,q.Ct_X_CtT);
-  _UL.set_sub_mat(NC+NC*3,NC+NC*3,q.Ct_X_CtT);
-
-  // Joint Limits
-  _UL.set_sub_mat(N_FRICT,N_FRICT,L_X_LT);
-  _UL.set_sub_mat(N_FRICT,0,L_X_CnT);
-  _UL.set_sub_mat(0,N_FRICT,q.Cn_X_LT);
-  _UL.set_sub_mat(NC,N_FRICT,q.Cs_X_LT);
-  _UL.set_sub_mat(NC+NC*2,N_FRICT,q.Ct_X_LT);
-  _UL.set_sub_mat(N_FRICT,NC,L_X_CsT);
-  _UL.set_sub_mat(N_FRICT,NC+NC*2,L_X_CtT);
-
-
-  // Set negative submatrices
-  /*     n          r          r           r           r
-  n                        -Cn_X_CsT              -Cn_X_CtT
-  r                        -Cs_X_CsT              -Cs_X_CtT
-  r -Cs_X_CnT -Cs_X_CsT              -Cs_X_CtT
-  r                        -Ct_X_CsT              -Ct_X_CtT
-  r -Ct_X_CnT -Ct_X_CsT              -Ct_X_CtT
-    */
-
-  q.Cn_X_CsT.negate();
-  q.Cn_X_CtT.negate();
-  Cs_X_CnT.negate();
-  q.Cs_X_CsT.negate();
-  q.Cs_X_CtT.negate();
-  Ct_X_CnT.negate();
-  Ct_X_CsT.negate();
-  q.Ct_X_CtT.negate();
-
-  q.Cs_X_LT.negate();
-  q.Ct_X_LT.negate();
-  L_X_CsT.negate();
-  L_X_CtT.negate();
-
-  _UL.set_sub_mat(NC+NC,0,Cs_X_CnT);
-  _UL.set_sub_mat(0,NC+NC,q.Cn_X_CsT);
-
-  _UL.set_sub_mat(NC,NC+NC,q.Cs_X_CsT);
-  _UL.set_sub_mat(NC+NC,NC,q.Cs_X_CsT);
-
-  _UL.set_sub_mat(NC+NC*3,0,Ct_X_CnT);
-  _UL.set_sub_mat(0,NC+NC*3,q.Cn_X_CtT);
-
-  _UL.set_sub_mat(NC+NC*3,NC,Ct_X_CsT);
-  _UL.set_sub_mat(NC+NC*2,NC+NC,Ct_X_CsT);
-  _UL.set_sub_mat(NC+NC,NC+NC*2,q.Cs_X_CtT);
-  _UL.set_sub_mat(NC,NC+NC*3,q.Cs_X_CtT);
-
-  _UL.set_sub_mat(NC+NC*2,NC+NC*3,q.Ct_X_CtT);
-  _UL.set_sub_mat(NC+NC*3,NC+NC*2,q.Ct_X_CtT);
-
-  // Joint limits
-  _UL.set_sub_mat(NC+NC,N_FRICT,q.Cs_X_LT);
-  _UL.set_sub_mat(NC+NC*3,N_FRICT,q.Ct_X_LT);
-  _UL.set_sub_mat(N_FRICT,NC+NC,L_X_CsT);
-  _UL.set_sub_mat(N_FRICT,NC+NC*3,L_X_CtT);
-
-  // lower left & upper right block of matrix
-  for(unsigned i=0,j=0,r=0;i<NC;i++)
-  {
-    const UnilateralConstraint* ci =  q.contact_constraints[i];
-    if (ci->contact_NK > 4)
-    {
-      int nk4 = ( ci->contact_NK+4)/4;
-      for(unsigned k=0;k<nk4;k++)
-      {
-        FILE_LOG(LOG_CONSTRAINT) << "mu_{"<< k<< ","<< i <<"}: " << ci->contact_mu_coulomb << std::endl;
-
-        // muK
-        _LL(r+k,i)         = ci->contact_mu_coulomb;
-        // Xe
-        _LL(r+k,NC+j)      = -cos((M_PI*k)/(2.0*nk4));
-        _LL(r+k,NC+NC+j)   = -cos((M_PI*k)/(2.0*nk4));
-        // Xf
-        _LL(r+k,NC+NC*2+j) = -sin((M_PI*k)/(2.0*nk4));
-        _LL(r+k,NC+NC*3+j) = -sin((M_PI*k)/(2.0*nk4));
-        // XeT
-        _UR(NC+j,r+k)      =  cos((M_PI*k)/(2.0*nk4));
-        _UR(NC+NC+j,r+k)   =  cos((M_PI*k)/(2.0*nk4));
-        // XfT
-        _UR(NC+NC*2+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
-        _UR(NC+NC*3+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
-      }
-      r+=nk4;
-      j++;
-    }
-    else
-    {
-      FILE_LOG(LOG_CONSTRAINT) << "mu_{"<< i <<"}: " << ci->contact_mu_coulomb << std::endl;
-      // muK
-      _LL(r,i) = ci->contact_mu_coulomb;
-      // Xe
-      _LL(r,NC+j)      = -1.0;
-      _LL(r,NC+NC+j)   = -1.0;
-      // Xf
-      _LL(r,NC+NC*2+j) = -1.0;
-      _LL(r,NC+NC*3+j) = -1.0;
-      // XeT
-      _UR(NC+j,r)      =  1.0;
-      _UR(NC+NC+j,r)   =  1.0;
-      // XfT
-      _UR(NC+NC*2+j,r) =  1.0;
-      _UR(NC+NC*3+j,r) =  1.0;
-      r += 1;
-      j++;
-    }
-  }
-
-  // setup the LCP matrix
-  _MM.set_sub_mat(0, _UL.columns(), _UR);
-  _MM.set_sub_mat(_UL.rows(), 0, _LL);
-
-  // setup the LCP vector
-  _qq.set_sub_vec(NC,q.Cs_v);
-  _qq.set_sub_vec(NC+NC*2,q.Ct_v);
-  q.Cs_v.negate();
-  q.Ct_v.negate();
-  _qq.set_sub_vec(NC+NC,q.Cs_v);
-  _qq.set_sub_vec(NC+NC*3,q.Ct_v);
-  _qq.set_sub_vec(N_FRICT,q.L_v);
-
-  _MM.set_sub_mat(0, 0, _UL);
-
-  FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << _MM;
-  FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << _qq << std::endl;
-
-  // Fix Negations
-  q.Cn_X_CsT.negate();
-  q.Cn_X_CtT.negate();
-//  Cs_X_CnT.negate();
-  q.Cs_X_CsT.negate();
-  q.Cs_X_CtT.negate();
-//  Ct_X_CnT.negate();
-//  Ct_X_CsT.negate();
-  q.Ct_X_CtT.negate();
-  q.Cs_X_LT.negate();
-  q.Ct_X_LT.negate();
-  //L_X_CsT.negate();
-  //L_X_CtT.negate();
-  q.Cs_v.negate();
-  q.Ct_v.negate();
-
-  // solve the LCP
+  // form and solve the problem
   VectorNd z;
-  if (!_lcp.lcp_lemke_regularized(_MM, _qq, z, -20, 1, -2))
-    throw std::exception();
+  form_and_solve_ap(constraints, inv_dt, N_VARS, _M, z);
 
-  for(unsigned i=0,j=0;i<NC;i++)
+  // apply impulses
+  apply_impulses(constraints, z);
+
+  // get the constraint violation resulting from solving the LCP 
+  double max_vio_pre = calc_max_constraint_violation(constraints);
+  
+  // apply restitution
+  VectorNd zplus = z;
+  if (apply_restitution(constraints, zplus))
   {
-    q.cn[i] = z[i];
-    q.cs[i] = z[NC+j] - z[NC+NC+j];
-    q.ct[i] = z[NC+NC*2+j] - z[NC+NC*3+j];
-    j++;
+    apply_impulses(constraints, zplus);
+
+    // update z
+    z += zplus;
+    FILE_LOG(LOG_CONSTRAINT) << "z (after restitution): " << z << std::endl;
+
+    // see whether we need to solve another impact problem
+    // -- if the constraint violation is negative and the constraint violation
+    //    is larger than after solving the inelastic impact QP, another impact 
+    //    problem must be solved 
+    double max_vio_post = calc_max_constraint_violation(constraints);
+    if (max_vio_post > max_vio_pre + NEAR_ZERO)
+    {
+      // form and solve the problem
+      form_and_solve_ap(constraints, inv_dt, N_VARS, _M, z);
+
+      // apply impulses
+      apply_impulses(constraints, z);
+      FILE_LOG(LOG_CONSTRAINT) << "z (from second impact phase): " << z << std::endl;
+    }
   }
 
-  q.l = z.segment(N_FRICT,N_FRICT+N_LIMIT);
-
-  // setup a temporary frame
-  shared_ptr<Pose3d> P(new Pose3d);
-
-  // propagate the impulse data
-  propagate_impulse_data(q); 
-
-  if (LOGGING(LOG_CONSTRAINT))
-  {
-    // compute LCP 'w' vector
-    VectorNd w;
-    _MM.mult(z, w) += _qq;
-
-    // output new acceleration
-    FILE_LOG(LOG_CONSTRAINT) << "new normal v: " << w.segment(0, q.contact_constraints.size()) << std::endl;
-  }
-
-  FILE_LOG(LOG_CONSTRAINT) << "cn " << q.cn << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "cs " << q.cs << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
-
-  FILE_LOG(LOG_CONSTRAINT) << "l " << q.l << std::endl;
-
-  FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model() exited" << std::endl;
+  // get the elapsed time
+  const long TPS = sysconf(_SC_CLK_TCK);
+  tms cstop;
+  clock_t stop = times(&cstop);
+  double elapsed = (double) (stop - start)/TPS;
+  FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model_to_connected_constraints() exited" << std::endl;
 }
+
+/// Forms the mixed LCP vector
+static void compute_mlcp_vector(const vector<Constraint*>& constraints, unsigned N_CONSTRAINTS, double inv_dt, VectorNd& q)
+{
+  q.resize(N_CONSTRAINTS);
+  for (unsigned i=0, j=0; i< constraints.size(); i++)
+  {
+    assert(constraints[i]->num_constraint_equations() == constraints[i]->num_variables());
+    for (unsigned k=0; k< constraints[i]->num_constraint_equations(); k++)
+      q[j++] = -constraints[i]->get_constraint_rhs(k, inv_dt);
+  }
+}
+
+/// Forms the mixed LCP matrix
+void ImpactConstraintHandler::compute_mlcp_matrix(const vector<Constraint*>& constraints, unsigned N_CONSTRAINTS, double inv_dt, MatrixNd& M)
+{
+  // get all super bodies
+  vector<shared_ptr<DynamicBodyd> > supers;
+  get_super_bodies(constraints.begin(), constraints.end(), std::back_inserter(supers));
+  
+  // store current velocities
+  vector<VectorNd> qd(supers.size());
+  for (unsigned i=0; i< supers.size(); i++)
+    supers[i]->get_generalized_velocity(DynamicBodyd::eSpatial, qd[i]);
+
+  // initialize the MLCP matrix
+  M.resize(N_CONSTRAINTS, N_CONSTRAINTS);
+
+  // compute the MLCP matrix
+  for (unsigned m=0, n=0; m< constraints.size(); m++)
+  {
+    // get the constraint equation
+    constraints[m]->get_mlcp_rows(constraints, M, n); 
+
+    // update n
+    n += constraints[m]->num_constraint_equations();
+  }
+
+  // restore velocities
+  for (unsigned i=0; i< supers.size(); i++)
+    supers[i]->set_generalized_velocity(DynamicBodyd::eSpatial, qd[i]);
+}
+
+/// Forms and solves the impact problem
+void ImpactConstraintHandler::form_and_solve_ap(const vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, MatrixNd& MM, VectorNd& z)
+{
+  const double INF = (double) std::numeric_limits<double>::max();
+
+  // compute the LCP matrix if necessary
+  if (MM.rows() == 0)
+  {
+    compute_mlcp_matrix(constraints, N_VARS, inv_dt, MM);
+
+    // add in damping terms
+    for (unsigned m=0, o=0; m< constraints.size(); m++)
+      for (unsigned n=0; n< constraints[m]->num_constraint_equations(); n++, o++)
+      {
+        // get the damping term (if any)
+        double damping = constraints[m]->get_damping(n);
+        if (damping <= 0.0)
+          continue;
+
+        // update H
+        MM(o,o) += damping;
+      }
+  }
+
+  // compute the linear term vector
+  compute_mlcp_vector(constraints, N_VARS, inv_dt, _qq);
+
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::form_and_solve()" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl  << MM;
+  FILE_LOG(LOG_CONSTRAINT) << "q: " << _qq << std::endl;
+
+  // setup the lower and upper bounds variables; simultaneously determine
+  // whether the problem is a pure LCP
+  bool pure_lcp = true;
+  _lb.resize(N_VARS);
+  _ub.resize(N_VARS);
+  for (unsigned i=0, j=0; i< constraints.size(); i++)
+    for (unsigned k=0; k< constraints[i]->num_variables(); k++)
+    {
+      _lb[j] = constraints[i]->get_lower_variable_limit(k);
+      _ub[j] = constraints[i]->get_upper_variable_limit(k);
+      if (std::fabs(_lb[j]) > NEAR_ZERO || _ub[j] < INF)
+        pure_lcp = false;
+      j++;
+    } 
+
+  // attempt to solve using the fast regularized solver
+  if (!_lcp.mlcp_fast_regularized(MM, _qq, _lb, _ub, z, -16, 4, -4))
+  {
+    // if the LCP is not truly mixed, we can attempt Lemke's algorithm
+    if (pure_lcp)
+    {
+      // Lemke does not like warm starting
+      z.set_zero();
+
+      FILE_LOG(LOG_CONSTRAINT) << "-- fast LCP solver failed; dropping back to Lemke" << std::endl;
+      if (!_lcp.lcp_lemke_regularized(MM, _qq, z))
+          throw LCPSolverException();
+    }
+    else
+      throw LCPSolverException();
+  }
+
+  FILE_LOG(LOG_CONSTRAINT) << "mixed LCP solution z: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "mixed LCP pivots: " << _lcp.pivots << std::endl;
+}
+
 

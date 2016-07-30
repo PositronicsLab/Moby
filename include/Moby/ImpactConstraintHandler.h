@@ -66,12 +66,16 @@ class ImpactConstraintHandler
     static unsigned num_equality_constraints(const std::vector<Constraint*>& constraints);
     static double calc_max_constraint_violation(const std::vector<Constraint*>& constraints);
     void form_and_solve(const std::vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, Ravelin::MatrixNd& H, Ravelin::VectorNd& z);
+    void form_and_solve_ap(const std::vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, Ravelin::MatrixNd& MM, Ravelin::VectorNd& z);
     void apply_model(const std::vector<Constraint>& constraints, double inv_dt);
+    void apply_ap_model_to_connected_constraints(const std::list<Constraint*>& constraints, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies, double inv_dt);
     void apply_model_to_connected_constraints(const std::list<Constraint*>& constraints, const std::list<boost::shared_ptr<Ravelin::SingleBodyd> >& single_bodies, double inv_dt);
+    void apply_ap_model_to_connected_constraints(const std::vector<Constraint*>& constraints, double dt);
     void apply_model_to_connected_constraints(const std::vector<Constraint*>& constraints, double dt);
     bool apply_restitution(const std::vector<Constraint*>& constraints, Ravelin::VectorNd& x);
     static void apply_impulses(const std::vector<Constraint*>& constraints, const Ravelin::VectorNd& x);
 
+    static void compute_mlcp_matrix(const std::vector<Constraint*>& constraints, unsigned N_CONSTRAINTS, double inv_dt, Ravelin::MatrixNd& M);
     static double sqr(double x) { return x*x; }
     static void compute_quadratic_matrix(const std::vector<Constraint*>& constraints, unsigned N_VARS, Ravelin::MatrixNd& H);
     static void compute_linear_term(const std::vector<Constraint*>& constraints, unsigned N_VARS, double inv_dt, Ravelin::VectorNd& c);

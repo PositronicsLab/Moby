@@ -164,9 +164,19 @@ unsigned Constraint::num_variables() const
 
     case eContact:
       #ifdef USE_AP_MODEL
-      return contact_NK+2;
+      if (contact_mu_coulomb == 0.0)
+        return 1;
+      else if (contact_mu_coulomb >= NO_SLIP_COEFF)
+        return 3;
+      else
+        return contact_NK+2;
       #else
-      return (contact_mu_coulomb > 0.0) ? 5 : 1; 
+      if (contact_mu_coulomb == 0.0)
+        return 1;
+      else if (contact_mu_coulomb >= NO_SLIP_COEFF)
+        return 3;
+      else
+        return 5; 
       #endif
 
     case eLimit:
@@ -257,7 +267,12 @@ unsigned Constraint::num_impulsive_variables() const
   // always return 'true' unless this is an LCP
   #ifdef USE_AP_MODEL
   if (constraint_type == eContact)
-    return num_variables()-1;
+  {
+    if (contact_mu_coulomb > 0.0 && contact_mu_coulomb < NO_SLIP_COEFF)
+      return num_variables()-1;
+    else
+      return num_variables();
+  }
   #else
   return num_variables();
   #endif
@@ -272,23 +287,131 @@ Constraint::ConstraintEquationType Constraint::get_constraint_equation_type(unsi
       assert(false); 
 
     case eContact:
-      #ifdef USE_AP_MODEL
-      return eComplementarity;
-      #else
+      // look for no-slip constraint
+      if (contact_mu_coulomb >= NO_SLIP_COEFF && constraint_eqn_index > 0)
+        return eEquality; 
       return eInequality; 
-      #endif
 
     case eLimit:
-      #ifdef USE_AP_MODEL
-      return eComplementarity;
-      #else
       return eInequality;
-      #endif
 
     case eInverseDynamics:
     case eSpringDamper:
     case eImplicitJoint:
       return eEquality; 
+  }
+}
+
+/// Evaluates all velocity-based constraints
+void Constraint::measure_velocity_constraints(const vector<Constraint*>& constraints, VectorNd& v)
+{
+  // resize v
+  unsigned v_sz = 0;
+  for (unsigned i=0; i< constraints.size(); i++)
+    v_sz += constraints[i]->num_variables();
+  v.resize(v_sz);
+
+  // iterate through all constraints
+  for (unsigned i=0, j=0; i< constraints.size(); i++)
+    for (unsigned k=0; k< constraints[i]->num_variables(); k++)
+      v[j++] = constraints[i]->calc_projected_vel(k);
+}
+
+/// Computes the specified rows of the MLCP
+void Constraint::get_mlcp_rows(const vector<Constraint*>& constraints, MatrixNd& M, unsigned eqn_idx_start)
+{
+  VectorNd tmp;
+
+  switch (constraint_type)
+  {
+    case eContact:
+    {
+      // setup the normal complementarity constraint by applying a test
+      // impulse and measuring the change in velocities at all velocity-based
+      // constraints
+      measure_velocity_constraints(constraints, tmp);
+      M.row(eqn_idx_start) = tmp;
+      apply_test_impulse(0);      
+      measure_velocity_constraints(constraints, tmp);
+      M.row(eqn_idx_start).negate();
+      M.row(eqn_idx_start) += tmp; 
+
+      if (contact_mu_coulomb >= NO_SLIP_COEFF)
+      {
+        // setup the tangential constraints
+        const unsigned TANGENT_DIRS = 2;
+        for (unsigned i=0; i< TANGENT_DIRS; i++)
+        {
+          SharedVectorNd Mrow = M.row(eqn_idx_start+i+1);
+          Mrow = tmp;
+          apply_test_impulse(i+1);      
+          measure_velocity_constraints(constraints, tmp);
+          Mrow.negate();
+          Mrow += tmp; 
+        }
+      }
+      else if (contact_mu_coulomb > 0.0)
+      {
+        // setup the tangential constraints
+        for (unsigned i=0; i< contact_NK; i++)
+        {
+          SharedVectorNd Mrow = M.row(eqn_idx_start+i+1);
+          Mrow = tmp;
+          apply_test_impulse(i+1);      
+          measure_velocity_constraints(constraints, tmp);
+          Mrow.negate();
+          Mrow += tmp; 
+
+          // setup the lambda constraint
+          Mrow[eqn_idx_start+contact_NK+1] = 1.0;
+        }
+
+        // add in the Coulomb friction constraint
+        SharedVectorNd fc_row = M.row(eqn_idx_start + contact_NK + 1);
+        fc_row.set_zero();
+        fc_row[eqn_idx_start] = contact_mu_coulomb;
+        for (unsigned i=0; i< contact_NK; i++)
+          fc_row[eqn_idx_start + 1 + i] = -1.0;
+      }
+    }
+    break;
+
+    case eLimit:
+    {
+      // setup the complementarity constraint by applying a test
+      // impulse and measuring the change in velocities at all velocity-based
+      // constraints
+      measure_velocity_constraints(constraints, tmp);
+      M.row(eqn_idx_start) = tmp;
+      apply_test_impulse(0);      
+      measure_velocity_constraints(constraints, tmp);
+      M.row(eqn_idx_start).negate();
+      M.row(eqn_idx_start) += tmp; 
+    }  
+    break;
+
+    case eInverseDynamics:
+    {
+      // setup the tangential constraints
+      measure_velocity_constraints(constraints, tmp);
+      for (unsigned i=0; i< qdot_des.size(); i++)
+      {
+        SharedVectorNd Mrow = M.row(eqn_idx_start+i);
+        Mrow = tmp;
+        apply_test_impulse(i+1);      
+        measure_velocity_constraints(constraints, tmp);
+        Mrow.negate();
+        Mrow += tmp; 
+      }
+    }  
+    break;
+
+    case eSpringDamper:
+    {
+      // TODO: implement me
+      assert(false);
+    }
+    break;
   }
 }
 
@@ -358,10 +481,18 @@ void Constraint::apply_impulses(const VectorNd& x, map<shared_ptr<DynamicBodyd>,
     // setup the impulse in the contact frame
     Vector3d j;
     j = contact_normal * x[0];
+
     #ifdef USE_AP_MODEL
-    double scal = M_PI * 2.0 / contact_NK;
-    for (unsigned i=0; i< contact_NK; i++)
-      j += contact_tan 
+    if (contact_mu_coulomb >= NO_SLIP_COEFF)
+      j += contact_tan1 * x[1] + contact_tan2 * x[2];
+    else if (contact_mu_coulomb > 0.0)
+    {
+      double SCAL = M_PI * 2.0 / contact_NK;
+      const unsigned HALF_NK = contact_NK / 2;
+      for (unsigned i=0; i< HALF_NK; i++)
+        j += contact_tan1 * std::cos(SCAL * i) * x[1+i] + 
+             contact_tan2 * std::sin(SCAL * i) * x[1 + HALF_NK + i];
+    }
     #else
     if (contact_mu_coulomb > 0.0)
     {
@@ -567,7 +698,7 @@ void Constraint::apply_impulses(const VectorNd& x, map<shared_ptr<DynamicBodyd>,
   }
 }
 
-/// Gets the type of constraint coefficient
+/// Gets the index of a velocity constraint coefficient
 unsigned Constraint::get_velocity_constraint_index(unsigned constraint_eqn_index) const
 {
   switch (constraint_type)
@@ -576,11 +707,7 @@ unsigned Constraint::get_velocity_constraint_index(unsigned constraint_eqn_index
       assert(false); 
 
     case eContact:
-      #ifdef USE_AP_MODEL
-      assert(false); 
-      #else
       return constraint_eqn_index; 
-      #endif
 
     case eLimit:
     case eInverseDynamics:
@@ -599,14 +726,10 @@ Constraint::ConstraintCoeffType Constraint::get_constraint_coeff_type(unsigned c
       assert(false); 
 
     case eContact:
-      #ifdef USE_AP_MODEL
-      return eVelocityConstraint;
-      #else
       if (contact_mu_coulomb >= NO_SLIP_COEFF)
         return eVelocityConstraint;
       else
         return (constraint_eqn_index == 0) ? eVelocityConstraint : eImpulsiveConstraint; 
-      #endif
 
     case eLimit:
     case eInverseDynamics:
@@ -625,11 +748,8 @@ void Constraint::get_impulse_constraint_coeffs(unsigned constraint_eqn_index, Sh
       assert(false); 
 
     case eContact:
-      #ifdef USE_AP_MODEL
-      assert(false); 
-      #else
-      // case 1: no slip 
       assert(contact_mu_coulomb < NO_SLIP_COEFF);
+      // case 1: no slip 
       assert(constraint_eqn_index > 0);
       // case 2: Coulomb friction (linearize the friction cone)
       if (contact_NK == 4)
@@ -647,7 +767,6 @@ void Constraint::get_impulse_constraint_coeffs(unsigned constraint_eqn_index, Sh
         a[4] = -std::sin(theta);
       }
       break; 
-      #endif
 
     case eLimit:
     case eInverseDynamics:
@@ -700,8 +819,10 @@ double Constraint::calc_projected_stab_vel(unsigned constraint_eqn_index, double
   }
 }
 
-
-/// Gets the right-hand side of a constraint of the form a'*x >= b or a'*x = b
+/// Gets the right-hand side (b) of a constraint of the form a'*x >= b or a'*x = b
+/**
+ * For a complementarity-based model, b comes from a'*x + b = w.
+ */
 double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_dt)
 {
   const unsigned SPATIAL_DIM = 6;
@@ -717,9 +838,6 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
         double gamma = contact_stiffness * -signed_distance * inv_dt;
         return -calc_projected_vel(constraint_eqn_index) + gamma;  // N*v^+ >= gamma 
       }
-      #ifdef USE_AP_MODEL
-      FIX ME
-      #else
       // case 1: infinite friction
       if (contact_mu_coulomb >= NO_SLIP_COEFF)
       {
@@ -733,9 +851,17 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
       }
       else
       {
-        return 0.0;  // these are all linearized friction cone coeffs
+        #ifdef USE_AP_MODEL
+        assert (contact_mu_coulomb > 0.0 || constraint_eqn_index == 0);
+        if (constraint_eqn_index <= contact_NK)
+          return -calc_projected_vel(constraint_eqn_index);
+        else
+          return 0.0;
+        #else
+        // no more velocity-based linear inequality constraints for QP model
+        return 0.0;  
+        #endif
       }
-      #endif
 
     case eLimit:
       assert(constraint_eqn_index == 0);
@@ -770,14 +896,19 @@ unsigned Constraint::num_constraint_equations() const
 
     case eContact:
       #ifdef USE_AP_MODEL
-      return contact_NK + 2;
+      if (contact_mu_coulomb == 0.0)
+        return 1;
+      else if (contact_mu_coulomb < NO_SLIP_COEFF)
+        return contact_NK + 2;
+      else
+        return 3;
       #else
       if (contact_mu_coulomb == 0.0)
         return 1;
       else if (contact_mu_coulomb < NO_SLIP_COEFF)
         return contact_NK/4 + 1;
       else
-        return 1; 
+        return 3; 
       #endif
 
     case eLimit:
@@ -846,6 +977,33 @@ double Constraint::calc_projected_vel(unsigned var_index) const
 
     // get the contact direction in the correct pose
     Vector3d dir;
+    #ifdef USE_AP_MODEL
+    if (var_index == 0)
+      dir = Pose3d::transform_vector(contact_frame, contact_normal);
+    else if (var_index > contact_NK)   // Coulomb friction constraint
+      return 0.0;
+    else
+    {
+      // if the constraint is a no-slip constraint, then this is just one of
+      // the two directions
+      if (contact_mu_coulomb >= NO_SLIP_COEFF)
+      {
+        if (var_index == 1)
+          dir = contact_tan1;
+        else
+          dir = contact_tan2;
+      }
+      else
+      {
+        // the direction is one of the NK directions
+        const double SCAL = M_PI * 2.0 / contact_NK;
+        const unsigned HALF_NK = contact_NK / 2;
+        dir = contact_tan1 * std::cos(SCAL * (var_index-1)) +
+              contact_tan2 * std::sin(SCAL * (var_index-1));
+      }
+      dir = Pose3d::transform_vector(contact_frame, dir);
+    }
+    #else
     switch (var_index)
     {
       case 0: 
@@ -872,6 +1030,7 @@ double Constraint::calc_projected_vel(unsigned var_index) const
       default:
         assert(false);
     }
+    #endif
 
     // get the linear velocities and project against the normal
     return dir.dot(ta.get_linear() - tb.get_linear());
@@ -1077,6 +1236,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Constraint& e)
   else if (e.constraint_type == Constraint::eInverseDynamics)
   {
     o << "inverse dynamics joint ID: " << e.inv_dyn_joint->id << std::endl;
+    o << "desired joint velocity: " << e.qdot_des << std::endl;
     o << "joint velocity: " << e.calc_constraint_vel(0) << std::endl;
   }
   else

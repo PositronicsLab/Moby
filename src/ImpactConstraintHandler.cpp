@@ -147,7 +147,11 @@ void ImpactConstraintHandler::apply_model(const vector<Constraint>& constraints,
     }
 
     // apply the model to the constraints
+    #ifdef USE_AP_MODEL
+    apply_ap_model_to_connected_constraints(rconstraints.first, rconstraints.second, inv_dt);
+    #else
     apply_model_to_connected_constraints(rconstraints.first, rconstraints.second, inv_dt);
+    #endif
 
     FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
     if (LOGGING(LOG_CONSTRAINT))
@@ -216,4 +220,14 @@ shared_ptr<DynamicBodyd> ImpactConstraintHandler::get_super_body(shared_ptr<Sing
   else
     return dynamic_pointer_cast<DynamicBodyd>(sb);
 }
+
+/// Get the total number of variables
+unsigned ImpactConstraintHandler::num_variables(const vector<Constraint*>& constraints)
+{
+  unsigned n_vars = 0;
+  for (unsigned m=0; m< constraints.size(); m++)
+    n_vars += constraints[m]->num_variables(); 
+  return n_vars;
+}
+
 

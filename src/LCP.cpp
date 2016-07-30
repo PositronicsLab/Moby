@@ -465,6 +465,7 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
     z.set_zero(0);
     return true;
   }
+z.set_zero(N);
 
   // set zero tolerance if necessary
   if (zero_tol < 0.0)
@@ -485,6 +486,20 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
       break;
     }
 
+  // determine whether the problem is a pure LCP 
+  bool purelcp = true;
+  for (unsigned i=0; i< N; i++)
+    if (l[i] != 0.0 || u[i] < INF)
+    {
+      purelcp = false;
+      break;
+    }
+
+  // if it is a pure lcp, call the regular solver
+/*
+  if (purelcp)
+    return lcp_fast(M, q, z, zero_tol);
+*/
   // see whether to warm-start
   if (z.size() == q.size())
   {
@@ -781,10 +796,10 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
 
     // get all of the violated w indices
     for (unsigned i=0; i< _wminus.size(); i++) 
-      if (_wminus[i] - zero_tol < -max_wvio)
+      if (_wminus[i] + zero_tol > max_wvio)
         wvio.push_back(_basu[i]);
     for (unsigned i=0; i< _wplus.size(); i++)
-      if (_wplus[i] + zero_tol > max_wvio)
+      if (_wplus[i] - zero_tol < -max_wvio)
         wvio.push_back(_basl[i]);
 
     // pick one of the most violated w indices randomly
@@ -904,6 +919,13 @@ bool LCP::mlcp_fast(const MatrixNd& M, const VectorNd& q, const VectorNd& l, con
   }
 
   FILE_LOG(LOG_OPT) << "LCP::mlcp_fast() - maximum allowable pivots exceeded" << std::endl;
+
+z.set_zero(N);
+  if (purelcp && lcp_fast(M, q, z, zero_tol))
+  {
+    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - standard Dantzig solver able to solve!" << std::endl;
+    assert(false);
+  }
 
   // if we're here, then the maximum number of pivots has been exceeded
   return false;

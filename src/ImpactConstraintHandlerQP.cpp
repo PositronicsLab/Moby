@@ -43,15 +43,6 @@ using std::pair;
 using std::min_element;
 using boost::dynamic_pointer_cast;
 
-/// Get the total number of variables
-unsigned ImpactConstraintHandler::num_variables(const vector<Constraint*>& constraints)
-{
-  unsigned n_vars = 0;
-  for (unsigned m=0; m< constraints.size(); m++)
-    n_vars += constraints[m]->num_variables(); 
-  return n_vars;
-}
-
 /// Gets the number of inequality constraints
 unsigned ImpactConstraintHandler::num_inequality_constraints(const vector<Constraint*>& constraints)
 {
@@ -77,11 +68,6 @@ unsigned ImpactConstraintHandler::num_equality_constraints(const vector<Constrai
 
   return n;
 }
-
-/**
- * TODO: 
- * 4. Fix LHS
- **/
 
 /// Computes restitution for each constraint 
 bool ImpactConstraintHandler::apply_restitution(const vector<Constraint*>& constraints, VectorNd& x)
@@ -329,7 +315,6 @@ unsigned ImpactConstraintHandler::num_slackable_constraints(const vector<Constra
   return n;
 }        
 
-
 /// Forms and solves the impact problem
 void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constraints, double inv_dt, unsigned N_VARS, MatrixNd& H, VectorNd& z)
 {
@@ -342,7 +327,7 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
   // compute the quadratic matrix if necessary
   if (H.rows() == 0)
   {
-    compute_quadratic_matrix(constraints, N_VARS, _H);
+    compute_quadratic_matrix(constraints, N_VARS, H);
 
     // add in damping terms
     for (unsigned m=0, o=0; m< constraints.size(); m++)
@@ -689,8 +674,7 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
       VectorNd zlo, zhi;
       QP::convex_qp_to_glcp(_H, _c, _M, _q, _A, _b, _lb, _ub, _MM, _qq, zlo, zhi);
 
-      // solve using the fast regularized solver first, then fall back to the
-      // Lemke solver
+      // solve using the fast regularized solver 
       if (!_lcp.mlcp_fast_regularized(_MM, _qq, zlo, zhi, z, -16, 4, 0))
         throw LCPSolverException();
     }
@@ -706,6 +690,8 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
  */
 void ImpactConstraintHandler::apply_model_to_connected_constraints(const vector<Constraint*>& constraints, double inv_dt)
 {
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << std::endl;
+
   // mark starting time
   tms cstart;
   clock_t start = times(&cstart);
@@ -765,7 +751,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const vector<
   clock_t stop = times(&cstop);
   double elapsed = (double) (stop - start)/TPS;
   FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_qp_work() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exited" << std::endl;
 }
 
 
