@@ -273,9 +273,8 @@ unsigned Constraint::num_impulsive_variables() const
     else
       return num_variables();
   }
-  #else
-  return num_variables();
   #endif
+  return num_variables();
 }
 
 /// Gets the type of the specified constraint equation
@@ -398,7 +397,7 @@ void Constraint::get_mlcp_rows(const vector<Constraint*>& constraints, MatrixNd&
       {
         SharedVectorNd Mrow = M.row(eqn_idx_start+i);
         Mrow = tmp;
-        apply_test_impulse(i+1);      
+        apply_test_impulse(i);      
         measure_velocity_constraints(constraints, tmp);
         Mrow.negate();
         Mrow += tmp; 

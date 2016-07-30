@@ -208,10 +208,6 @@ void ImpactConstraintHandler::form_and_solve_ap(const vector<Constraint*>& const
   // compute the linear term vector
   compute_mlcp_vector(constraints, N_VARS, inv_dt, _qq);
 
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::form_and_solve()" << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl  << MM;
-  FILE_LOG(LOG_CONSTRAINT) << "q: " << _qq << std::endl;
-
   // setup the lower and upper bounds variables; simultaneously determine
   // whether the problem is a pure LCP
   bool pure_lcp = true;
@@ -226,6 +222,12 @@ void ImpactConstraintHandler::form_and_solve_ap(const vector<Constraint*>& const
         pure_lcp = false;
       j++;
     } 
+
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::form_and_solve()" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl  << MM;
+  FILE_LOG(LOG_CONSTRAINT) << "q: " << _qq << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "lb: " << _lb << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ub: " << _ub << std::endl;
 
   // attempt to solve using the fast regularized solver
   if (!_lcp.mlcp_fast_regularized(MM, _qq, _lb, _ub, z, -16, 4, -4))

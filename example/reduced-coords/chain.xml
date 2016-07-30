@@ -17,13 +17,13 @@
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
     <!-- the simulator -->
-    <Simulator min-step-size="1e-3" >
+    <TimeSteppingSimulator min-step-size="1e-3" >
       <RecurrentForce recurrent-force-id="gravity" /> 
       <DynamicBody dynamic-body-id="chain" />
       <DynamicBody dynamic-body-id="platform" />
       <DisabledPair object1-id="l1" object2-id="l2" />
       <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1"  />
-    </Simulator>
+    </TimeSteppingSimulator>
     
     <!-- the chain -->
     <RCArticulatedBody id="chain" floating-base="false" > 
