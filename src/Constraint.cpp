@@ -880,7 +880,8 @@ double Constraint::get_constraint_rhs(unsigned constraint_eqn_index, double inv_
     {
       double C[SPATIAL_DIM];
       implicit_joint->evaluate_constraints(C);
-      double gamma = inv_dt*-C[constraint_eqn_index];
+      const double kp = implicit_joint->implicit_constraint_stiffness;
+      double gamma = kp*inv_dt*-C[constraint_eqn_index];
       return gamma-calc_projected_vel(constraint_eqn_index);  // J*v^+ = gamma
     }
   }
@@ -1231,6 +1232,12 @@ std::ostream& Moby::operator<<(std::ostream& o, const Constraint& e)
     o << "constraint velocities:";
     for (unsigned i=0; i< e.num_constraint_equations(); i++)
       o << " " << e.calc_constraint_vel(i);
+    o << std::endl;
+    double C[6];
+    e.implicit_joint->evaluate_constraints(C);
+    o << "constraint evaluations:";
+    for (unsigned i=0; i< e.implicit_joint->num_constraint_eqns(); i++)
+      o << " " << C[i];
     o << std::endl;
   }
   else if (e.constraint_type == Constraint::eInverseDynamics)
