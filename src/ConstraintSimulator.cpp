@@ -310,17 +310,19 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
     preprocess_constraint(_rigid_constraints[i]);
 
-  // look for the case where there are no impacting constraints
-  bool none_impacting = true;
+  // look for the case where there are no impacting constraints and no
+  // implicit constraints
+  bool no_skip = true;
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
-    if (_rigid_constraints[i].determine_constraint_velocity_class() == Constraint::eNegative)
+    if (_rigid_constraints[i].constraint_type == Constraint::eImplicitJoint ||
+       _rigid_constraints[i].determine_constraint_velocity_class() == Constraint::eNegative)
     {
-      none_impacting = false;
+      no_skip = false;
       break;
     }
 
   // if there are no impacts, return
-  if (none_impacting && implicit_joints.empty())
+  if (no_skip && implicit_joints.empty())
     return;
 
   // if the setting is enabled, draw all contact constraints
