@@ -25,6 +25,9 @@ using namespace Moby;
  */
 Joint::Joint() : Jointd()
 {
+  // initialize the implicit constraint stiffness
+  implicit_constraint_stiffness = 0.2;
+
   // initialize boolean for determining to use inverse dynamics
   qd_des_set = false;
 
@@ -55,6 +58,9 @@ Joint::Joint() : Jointd()
  */
 Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard) : Jointd()
 {
+  // initialize the implicit constraint stiffness
+  implicit_constraint_stiffness = 0.2;
+
   // initialize boolean for determining to use inverse dynamics
   qd_des_set = false;
 

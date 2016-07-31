@@ -812,7 +812,8 @@ double Constraint::calc_projected_stab_vel(unsigned constraint_eqn_index, double
     {
       double C[SPATIAL_DIM];
       implicit_joint->evaluate_constraints(C);
-      double gamma = inv_dt*-C[constraint_eqn_index];
+      const double kp = implicit_joint->implicit_constraint_stiffness;
+      double gamma = kp*inv_dt*-C[constraint_eqn_index];
       return calc_projected_vel(constraint_eqn_index) - gamma;  // J*v^+ = gamma
     }
   }

@@ -677,6 +677,11 @@ void ImpactConstraintHandler::form_and_solve(const vector<Constraint*>& constrai
       // solve using the fast regularized solver 
       if (!_lcp.mlcp_fast_regularized(_MM, _qq, zlo, zhi, z, -16, 4, 0))
         throw LCPSolverException();
+      FILE_LOG(LOG_CONSTRAINT) << "Mixed LCP M: " << std::endl << _MM;
+      FILE_LOG(LOG_CONSTRAINT) << "Mixed LCP q: " << _qq << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Mixed LCP lower variable limits: " << zlo << std::endl << zlo;
+      FILE_LOG(LOG_CONSTRAINT) << "Mixed LCP upper variable limits: " << zhi << std::endl << zlo;
+      FILE_LOG(LOG_CONSTRAINT) << "Solution to the mixed LCP: " << z << std::endl;
     }
     #endif
   }

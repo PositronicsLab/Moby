@@ -39,6 +39,9 @@ class Joint : public Visualizable, public virtual Ravelin::Jointd
     enum ConstraintType { eUnknown, eExplicit, eImplicit };
     enum DOFs { DOF_1=0, DOF_2=1, DOF_3=2, DOF_4=3, DOF_5=4, DOF_6=5 };
 
+    // the constraint stiffness for this joint, if it is implicit (0 = no stabilization, 1 = immediate stabilization); default = 0.2
+    double implicit_constraint_stiffness;
+
     /// if set, use qd_des for inverse dynamics
     bool qd_des_set;  
 
