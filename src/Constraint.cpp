@@ -1628,7 +1628,10 @@ void Constraint::remove_inactive_groups(list<pair<list<Constraint*>, list<shared
     bool active_detected = false;
     BOOST_FOREACH(Constraint* e, i->first)
     {
-      if (e->determine_constraint_velocity_class() == Constraint::eNegative)
+      if (e->constraint_type == Constraint::eImplicitJoint ||
+          e->constraint_type == Constraint::eInverseDynamics ||
+          e->constraint_type == Constraint::eSpringDamper ||
+          ((e->constraint_type == Constraint::eContact || e->constraint_type == Constraint::eLimit) && e->determine_constraint_velocity_class() == Constraint::eNegative))
       {
         active_detected = true;
         break;
@@ -1860,6 +1863,8 @@ void Constraint::determine_contact_tangents()
 /// Determines the type of constraint 
 Constraint::ConstraintVelocityClass Constraint::determine_constraint_velocity_class() const
 {
+  assert(constraint_type == eContact || constraint_type == eLimit);
+
   // get the constraint velocity
   double vel = calc_constraint_vel(0);
 
