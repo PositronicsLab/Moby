@@ -315,6 +315,8 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   bool no_skip = true;
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
     if (_rigid_constraints[i].constraint_type == Constraint::eImplicitJoint ||
+        _rigid_constraints[i].constraint_type == Constraint::eInverseDynamics ||
+        _rigid_constraints[i].constraint_type == Constraint::eSpringDamper ||
        _rigid_constraints[i].determine_constraint_velocity_class() == Constraint::eNegative)
     {
       no_skip = false;
