@@ -842,6 +842,22 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
 
     // add the primitive to the transform
     osg::Node* geom = read_visual_geometry(geom_node);
+
+    shared_ptr<const XMLTree> material_node = find_one_tag("material", node);
+    
+    if(material_node){
+      // Change the RGBA color of the link if provided
+      shared_ptr<const XMLTree> color_node = find_one_tag("diffuse", material_node);
+      if (color_node){
+        // get the pose
+        /// Color to add to the rigid body when rendered
+        Ravelin::VectorNd color_rgba = Ravelin::VectorNd::parse(color_node->content);
+        CcolorVisitor  newColor;
+        newColor.setColor( color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3] );
+        geom->accept( newColor );
+      }
+    }
+
     tg->addChild(geom);
 
     // set the transform
@@ -849,28 +865,8 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     osg::Matrix m;
     to_osg_matrix(P, m);
     tg->setMatrix(m);
-  }
-
-  shared_ptr<const XMLTree> material_node = find_one_tag("material", node);
-
-  if(material_node){
-    // Change the RGBA color of the link if provided
-    shared_ptr<const XMLTree> color_node = find_one_tag("diffuse", material_node);
-    if (color_node){
-      // get the pose
-      /// Color to add to the rigid body when rendered
-      Ravelin::VectorNd color_rgba = Ravelin::VectorNd::parse(color_node->content);
- 
-      osg::Group* this_group = rb->get_visualization_data();
- 
-      for(int i=0;i<this_group->getNumChildren();i++){
-        osg::Node* n = this_group->getChild(i);
-        CcolorVisitor  newColor;
-        newColor.setColor( color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3] );
-        n->accept( newColor );
-      }
     }
-  }
+
   #endif
 }
 
