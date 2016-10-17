@@ -339,16 +339,20 @@ void Polyhedron::write_to_obj(const std::string& filename) const
   {
     out << "f";
     VertexFaceIterator vfi(_faces[i], true);
+    assert(vmap.find(*vfi) != vmap.end());
     out << " " << vmap[*vfi];
     assert(vfi.has_next());
     vfi.advance(); 
+    assert(vmap.find(*vfi) != vmap.end());
     out << " " << vmap[*vfi];
     assert(vfi.has_next());
     vfi.advance(); 
+    assert(vmap.find(*vfi) != vmap.end());
     out << " " << vmap[*vfi];
     while (vfi.has_next())
     {
       vfi.advance();
+      assert(vmap.find(*vfi) != vmap.end());
       out << " " << vmap[*vfi];
     }
     out << std::endl;
