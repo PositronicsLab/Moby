@@ -321,7 +321,40 @@ Polyhedron Polyhedron::transform(const Transform3d& T) const
 /// Writes the polyhedron to Wavefront OBJ format 
 void Polyhedron::write_to_obj(const std::string& filename) const
 {
-  throw std::runtime_error("Implement me!");
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // open the OBJ file for writing
+  std::ofstream out(filename.c_str());
+
+  // create a map from all vertices to indices, writing vertices at same time
+  std::map<shared_ptr<Polyhedron::Vertex>, unsigned> vmap;
+  for (unsigned i=0; i< _vertices.size(); i++)
+  {
+    out << "v " << _vertices[i]->o[X] << " " << _vertices[i]->o[Y] << " " << _vertices[i]->o[Z] << std::endl; 
+    vmap[_vertices[i]] = i;
+  }
+
+  // iterate through each face 
+  for (unsigned i=0; i< _faces.size(); i++)
+  {
+    out << "f";
+    VertexFaceIterator vfi(_faces[i], true);
+    out << " " << vmap[*vfi];
+    assert(vfi.has_next());
+    vfi.advance(); 
+    out << " " << vmap[*vfi];
+    assert(vfi.has_next());
+    vfi.advance(); 
+    out << " " << vmap[*vfi];
+    while (vfi.has_next())
+    {
+      vfi.advance();
+      out << " " << vmap[*vfi];
+    }
+    out << std::endl;
+  }
+
+  out.close();
 }
 
 /// Computes the Minkowski difference of two polyhedral primitives
