@@ -331,7 +331,7 @@ void Polyhedron::write_to_obj(const std::string& filename) const
   for (unsigned i=0; i< _vertices.size(); i++)
   {
     out << "v " << _vertices[i]->o[X] << " " << _vertices[i]->o[Y] << " " << _vertices[i]->o[Z] << std::endl; 
-    vmap[_vertices[i]] = i;
+    vmap[_vertices[i]] = i+1;
   }
 
   // iterate through each face 
