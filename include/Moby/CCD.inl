@@ -236,12 +236,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   }
   else
   {
-    // TODO: remove the next line when we're confident that SAT works
-    //assert(false);
-
-    // Bjoern: do the separating axis test here. I've commented our hybrid
-    // code because it wasn't yet compiling at the moment.
-
     // Compute first set of testing vectors from face normals
     std::vector<Ravelin::Vector3d> test_vectors;
     const std::vector<boost::shared_ptr<Polyhedron::Face> >& fA = polyA.get_faces();
@@ -251,7 +245,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     for (unsigned i=0; i< fB.size(); i++)
       test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
 
-    // create testing axes (edges from A, edges from B, and their cross product)
+    // create testing axes (cross-products of edges from A and B)
     const std::vector<boost::shared_ptr<Polyhedron::Edge> >& edgesA = polyA.get_edges();
     const std::vector<boost::shared_ptr<Polyhedron::Edge> >& edgesB = polyB.get_edges();
     std::vector<Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
@@ -266,10 +260,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         }
       }
     }
-    test_vectors.insert(test_vectors.end(), evA.begin(), evA.end());
-    test_vectors.insert(test_vectors.end(), evB.begin(), evB.end());
 
-    // creating Vector3d for all vertices
+    // create Vector3d for all vertices
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
 
@@ -288,7 +280,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       vector_b.push_back(vw);
     }
 
-
     // ***********************************************************************
     // find the minimum overlap
     // ***********************************************************************
@@ -301,10 +292,14 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       boost::shared_ptr <Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
       int min_index_a, min_index_b, max_index_a, max_index_b;
 
-      // projecting shapes to axis
+      // project vertices onto the candidate axis
+      // NOTE: this could be done in lg n time of the number of vertices rather
+      // than 
       project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
       project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
 
+      // Bjoern: I may be mistaken here, but shouldn't the amount of overlap
+      // be std::max(max_a, max_b) - std::min(min_a, min_b)?
       double o1 = max_a - min_b;
       double o2 = max_b - min_a;
 
@@ -325,7 +320,9 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         }
       }
     }
+
     // ensure that the distance is negated
+    assert(min_overlap >= 0.0);
     dist = -min_overlap;
     normal = min_axis * direction;
   }
