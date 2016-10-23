@@ -47,9 +47,9 @@
       <DynamicBody dynamic-body-id="sphere2" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="sphere1" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
-      <ContactParameters object1-id="ground" object2-id="sphere2" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
-      <ContactParameters object1-id="sphere1" object2-id="sphere2" epsilon="0" mu-coulomb="100" mu-viscous="0" friction-cone-edges="4" />
+      <ContactParameters object1-id="ground" object2-id="sphere1" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4"  stiffness="1" />
+      <ContactParameters object1-id="ground" object2-id="sphere2" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4"  stiffness="1" />
+      <ContactParameters object1-id="sphere1" object2-id="sphere2" epsilon="0" mu-coulomb="100" mu-viscous="0" friction-cone-edges="4" stiffness="1" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>
