@@ -237,22 +237,23 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   else
   {
     // TODO: remove the next line when we're confident that SAT works
-    assert(false);
+    //assert(false);
 
     // Bjoern: do the separating axis test here. I've commented our hybrid
     // code because it wasn't yet compiling at the moment.
 
-    /*
     // Compute first set of testing vectors from face normals
     std::vector<Ravelin::Vector3d> test_vectors;
     const std::vector<boost::shared_ptr<Polyhedron::Face> >& fA = polyA.get_faces();
     const std::vector<boost::shared_ptr<Polyhedron::Face> >& fB = polyB.get_faces();
     for (unsigned i=0; i< fA.size(); i++)
-      test_vectors.push_back(wTa.transform_vector(Ravelin::Vector3d(fA[i]->get_plane().get_normal(), poseA)));
+      test_vectors.push_back(wTa.transform_vector(Ravelin::Vector3d(fA[i]->get_plane().get_normal().data(), poseA)));
     for (unsigned i=0; i< fB.size(); i++)
-      test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal(), poseB)));
+      test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
 
     // create testing axes (edges from A, edges from B, and their cross product)
+    const std::vector<boost::shared_ptr<Polyhedron::Edge> >& edgesA = polyA.get_edges();
+    const std::vector<boost::shared_ptr<Polyhedron::Edge> >& edgesB = polyB.get_edges();
     std::vector<Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
     std::vector<Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
     for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin(); evAi != evA.end(); ++evAi) {
@@ -267,6 +268,26 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     }
     test_vectors.insert(test_vectors.end(), evA.begin(), evA.end());
     test_vectors.insert(test_vectors.end(), evB.begin(), evB.end());
+
+    // creating Vector3d for all vertices
+    std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
+    std::vector <boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
+
+    std::vector <Ravelin::Vector3d> vector_a;
+    BOOST_FOREACH(boost::shared_ptr < Polyhedron::Vertex > vertex, vAa)
+    {
+      Ravelin::Vector3d v(vertex->o, wTa.source);
+      Ravelin::Vector3d vw = wTa.transform_point(v);
+      vector_a.push_back(vw);
+    }
+    std::vector <Ravelin::Vector3d> vector_b;
+    BOOST_FOREACH(boost::shared_ptr < Polyhedron::Vertex > vertex, vBb)
+    {
+      Ravelin::Vector3d v(vertex->o, wTb.source);
+      Ravelin::Vector3d vw = wTb.transform_point(v);
+      vector_b.push_back(vw);
+    }
+
 
     // ***********************************************************************
     // find the minimum overlap
@@ -296,21 +317,17 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           min_overlap = overlap;
           min_axis = *test_i;
           if (fabs(overlap - o1) > NEAR_ZERO) {
-            a_vertex = vAa[max_index_a];
-            b_vertex = vBb[min_index_b];
-            direction = 1;
-          } else {
-            b_vertex = vBb[max_index_b];
-            a_vertex = vAa[min_index_a];
             direction = -1;
+          } else {
+            direction = 1;
+          
           }
         }
       }
     }
-*/
-
     // ensure that the distance is negated
-
+    dist = -min_overlap;
+    normal = min_axis * direction;
   }
 
   // TODO: do we need to call v-clip to find closest points (for when bodies are intersecting), but after they have been pushed apart to a kissing configuration?
