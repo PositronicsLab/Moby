@@ -16,7 +16,7 @@
     <Plane id="wallzneg" position="0 0 -1" aangle="1 0 0 1.5707963267949" />
 
     <!-- Gravity force -->
-    <GravityForce id="gravity" accel="1 -9.81 1"  />
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
 
     <!-- Rigid bodies -->
       <!-- the bottom sphere-->
