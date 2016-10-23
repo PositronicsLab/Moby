@@ -353,6 +353,11 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       verts.push_back(point);
   }
 
+
+  // Evan: I feel like by computing the convex hull we are not using the correct vertices.
+  // For example, if we have a smaller box on the top of a larger box, we will end up using
+  // the vertices of the large box; however, those points are not in contact with the smaller boxes
+  // Is this a problem?
   // Compute the convex hull of all vertices on the contact plane
   std::vector<Point3d> isect;
   CompGeom::calc_convex_hull(verts.begin(), verts.end(), normal, std::back_inserter(isect));
