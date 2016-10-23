@@ -1147,6 +1147,25 @@ void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_obj
   CollisionDetection::save_to_xml(node, shared_objects);
 }
 
+// Gets an arbitrary point on a feature
+Origin3d CCD::get_arbitrary_point(shared_ptr<const Polyhedron::Feature> feat)
+{
+  if (dynamic_pointer_cast<const Polyhedron::Vertex>(feat)) {
+    shared_ptr<const Polyhedron::Vertex> v = boost::static_pointer_cast<const Polyhedron::Vertex>(feat);
+    return v->o;
+  }
+  else if (dynamic_pointer_cast<const Polyhedron::Edge>(feat)) {
+    shared_ptr<const Polyhedron::Edge> e = boost::static_pointer_cast<const Polyhedron::Edge>(feat);
+    return e->v1->o;
+  }
+  else {
+    shared_ptr<const Polyhedron::Face> fconst = boost::static_pointer_cast<const Polyhedron::Face>(feat);
+    shared_ptr<Polyhedron::Face> f = boost::const_pointer_cast<Polyhedron::Face>(fconst);
+    Polyhedron::VertexFaceIterator vfi(f, true);
+    return (*vfi)->o;
+  }
+}
+
 /****************************************************************************
  Methods for broad phase begin
 ****************************************************************************/

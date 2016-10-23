@@ -75,6 +75,7 @@ class CCD : public CollisionDetection
     static Triangle get_triangle(boost::shared_ptr<Polyhedron::Face> f, const Ravelin::Transform3d& wTf);
     double calc_next_CA_Euler_step_polyhedron_plane(const PairwiseDistInfo& pdi, double epsilon);
     double calc_next_CA_Euler_step_polyhedron_polyhedron(const PairwiseDistInfo& pdi, double epsilon);
+    static Ravelin::Origin3d get_arbitrary_point(boost::shared_ptr<const Polyhedron::Feature> feat);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct
@@ -119,12 +120,15 @@ class CCD : public CollisionDetection
 
     void project(std::vector<Ravelin::Vector3d> vectors, Ravelin::Vector3d axis, double &min_dot, double &max_dot, int &min_index, int &max_index);
 
-    std::vector<Ravelin::Vector3d> create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, Ravelin::Vector3d axis, Ravelin::Transform3d wTv);
+    void create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, const Ravelin::Vector3d& axis, const Ravelin::Transform3d& wTv, std::vector<Ravelin::Vector3d>& ch_vertices);
 
     std::vector<Ravelin::Vector3d> create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, Ravelin::Transform3d &wTa);
     
     template <class OutputIterator>
     OutputIterator find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_polyhedron_polyhedron_soft(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
