@@ -122,21 +122,19 @@ inline void CCD::project(std::vector<Ravelin::Vector3d> vectors, Ravelin::Vector
   }
 }
 
-inline std::vector<Ravelin::Vector3d> CCD::create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, Ravelin::Vector3d axis, Ravelin::Transform3d wTv)
+inline void CCD::create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, const Ravelin::Vector3d& axis, const Ravelin::Transform3d& wTv, std::vector<Ravelin::Vector3d>& ch_vectors)
 {
   std::vector <boost::shared_ptr<Polyhedron::Vertex> > visited_vertices;
   std::queue <boost::shared_ptr<Polyhedron::Vertex> > search_list;
-  std::vector<Ravelin::Vector3d> ch_vectors;
 
-
-    //adding the first projection into the map and list
+  //adding the first projection into the map and list
   search_list.push(start_vert);
   Ravelin::Vector3d v(start_vert->o,wTv.source);
   Ravelin::Vector3d vw = wTv.transform_point(v);
   visited_vertices.push_back(start_vert);
   ch_vectors.push_back(vw);
 
-    //create testing plane
+  //create testing plane
   Plane test_plane(axis,vw);
 
   while(!search_list.empty())
@@ -172,12 +170,414 @@ inline std::vector<Ravelin::Vector3d> CCD::create_convex_hull_list(boost::shared
       }
     }
   }
-  return ch_vectors;
 }
 
 /// Finds contacts between two polyhedra
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+{
+  const double INF = std::numeric_limits<double>::max();
+  std::vector<std::pair<Ravelin::Vector3d, double> > hs;
+  enum FeatureType { eNone, eVertex, eEdge, eFace };
+  FeatureType featA = eNone, featB = eNone;
+  std::vector<Point3d> verts;
+  boost::shared_ptr<Polyhedron::Vertex> vA, vB;
+  boost::shared_ptr<Polyhedron::Edge> eA, eB;
+  boost::shared_ptr<Polyhedron::Face> fA, fB;
+  TessellatedPolyhedronPtr tpoly;
+  boost::shared_ptr<Ravelin::Pose2d> GLOBAL_2D;
+
+  // get the two primitives
+  boost::shared_ptr<const PolyhedralPrimitive> pA = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgA->get_geometry());
+  boost::shared_ptr<const PolyhedralPrimitive> pB = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgB->get_geometry());
+
+  // get the two polyhedra
+  const Polyhedron& polyA = pA->get_polyhedron();
+  const Polyhedron& polyB = pB->get_polyhedron();
+
+  // get the two poses
+  boost::shared_ptr<const Ravelin::Pose3d> poseA = pA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> poseB = pB->get_pose(cgB);
+
+  // get transforms to global frame
+  Ravelin::Transform3d wTa = Ravelin::Pose3d::calc_relative_pose(poseA, GLOBAL);
+  Ravelin::Transform3d wTb = Ravelin::Pose3d::calc_relative_pose(poseB, GLOBAL);
+
+  // call v-clip
+  boost::shared_ptr<const Polyhedron::Feature> closestA;
+  boost::shared_ptr<const Polyhedron::Feature> closestB;
+  double dist = Polyhedron::vclip(pA, pB, poseA, poseB, closestA, closestB);
+  FILE_LOG(LOG_COLDET) << "v-clip reports distance of " << dist << std::endl;
+
+  // see whether to generate contacts
+  if (dist > TOL)
+    return output_begin;
+
+  // The normal, which will be the vector of translation, and the contact plane.
+  Ravelin::Vector3d normal;
+  Plane contact_plane;
+
+  // Determine the vector to translate the geometries. This vector defines
+  // the contact plane. Once the geometries are translated, all vertices on the
+  // contact plane are treated as being on the contact manifold.
+  if (dist > 0.0)
+  {
+    // Get points from the closest features
+    Ravelin::Origin3d closest_pointA = get_arbitrary_point(closestA);
+    Ravelin::Origin3d closest_pointB = get_arbitrary_point(closestB);
+
+    // Setup the normal in the global frame
+    Point3d closestAw = wTa.transform_point(Point3d(closest_pointA, poseA));
+    Point3d closestBw = wTb.transform_point(Point3d(closest_pointB, poseB));
+    normal =  closestAw - closestBw;
+    normal.normalize();
+    contact_plane.set_normal(normal);
+    contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
+  }
+  else
+  {
+    // TODO: remove the next line when we're confident that SAT works
+    assert(false);
+
+    // Bjoern: do the separating axis test here. I've commented our hybrid
+    // code because it wasn't yet compiling at the moment.
+
+    /*
+    // Compute first set of testing vectors from face normals
+    std::vector<Ravelin::Vector3d> test_vectors;
+    const std::vector<boost::shared_ptr<Polyhedron::Face> >& fA = polyA.get_faces();
+    const std::vector<boost::shared_ptr<Polyhedron::Face> >& fB = polyB.get_faces();
+    for (unsigned i=0; i< fA.size(); i++)
+      test_vectors.push_back(wTa.transform_vector(Ravelin::Vector3d(fA[i]->get_plane().get_normal(), poseA)));
+    for (unsigned i=0; i< fB.size(); i++)
+      test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal(), poseB)));
+
+    // create testing axes (edges from A, edges from B, and their cross product)
+    std::vector<Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
+    std::vector<Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
+    for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin(); evAi != evA.end(); ++evAi) {
+      for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin(); evBi != evB.end(); ++evBi) {
+        Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
+        double nrm = xv.norm();
+        if (nrm > NEAR_ZERO) {
+          xv /= nrm;
+          test_vectors.push_back(xv);
+        }
+      }
+    }
+    test_vectors.insert(test_vectors.end(), evA.begin(), evA.end());
+    test_vectors.insert(test_vectors.end(), evB.begin(), evB.end());
+
+    // ***********************************************************************
+    // find the minimum overlap
+    // ***********************************************************************
+    double min_overlap = std::numeric_limits<double>::max();
+    Ravelin::Vector3d min_axis;
+    boost::shared_ptr <Polyhedron::Vertex> a_vertex, b_vertex;
+    int direction = 1;
+    for (std::vector<Ravelin::Vector3d>::iterator test_i = test_vectors.begin(); test_i != test_vectors.end(); ++test_i) {
+      double min_a, max_a, min_b, max_b;
+      boost::shared_ptr <Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
+      int min_index_a, min_index_b, max_index_a, max_index_b;
+
+      // projecting shapes to axis
+      project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
+      project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
+
+      double o1 = max_a - min_b;
+      double o2 = max_b - min_a;
+
+      if (o1 > NEAR_ZERO && o2 > NEAR_ZERO) {
+        // there is an overlap
+        double overlap = std::min(o1, o2);
+        boost::shared_ptr <Polyhedron::Vertex> v1, v2;
+
+        if (min_overlap - overlap > NEAR_ZERO) {
+          min_overlap = overlap;
+          min_axis = *test_i;
+          if (fabs(overlap - o1) > NEAR_ZERO) {
+            a_vertex = vAa[max_index_a];
+            b_vertex = vBb[min_index_b];
+            direction = 1;
+          } else {
+            b_vertex = vBb[max_index_b];
+            a_vertex = vAa[min_index_a];
+            direction = -1;
+          }
+        }
+      }
+    }
+*/
+
+    // ensure that the distance is negated
+
+  }
+
+  // TODO: do we need to call v-clip to find closest points (for when bodies are intersecting), but after they have been pushed apart to a kissing configuration?
+  // TODO: setup the contact plane for intersecting bodies
+  // TODO: figure out what is the case for distance zero
+  // TODO: ensure that normal offset method works properly for intersecting bodies
+  const double HALF_DIST = dist * 0.5;
+
+  // Determine the vertices from A that are on the contact plane.
+  const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
+  for (unsigned i=0; i< vertsA.size(); i++)
+  {
+    // project the point toward the plane
+    Point3d point = wTa.transform_point(Point3d(vertsA[i]->o, poseA)) - normal*HALF_DIST;
+    if (contact_plane.calc_signed_distance(point) < NEAR_ZERO)
+      verts.push_back(point);
+  }
+
+  // Determine the vertices from B that are on the contact plane
+  const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
+  for (unsigned i=0; i< vertsB.size(); i++)
+  {
+    // project the point toward the plane
+    Point3d point = wTb.transform_point(Point3d(vertsB[i]->o, poseB)) + normal*HALF_DIST;
+    if (contact_plane.calc_signed_distance(point) < NEAR_ZERO)
+      verts.push_back(point);
+  }
+
+  // Compute the convex hull of all vertices on the contact plane
+  std::vector<Point3d> isect;
+  CompGeom::calc_convex_hull(verts.begin(), verts.end(), normal, std::back_inserter(isect));
+
+  // Output the points.
+  for (unsigned i = 0; i < isect.size(); i++)
+    *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist);
+
+  /*
+  // case #1: attempt to use volume of intersection
+  if (dist <= 0.0) {
+    // initialize
+    std::vector <boost::shared_ptr<Polyhedron::Edge> >
+        edgesA = polyA.get_edges();
+    std::vector <boost::shared_ptr<Polyhedron::Edge> >
+        edgesB = polyB.get_edges();
+    std::vector <boost::shared_ptr<Polyhedron::Vertex> >
+        vAa = polyA.get_vertices();
+    std::vector <boost::shared_ptr<Polyhedron::Vertex> >
+        vBb = polyB.get_vertices();
+
+    std::vector <Ravelin::Vector3d> vector_a;
+    BOOST_FOREACH(boost::shared_ptr < Polyhedron::Vertex > vertex, vAa)
+    {
+      Ravelin::Vector3d v(vertex->o, wTa.source);
+      Ravelin::Vector3d vw = wTa.transform_point(v);
+      vector_a.push_back(vw);
+    }
+    std::vector <Ravelin::Vector3d> vector_b;
+    BOOST_FOREACH(boost::shared_ptr < Polyhedron::Vertex > vertex, vBb)
+    {
+      Ravelin::Vector3d v(vertex->o, wTb.source);
+      Ravelin::Vector3d vw = wTb.transform_point(v);
+      vector_b.push_back(vw);
+    }
+
+    // create testing axes (edges from A, edges from B, and their cross product)
+    std::vector <Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
+    std::vector <Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
+    std::vector <Ravelin::Vector3d> test_vectors;
+    for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
+         evAi != evA.end(); ++evAi) {
+      for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();
+           evBi != evB.end(); ++evBi) {
+        Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
+        if (xv.norm() > NEAR_ZERO) {
+          xv.normalize();
+          test_vectors.push_back(xv);
+        }
+      }
+    }
+    test_vectors.insert(test_vectors.end(), evA.begin(), evA.end());
+    test_vectors.insert(test_vectors.end(), evB.begin(), evB.end());
+
+    // ***********************************************************************
+    // find the minimum overlap
+    // ***********************************************************************
+    double min_overlap = std::numeric_limits<double>::max();
+    Ravelin::Vector3d min_axis;
+    boost::shared_ptr <Polyhedron::Vertex> a_vertex, b_vertex;
+    int direction = 1;
+    for (std::vector<Ravelin::Vector3d>::iterator test_i = test_vectors.begin();
+         test_i != test_vectors.end(); ++test_i) {
+      double min_a, max_a, min_b, max_b;
+      boost::shared_ptr <Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
+      int min_index_a, min_index_b, max_index_a, max_index_b;
+
+      // projecting shapes to axis
+      project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
+      project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
+
+      double o1 = max_a - min_b;
+      double o2 = max_b - min_a;
+
+      if (o1 > NEAR_ZERO && o2 > NEAR_ZERO) {
+        // there is an overlap
+        double overlap = std::min(o1, o2);
+        boost::shared_ptr <Polyhedron::Vertex> v1, v2;
+
+        if (min_overlap - overlap > NEAR_ZERO) {
+          min_overlap = overlap;
+          min_axis = *test_i;
+          if (fabs(overlap - o1) > NEAR_ZERO) {
+            a_vertex = vAa[max_index_a];
+            b_vertex = vBb[min_index_b];
+            direction = 1;
+          } else {
+            b_vertex = vBb[max_index_b];
+            a_vertex = vAa[min_index_a];
+            direction = -1;
+          }
+        }
+      }
+    }
+
+    // feature search for two polyhedron 
+    min_axis = min_axis * direction;
+    std::vector <Ravelin::Vector3d> ch_vectors_a, ch_vectors_b;
+    create_convex_hull_list(a_vertex, min_axis, wTa, ch_vectors_a);
+
+    // project b (to what?)
+    Ravelin::Vector3d trans_v = (min_axis * min_overlap);
+    Ravelin::Origin3d trans_o(trans_v.x(), trans_v.y(), trans_v.z());
+    Ravelin::Transform3d sep_trans(trans_o);
+    Ravelin::Transform3d w_1Tb = sep_trans * wTb;
+    create_convex_hull_list(b_vertex, min_axis, w_1Tb, ch_vectors_b);
+
+    std::vector <Ravelin::Vector3d> ch_a, ch_b;
+    std::vector <Ravelin::Vector3d> isect;
+    if (ch_vectors_a.size() == 1) {
+      isect.push_back(ch_vectors_a.front());
+    } else if (ch_vectors_a.size() == 2) {
+
+      Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(min_axis);
+      double offset_3d =
+          CompGeom::determine_3D_to_2D_offset(ch_vectors_a[0], _2DT3D);
+      std::vector <Ravelin::Origin2d> ch_2D_a, ch_2D_b;
+      for (std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_a.begin();
+           chvi != ch_vectors_a.end(); ++chvi) {
+        ch_2D_a.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+      }
+      for (std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_b.begin();
+           chvi != ch_vectors_b.end(); ++chvi) {
+        ch_2D_b.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+      }
+
+      LineSeg2
+          seg_a(Point2d(ch_2D_a[0], GLOBAL_2D), Point2d(ch_2D_a[1], GLOBAL_2D));
+
+      std::vector <Point2d> ch_b;
+      std::vector <LineSeg2> isect2;
+      CompGeom::calc_convex_hull(ch_2D_b.begin(), ch_2D_b.end(), ch_b.begin());
+
+      if (!CompGeom::ccw(ch_b.begin(), ch_b.end())) {
+        std::reverse(ch_b.begin(), ch_b.end());
+      }
+      CompGeom::intersect_seg_polygon(ch_b.begin(),
+                                      ch_b.end(),
+                                      seg_a,
+                                      isect2.begin());
+
+      for (std::vector<LineSeg2>::iterator chvi = isect2.begin();
+           chvi != isect2.end(); ++chvi) {
+        LineSeg2 l = *chvi;
+        Ravelin::Vector2d v = l.first;
+        Ravelin::Origin2d o(v.x(), v.y());
+        isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o,
+                                                          _2DT3D.inverse(),
+                                                          offset_3d), GLOBAL));
+        v = l.second;
+        o = Ravelin::Origin2d(v.x(), v.y());
+        isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o,
+                                                          _2DT3D.inverse(),
+                                                          offset_3d), GLOBAL));
+      }
+
+    } else {
+      if (ch_vectors_b.size() == 1) {
+        isect.push_back(ch_vectors_b[0]);
+      } else if (ch_vectors_b.size() == 2) {
+
+        Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(min_axis);
+        double offset_3d =
+            CompGeom::determine_3D_to_2D_offset(ch_vectors_b[0], _2DT3D);
+        std::vector <Ravelin::Origin2d> ch_2D_a, ch_2D_b;
+        for (std::vector<Ravelin::Vector3d>::iterator
+                 chvi = ch_vectors_a.begin(); chvi != ch_vectors_a.end();
+             ++chvi) {
+          ch_2D_a.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+        }
+        for (std::vector<Ravelin::Vector3d>::iterator
+                 chvi = ch_vectors_b.begin(); chvi != ch_vectors_b.end();
+             ++chvi) {
+          ch_2D_b.push_back(CompGeom::to_2D(*chvi, _2DT3D));
+        }
+
+        LineSeg2 seg_b
+            (Point2d(ch_2D_b[0], GLOBAL_2D), Point2d(ch_2D_b[1], GLOBAL_2D));
+
+        std::vector <Point2d> ch_a;
+        std::vector <LineSeg2> isect2;
+        CompGeom::calc_convex_hull(ch_2D_a.begin(),
+                                   ch_2D_a.end(),
+                                   ch_a.begin());
+
+        if (!CompGeom::ccw(ch_a.begin(), ch_a.end())) {
+          std::reverse(ch_a.begin(), ch_a.end());
+        }
+        CompGeom::intersect_seg_polygon(ch_a.begin(),
+                                        ch_a.end(),
+                                        seg_b,
+                                        isect2.begin());
+
+        for (std::vector<LineSeg2>::iterator chvi = isect2.begin();
+             chvi != isect2.end(); ++chvi) {
+          LineSeg2 l = *chvi;
+          Ravelin::Vector2d v = l.first;
+          Ravelin::Origin2d o(v.x(), v.y());
+          isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o,
+                                                            _2DT3D.inverse(),
+                                                            offset_3d),
+                                            GLOBAL));
+          v = l.second;
+          o = Ravelin::Origin2d(v.x(), v.y());
+          isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o,
+                                                            _2DT3D.inverse(),
+                                                            offset_3d),
+                                            GLOBAL));
+        }
+
+      } else {
+        CompGeom::calc_convex_hull(ch_vectors_a.begin(),
+                                   ch_vectors_a.end(),
+                                   min_axis,
+                                   std::back_inserter(ch_a));
+        CompGeom::calc_convex_hull(ch_vectors_b.begin(),
+                                   ch_vectors_b.end(),
+                                   min_axis,
+                                   std::back_inserter(ch_b));
+        CompGeom::intersect_convex_polygons(ch_vectors_a.begin(),
+                                            ch_vectors_a.end(),
+                                            ch_vectors_b.begin(),
+                                            ch_vectors_b.end(),
+                                            min_axis,
+                                            isect.begin());
+      }
+    }
+
+    for (unsigned i = 0; i < isect.size(); i++)
+      *output_begin++ =
+          create_contact(cgA, cgB, isect[i], min_axis, -min_overlap);
+  }
+*/
+  return output_begin;
+}
+
+/// Finds contacts between two polyhedra
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_polyhedron_polyhedron_soft(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   const double INF = std::numeric_limits<double>::max();
   std::vector<std::pair<Ravelin::Vector3d, double> > hs;
@@ -213,208 +613,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
 
   // see whether to generate contacts
   if (dist > TOL)
-    return output_begin; 
-
-  // case #1: attempt to use volume of intersection
-  if (dist <= 0.0)
-  {
-// NOTE: this is Bjoern's SAT based code
-/*
-    // initialize
-    std::vector<boost::shared_ptr<Polyhedron::Edge> > edgesA = polyA.get_edges();
-    std::vector<boost::shared_ptr<Polyhedron::Edge> > edgesB = polyB.get_edges();
-    std::vector<boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
-    std::vector<boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
-
-    std::vector<Ravelin::Vector3d> vector_a;
-    BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> vertex,vAa)
-    {
-      Ravelin::Vector3d v(vertex->o,wTa.source);
-      Ravelin::Vector3d vw = wTa.transform_point(v);
-      vector_a.push_back(vw);
-    }
-    std::vector<Ravelin::Vector3d> vector_b;
-    BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> vertex,vBb)
-    {
-      Ravelin::Vector3d v(vertex->o,wTb.source);
-      Ravelin::Vector3d vw = wTb.transform_point(v);
-      vector_b.push_back(vw);
-    }
-
-    // create testing axis (edges from A, edges from B, and their cross product)
-    std::vector<Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
-    std::vector<Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
-    std::vector<Ravelin::Vector3d> test_vectors;
-    for(std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin(); evAi != evA.end() ; ++evAi)
-    {
-      for(std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin(); evBi != evB.end() ; ++evBi)
-      {
-        Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi,*evBi);
-        xv.normalize();
-        test_vectors.push_back(xv);
-      }
-    }
-    test_vectors.insert(test_vectors.end(), evA.begin(), evA.end());
-    test_vectors.insert(test_vectors.end(), evB.begin(), evB.end());
-
-    //find the minimum overlap
-    double min_overlap = std::numeric_limits<double>::max();
-    Ravelin::Vector3d min_axis;
-    boost::shared_ptr<Polyhedron::Vertex> a_vertex, b_vertex;
-    int direction = 1;
-    for(std::vector<Ravelin::Vector3d>::iterator test_i = test_vectors.begin(); test_i != test_vectors.end() ; ++test_i)
-    {
-      double min_a, max_a, min_b, max_b;
-      boost::shared_ptr<Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
-      int min_index_a, min_index_b, max_index_a, max_index_b;
-
-      // projecting shapes to axis
-      project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
-      project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
-
-
-      double o1 = max_a - min_b;
-      double o2 = max_b - min_a;
-
-      if ( o1 > NEAR_ZERO && o2 > NEAR_ZERO)
-      {
-        // there is an overlap
-        double overlap = std::min(o1,o2);
-        boost::shared_ptr<Polyhedron::Vertex> v1,v2;
-        
-        if( min_overlap - overlap > NEAR_ZERO)
-        {
-          min_overlap = overlap;
-          min_axis = *test_i;
-          if(fabs(overlap - o1) > NEAR_ZERO)
-          { 
-            a_vertex = vAa[max_index_a];
-            b_vertex = vBb[min_index_b];
-            direction = 1;
-          }
-          else
-          {
-            b_vertex = vBb[max_index_b];
-            a_vertex = vAa[min_index_a];
-            direction = -1;
-          }
-        }
-      }
-    }
-
-    // feature search for two polyhedron 
-    min_axis = min_axis*direction;
-    std::vector<Ravelin::Vector3d> ch_vectors_a = create_convex_hull_list( a_vertex, min_axis, wTa);
-
-    //projecting b
-    Ravelin::Vector3d trans_v = (min_axis * min_overlap);
-    Ravelin::Origin3d trans_o(trans_v.x(), trans_v.y(), trans_v.z());
-    Ravelin::Transform3d sep_trans(trans_o);
-    Ravelin::Transform3d w_1Tb = sep_trans*wTb;
-
-    std::vector<Ravelin::Vector3d> ch_vectors_b = create_convex_hull_list( b_vertex, min_axis, w_1Tb);
-
-    std::vector<Ravelin::Vector3d> ch_a, ch_b;
-    std::vector<Ravelin::Vector3d> isect;
-    if(ch_vectors_a.size()==1)
-    {
-      isect.push_back(ch_vectors_a[0]);
-    }
-    else if(ch_vectors_a.size()== 2)
-    {
-
-      Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(min_axis);
-      double offset_3d = CompGeom::determine_3D_to_2D_offset(ch_vectors_a[0], _2DT3D);
-      std::vector<Ravelin::Origin2d> ch_2D_a, ch_2D_b;
-      for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_a.begin(); chvi != ch_vectors_a.end(); ++chvi)
-      {
-        ch_2D_a.push_back(CompGeom::to_2D(*chvi, _2DT3D));
-      }
-      for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_b.begin(); chvi != ch_vectors_b.end(); ++chvi)
-      {
-        ch_2D_b.push_back(CompGeom::to_2D(*chvi, _2DT3D));
-      }
-
-      LineSeg2 seg_a(Point2d(ch_2D_a[0],GLOBAL_2D), Point2d(ch_2D_a[1],GLOBAL_2D));
-
-      std::vector<Point2d> ch_b;
-      std::vector<LineSeg2> isect2;
-      CompGeom::calc_convex_hull(ch_2D_b.begin(), ch_2D_b.end(), ch_b.begin());
-      
-      if(!CompGeom::ccw(ch_b.begin(),ch_b.end())){
-        std::reverse(ch_b.begin(),ch_b.end());
-      }
-      CompGeom::intersect_seg_polygon(ch_b.begin(), ch_b.end(), seg_a, isect2.begin());
-
-      for(std::vector<LineSeg2>::iterator chvi = isect2.begin(); chvi != isect2.end(); ++chvi)
-      {
-        LineSeg2 l = *chvi;
-        Ravelin::Vector2d v=l.first;
-        Ravelin::Origin2d o(v.x(),v.y());
-        isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
-        v = l.second;
-        o = Ravelin::Origin2d(v.x(),v.y());
-        isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
-      }
-
-    }
-    else
-    {
-      if(ch_vectors_b.size()==1)
-      {
-        isect.push_back(ch_vectors_b[0]);
-      }
-      else if(ch_vectors_b.size()== 2)
-      {
-
-        Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(min_axis);
-        double offset_3d = CompGeom::determine_3D_to_2D_offset(ch_vectors_b[0], _2DT3D);
-        std::vector<Ravelin::Origin2d> ch_2D_a, ch_2D_b;
-        for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_a.begin(); chvi != ch_vectors_a.end(); ++chvi)
-        {
-          ch_2D_a.push_back(CompGeom::to_2D(*chvi, _2DT3D));
-        }
-        for(std::vector<Ravelin::Vector3d>::iterator chvi = ch_vectors_b.begin(); chvi != ch_vectors_b.end(); ++chvi)
-        {
-          ch_2D_b.push_back(CompGeom::to_2D(*chvi, _2DT3D));
-        }
-
-        LineSeg2 seg_b(Point2d(ch_2D_b[0],GLOBAL_2D), Point2d(ch_2D_b[1],GLOBAL_2D));
-
-        std::vector<Point2d> ch_a;
-        std::vector<LineSeg2> isect2;
-        CompGeom::calc_convex_hull(ch_2D_a.begin(), ch_2D_a.end(), ch_a.begin());
-        
-        if(!CompGeom::ccw(ch_a.begin(),ch_a.end())){
-          std::reverse(ch_a.begin(),ch_a.end());
-        }
-        CompGeom::intersect_seg_polygon(ch_a.begin(), ch_a.end(), seg_b, isect2.begin());
-
-        for(std::vector<LineSeg2>::iterator chvi = isect2.begin(); chvi != isect2.end(); ++chvi)
-        {
-          LineSeg2 l = *chvi;
-          Ravelin::Vector2d v=l.first;
-          Ravelin::Origin2d o(v.x(),v.y());
-          isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
-          v = l.second;
-          o = Ravelin::Origin2d(v.x(),v.y());
-          isect.push_back(Ravelin::Vector3d(CompGeom::to_3D(o, _2DT3D.inverse(),offset_3d),GLOBAL));
-        }
-
-      }
-      else{
-        CompGeom::calc_convex_hull(ch_vectors_a.begin(), ch_vectors_a.end(), min_axis, std::back_inserter(ch_a));
-        CompGeom::calc_convex_hull(ch_vectors_b.begin(), ch_vectors_b.end(), min_axis, std::back_inserter(ch_b));
-        CompGeom::intersect_convex_polygons(ch_vectors_a.begin(), ch_vectors_a.end(), ch_vectors_b.begin(), ch_vectors_b.end(), min_axis, isect.begin());
-      }
-    }
-
-    for (unsigned i=0; i< isect.size(); i++)
-        *output_begin++ = create_contact(cgA, cgB, isect[i], min_axis, -min_overlap);
-
     return output_begin;
-*/
 
+  if (dist < 0.0)
+  {
     // NOTE: this is Evan's LP based implementation
     // get the halfspaces
     PolyhedralPrimitive::get_halfspaces(polyA, poseA, wTa, std::back_inserter(hs));
@@ -1062,7 +1264,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     Point3d p(CompGeom::to_3D(Ravelin::Origin2d(isect[i]), RT, o), GLOBAL);
     *output_begin++ = create_contact(cgA, cgB, p, d, dist);
   }
-  return output_begin; 
+  return output_begin;
+
 /*
   // check possibilities here
   if (pointsA.size() == 1)
