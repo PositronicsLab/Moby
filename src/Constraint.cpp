@@ -493,7 +493,9 @@ void Constraint::apply_impulses(const VectorNd& x, map<shared_ptr<DynamicBodyd>,
              contact_tan2 * std::sin(SCAL * i) * x[1 + HALF_NK + i];
     }
     #else
-    if (contact_mu_coulomb > 0.0)
+    if (contact_mu_coulomb >= NO_SLIP_COEFF)
+      j += contact_tan1 * x[1] + contact_tan2 * x[2];
+    else if (contact_mu_coulomb > 0.0)
     {
       j += contact_tan1 * x[1] - contact_tan1 * x[2];
       j += contact_tan2 * x[3] - contact_tan2 * x[4]; 
