@@ -119,7 +119,7 @@ class CCD : public CollisionDetection
 
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
 
-    void project(std::vector<Ravelin::Vector3d> vectors, Ravelin::Vector3d axis, double &min_dot, double &max_dot, int &min_index, int &max_index);
+    void project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index);
 
     void create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, const Ravelin::Vector3d& axis, const Ravelin::Transform3d& wTv, std::vector<Ravelin::Vector3d>& ch_vertices);
 

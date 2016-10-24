@@ -102,23 +102,27 @@ inline std::vector<Ravelin::Vector3d> CCD::create_edge_vector(const std::vector<
   return edge_vectors;
 }
 
-inline void CCD::project(std::vector<Ravelin::Vector3d> vectors, Ravelin::Vector3d axis, double &min_dot, double &max_dot, int &min_index, int &max_index)
+inline void CCD::project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index)
 {
-  for(int i = 0 ; i < vectors.size(); ++i)
+  // initialize outputs to indicator and safe values
+  min_index = max_index = std::numeric_limits<unsigned>::max();
+  min_dot = std::numeric_limits<double>::max();
+  max_dot = -std::numeric_limits<double>::max();
+
+  for(unsigned i = 0 ; i < vectors.size(); ++i)
   {
     double value = axis.dot(vectors[i]);
-    if (!min_dot || value < min_dot)
+    if (value < min_dot)
     {
       min_dot = value;
       min_index = i;
     }
 
-    if(!max_dot || value > max_dot)
+    if (value > max_dot)
     {
       max_dot = value;
       max_index = i;
     }
-
   }
 }
 
@@ -258,6 +262,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       }
     }
 
+    // TODO: speed up axis tests by removing duplicate and anti-parallel vectors
+
     // create Vector3d for all vertices
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
@@ -287,11 +293,11 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     for (std::vector<Ravelin::Vector3d>::iterator test_i = test_vectors.begin(); test_i != test_vectors.end(); ++test_i) {
       double min_a, max_a, min_b, max_b;
       boost::shared_ptr <Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
-      int min_index_a, min_index_b, max_index_a, max_index_b;
+      unsigned min_index_a, min_index_b, max_index_a, max_index_b;
 
       // project vertices onto the candidate axis
-      // NOTE: this could be done in lg n time of the number of vertices rather
-      // than 
+      // NOTE: this could be done in O(lg n) time of the number of vertices rather
+      // than the current O(n) time operation.
       project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
       project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
 
@@ -310,11 +316,15 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           if (fabs(overlap - o1) > NEAR_ZERO) {
             direction = -1;
             a_vertex = vAa[max_index_a];
+            assert(a_vertex);
             b_vertex = vBb[min_index_b];
+            assert(b_vertex);
           } else {
             direction = 1;
             b_vertex = vBb[max_index_b];
+            assert(b_vertex);
             a_vertex = vAa[min_index_a];
+            assert(a_vertex);
           }
         }
       }
