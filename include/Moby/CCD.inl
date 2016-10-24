@@ -246,51 +246,77 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     for (unsigned i=0; i< fB.size(); i++)
       test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
 
-    // create testing axes (cross-products of edges from A and B)
-    const std::vector<boost::shared_ptr<Polyhedron::Edge> >& edgesA = polyA.get_edges();
-    const std::vector<boost::shared_ptr<Polyhedron::Edge> >& edgesB = polyB.get_edges();
-    std::vector<Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
-    std::vector<Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
-    for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin(); evAi != evA.end(); ++evAi) {
-      for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin(); evBi != evB.end(); ++evBi) {
-        Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
-        double nrm = xv.norm();
-        if (nrm > NEAR_ZERO) {
-          xv /= nrm;
-          test_vectors.push_back(xv);
-        }
-      }
-    }
-
-    // TODO: speed up axis tests by removing duplicate and anti-parallel vectors
+    // speed up axis tests by removing duplicate and anti-parallel vectors
     std::vector<Ravelin::Vector3d>::iterator tvi = test_vectors.begin();
-    
     while (tvi != test_vectors.end()){
-      
+
+      // copy the iterator and advance it
       Ravelin::Vector3d vi = *tvi;
       std::vector<Ravelin::Vector3d>::iterator tvii = tvi;
-
       ++tvii;
+
       while(tvii != test_vectors.end()){
 
         Ravelin::Vector3d vii = *tvii;
-        
-        if(fabs(fabs(vi.dot(vii))-1) < NEAR_ZERO){
-          
+
+        if (std::fabs(std::fabs(vi.dot(vii))-1.0) < NEAR_ZERO) {
           // No need to increment tvii because new one is returned
           tvii = test_vectors.erase(tvii);
-
         }
         else{
           ++tvii;
         }
-
       }
-      
-
       tvi++;
     }
 
+    // if we have more than 100 vectors, don't worry about cross products
+    if (test_vectors.size() < 100) {
+      std::vector<Ravelin::Vector3d> ee_test_vectors;
+
+      // create testing axes (cross-products of edges from A and B)
+      const std::vector <boost::shared_ptr<Polyhedron::Edge> >
+          &edgesA = polyA.get_edges();
+      const std::vector <boost::shared_ptr<Polyhedron::Edge> >
+          &edgesB = polyB.get_edges();
+      std::vector <Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
+      std::vector <Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
+      for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
+           evAi != evA.end(); ++evAi) {
+        for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();
+             evBi != evB.end(); ++evBi) {
+          Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
+          double nrm = xv.norm();
+          if (nrm > NEAR_ZERO) {
+            xv /= nrm;
+            ee_test_vectors.push_back(xv);
+          }
+        }
+      }
+
+      // speed up axis tests by removing duplicate and anti-parallel vectors
+      tvi = test_vectors.begin();
+      while (tvi != test_vectors.end()){
+
+        // get an iterator from the edge/edge tests
+        std::vector<Ravelin::Vector3d>::iterator evi = ee_test_vectors.begin();
+
+        while(evi != ee_test_vectors.end()){
+
+          if (std::fabs(std::fabs(tvi->dot(*evi))-1.0) < NEAR_ZERO) {
+            // No need to increment tvii because new one is returned
+            evi = ee_test_vectors.erase(evi);
+          }
+          else{
+            ++evi;
+          }
+        }
+        tvi++;
+      }
+
+      // now add the two sets together
+      test_vectors.insert(test_vectors.end(), ee_test_vectors.begin(), ee_test_vectors.end());
+    }
 
     // create Vector3d for all vertices
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
