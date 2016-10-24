@@ -478,8 +478,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       } else {
         // A represents a line seg; intersect the line segment with the polygon.
         double te, tl;
-        if (!CompGeom::intersect_seg_convex_polygon(convhull_a.begin(),
-                                               convhull_a.end(),
+        if (!CompGeom::intersect_seg_convex_polygon(convhull_b.begin(),
+                                               convhull_b.end(),
                                                normal,
                                                endpointsA, te, tl)) {
           // In the case of no intersection, we _should_ log an error message so
