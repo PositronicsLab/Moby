@@ -76,6 +76,7 @@ class CCD : public CollisionDetection
     double calc_next_CA_Euler_step_polyhedron_plane(const PairwiseDistInfo& pdi, double epsilon);
     double calc_next_CA_Euler_step_polyhedron_polyhedron(const PairwiseDistInfo& pdi, double epsilon);
     static Ravelin::Origin3d get_arbitrary_point(boost::shared_ptr<const Polyhedron::Feature> feat);
+    static void find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, boost::shared_ptr<const Polyhedron::Feature> fB, Point3d& pA, Point3d& pB, Ravelin::Transform3d wTa, Ravelin::Transform3d wTb);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct

@@ -222,13 +222,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   // contact plane are treated as being on the contact manifold.
   if (dist > 0.0)
   {
-    // Get points from the closest features
-    Ravelin::Origin3d closest_pointA = get_arbitrary_point(closestA);
-    Ravelin::Origin3d closest_pointB = get_arbitrary_point(closestB);
 
     // Setup the normal in the global frame
-    Point3d closestAw = wTa.transform_point(Point3d(closest_pointA, poseA));
-    Point3d closestBw = wTb.transform_point(Point3d(closest_pointB, poseB));
+    Point3d closestAw, closestBw;
+    find_closest_points(closestA, closestB, closestAw, closestBw, wTa, wTb);
     normal =  closestAw - closestBw;
     normal.normalize();
     contact_plane.set_normal(normal);
