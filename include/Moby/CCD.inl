@@ -313,9 +313,12 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           min_axis = *test_i;
           if (fabs(overlap - o1) > NEAR_ZERO) {
             direction = -1;
+            a_vertex = vAa[max_index_a];
+            b_vertex = vBb[min_index_b];
           } else {
             direction = 1;
-          
+            b_vertex = vBb[max_index_b];
+            a_vertex = vAa[min_index_a];
           }
         }
       }
@@ -324,7 +327,11 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     // ensure that the distance is negated
     assert(min_overlap >= 0.0);
     dist = -min_overlap;
-    normal = min_axis * direction;
+    Point3d closestAw = wTa.transform_point(Point3d(a_vertex->o, poseA));
+    Point3d closestBw = wTb.transform_point(Point3d(b_vertex->o, poseB));
+    normal =  closestAw - closestBw;
+    contact_plane.set_normal(normal);
+    contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
   }
 
   // TODO: do we need to call v-clip to find closest points (for when bodies are intersecting), but after they have been pushed apart to a kissing configuration?
@@ -334,14 +341,18 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   const double HALF_DIST = dist * 0.5;
 
   // Determine the vertices from A that are on the contact plane.
+  std::vector<Point3d> vertsA_on_contact,vertsB_on_contact;
+
+
   const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
   for (unsigned i=0; i< vertsA.size(); i++)
   {
     // project the point toward the plane
     Point3d point = wTa.transform_point(Point3d(vertsA[i]->o, poseA)) - normal*HALF_DIST;
     if (contact_plane.calc_signed_distance(point) < NEAR_ZERO)
-      verts.push_back(point);
+      vertsA_on_contact.push_back(point);
   }
+
 
   // Determine the vertices from B that are on the contact plane
   const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
@@ -350,19 +361,217 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     // project the point toward the plane
     Point3d point = wTb.transform_point(Point3d(vertsB[i]->o, poseB)) + normal*HALF_DIST;
     if (contact_plane.calc_signed_distance(point) < NEAR_ZERO)
-      verts.push_back(point);
+      vertsB_on_contact.push_back(point);
+  }
+
+  
+  std::vector<Point3d> isect;
+  std::vector <Ravelin::Vector3d> convhull_a, convhull_b;
+
+  if (vertsA_on_contact.size() >= 3 && vertsB_on_contact.size() >= 3){
+
+    // area vs. area
+    // We can simply compute the convex hull and intersect them
+   
+    // computing the convex hull of the vertices from A
+    CompGeom::calc_convex_hull(vertsA_on_contact.begin(),
+                                vertsA_on_contact.end(),
+                                normal,
+                                std::back_inserter(convhull_a));
+
+    // check for ccw
+    if (!CompGeom::ccw(convhull_a.begin(), convhull_a.end(),normal)) {
+      std::reverse(convhull_a.begin(), convhull_a.end());
+    }
+
+    // computing the convex hull of the vertices from b
+    CompGeom::calc_convex_hull(vertsB_on_contact.begin(),
+                               vertsB_on_contact.end(),
+                               normal,
+                               std::back_inserter(convhull_b));
+
+
+    // check for ccw
+    if (!CompGeom::ccw(convhull_b.begin(), convhull_b.end(),normal)) {
+      std::reverse(convhull_b.begin(), convhull_b.end());
+    }
+    
+    CompGeom::intersect_convex_polygons(convhull_a.begin(),
+                                        convhull_a.end(),
+                                        convhull_b.begin(),
+                                        convhull_b.end(),
+                                        normal,
+                                        isect.begin());
+  }
+  else if (vertsA_on_contact.size() == 1) {
+  
+    // When there is only one vertex of polyhedron A
+    // The intersection will be that point
+    isect.push_back(vertsA_on_contact.front());
+
+  } else if (vertsB_on_contact.size() == 1) {
+  
+    // When there is only one vertex of polyhedron A
+    // The intersection will be that point
+    isect.push_back(vertsB_on_contact.front());
+  
+  } else if (vertsA_on_contact.size() == 2 && vertsB_on_contact.size() == 2 ) {
+
+    // When both of them are segments
+    // We then intersects the segments to find intersection of them.
+
+    LineSeg3 seg_a(Point3d(vertsA_on_contact[0].data(), GLOBAL), Point3d(vertsA_on_contact[1].data(), GLOBAL));
+    LineSeg3 seg_b(Point3d(vertsA_on_contact[0].data(), GLOBAL), Point3d(vertsA_on_contact[1].data(), GLOBAL));
+
+    Point3d isect1,isect2;
+
+    CompGeom::SegSegIntersectType result = CompGeom::intersect_segs(seg_a, seg_b, isect1, isect2);
+    
+    // Maybe a switch on the result should be used(?)
+
+    if(result != CompGeom::eSegSegNoIntersect){
+      isect.push_back(isect1);
+      if(result == CompGeom::eSegSegEdge){
+        isect.push_back(isect2);        
+      }
+    }
+
+  } else if (vertsA_on_contact.size() == 2){
+
+    // segment A vs polygon B
+    // we then tries to intersect the segment a with polygon B
+    
+
+    // projecting all points to 2d
+    Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(normal);
+    double offset_3d = CompGeom::determine_3D_to_2D_offset(vertsA_on_contact[0], _2DT3D);
+
+    std::vector <Ravelin::Origin2d> verts_2D_a, verts_2D_b;
+
+    for (std::vector<Ravelin::Vector3d>::iterator vAoci = vertsA_on_contact.begin();
+          vAoci != vertsA_on_contact.end(); ++vAoci) {
+      verts_2D_a.push_back(CompGeom::to_2D(*vAoci, _2DT3D));
+    }
+
+    for (std::vector<Ravelin::Vector3d>::iterator vBoci = vertsB_on_contact.begin();
+        vBoci != vertsB_on_contact.end(); ++vBoci) {
+    
+      verts_2D_b.push_back(CompGeom::to_2D(*vBoci, _2DT3D));
+    
+    }
+
+    // create segment A
+    LineSeg2 seg_a(Point2d(verts_2D_a[0], GLOBAL_2D), 
+                    Point2d(verts_2D_a[1], GLOBAL_2D));
+
+    // create the polygon by computing convex hull
+    std::vector <Point2d> convhull_b_2D;
+    std::vector <LineSeg2> isect2;
+    CompGeom::calc_convex_hull(verts_2D_b.begin(), verts_2D_b.end(), 
+                                convhull_b_2D.begin());
+
+    // make sure the list is counter-clock-wise
+    if (!CompGeom::ccw(convhull_b_2D.begin(), convhull_b_2D.end())) {
+      std::reverse(convhull_b_2D.begin(), convhull_b_2D.end());
+    }
+
+    // intersecting the line and the polygon
+    CompGeom::intersect_seg_polygon(convhull_b_2D.begin(), convhull_b_2D.end(),
+                                    seg_a, isect2.begin());
+
+    // projecting the points back to 3d and add them to the list
+    for (std::vector<LineSeg2>::iterator isecti = isect2.begin();
+          isecti != isect2.end(); ++isecti) {
+
+          LineSeg2 l = *isecti;
+
+          Ravelin::Vector2d v = l.first;
+          Ravelin::Origin2d o(v.x(), v.y());
+
+          isect.push_back(Ravelin::Vector3d(
+                          CompGeom::to_3D(o,_2DT3D.inverse(), offset_3d),
+                          GLOBAL));
+
+          v = l.second;
+          o = Ravelin::Origin2d(v.x(), v.y());
+
+          isect.push_back(Ravelin::Vector3d(
+                          CompGeom::to_3D(o, _2DT3D.inverse(), offset_3d), 
+                          GLOBAL));
+    }
+
+} else if (vertsB_on_contact.size() == 2) {
+
+    // segment B vs polygon A
+    // we then tries to intersect the segment B with polygon A
+    
+
+    // projecting all points to 2d
+    Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(normal);
+    double offset_3d = CompGeom::determine_3D_to_2D_offset(vertsA_on_contact[0], _2DT3D);
+
+    std::vector <Ravelin::Origin2d> verts_2D_a, verts_2D_b;
+
+    for (std::vector<Ravelin::Vector3d>::iterator vAoci = vertsA_on_contact.begin();
+          vAoci != vertsA_on_contact.end(); ++vAoci) {
+      verts_2D_a.push_back(CompGeom::to_2D(*vAoci, _2DT3D));
+    }
+
+    for (std::vector<Ravelin::Vector3d>::iterator vBoci = vertsB_on_contact.begin();
+        vBoci != vertsB_on_contact.end(); ++vBoci) {
+    
+      verts_2D_b.push_back(CompGeom::to_2D(*vBoci, _2DT3D));
+    
+    }
+
+    // create segment b
+    LineSeg2 seg_b(Point2d(verts_2D_b[0], GLOBAL_2D), 
+                    Point2d(verts_2D_b[1], GLOBAL_2D));
+
+    // create the polygon by computing convex hull
+    std::vector <Point2d> convhull_a_2D;
+    std::vector <LineSeg2> isect2;
+    CompGeom::calc_convex_hull(verts_2D_a.begin(), verts_2D_a.end(), 
+                                convhull_a_2D.begin());
+
+    // make sure the list is counter-clock-wise
+    if (!CompGeom::ccw(convhull_a_2D.begin(), convhull_a_2D.end())) {
+      std::reverse(convhull_a_2D.begin(), convhull_a_2D.end());
+    }
+
+    // intersecting the line and the polygon
+    CompGeom::intersect_seg_polygon(convhull_a_2D.begin(), convhull_a_2D.end(),
+                                    seg_b, isect2.begin());
+
+    // projecting the points back to 3d and add them to the list
+    for (std::vector<LineSeg2>::iterator isecti = isect2.begin();
+          isecti != isect2.end(); ++isecti) {
+
+          LineSeg2 l = *isecti;
+
+          Ravelin::Vector2d v = l.first;
+          Ravelin::Origin2d o(v.x(), v.y());
+
+          isect.push_back(Ravelin::Vector3d(
+                          CompGeom::to_3D(o,_2DT3D.inverse(), offset_3d),
+                          GLOBAL));
+
+          v = l.second;
+          o = Ravelin::Origin2d(v.x(), v.y());
+
+          isect.push_back(Ravelin::Vector3d(
+                          CompGeom::to_3D(o, _2DT3D.inverse(), offset_3d), 
+                          GLOBAL));
+    }
   }
 
 
-  // Evan: I feel like by computing the convex hull we are not using the correct vertices.
-  // For example, if we have a smaller box on the top of a larger box, we will end up using
-  // the vertices of the large box; however, those points are not in contact with the smaller boxes
-  // Is this a problem?
-  // Compute the convex hull of all vertices on the contact plane
-  std::vector<Point3d> isect;
+
+
+
   CompGeom::calc_convex_hull(verts.begin(), verts.end(), normal, std::back_inserter(isect));
 
-  // Output the points.
+    // Output the points.
   for (unsigned i = 0; i < isect.size(); i++)
     *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist);
 
@@ -694,596 +903,596 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron_soft(CollisionGeometryPt
           for (unsigned j=0; j< planes.size(); j++)
             if (planes[j].first.get_normal().dot(normal_cand) > 1.0 - NEAR_ZERO)
               aligned_with_one = true;
-          if (!aligned_with_one)
-            planes.push_back(std::make_pair(-plane.transform(wTa), true)); 
-        } 
-      }
+            if (!aligned_with_one)
+              planes.push_back(std::make_pair(-plane.transform(wTa), true)); 
+          } 
+        }
 
       // loop over B's faces
-      for (unsigned i=0; i< polyB.get_faces().size(); i++)
-      {
+        for (unsigned i=0; i< polyB.get_faces().size(); i++)
+        {
         // get the plane containing the face; face thinks it is in global frame
         // but it really is in poseB's frame
-        Plane plane = polyB.get_faces()[i]->get_plane();
-        Ravelin::Vector3d nnew = plane.get_normal();
-        nnew.pose = poseB;
-        plane.set_normal(nnew);
+          Plane plane = polyB.get_faces()[i]->get_plane();
+          Ravelin::Vector3d nnew = plane.get_normal();
+          nnew.pose = poseB;
+          plane.set_normal(nnew);
 
         // compute the signed distance from the interior point
         // if signed distance is greater than zero, don't store the vertices 
-        double sdist = plane.calc_signed_distance(ipB);
-        if (std::fabs(sdist) > NEAR_ZERO)
-          continue;
+          double sdist = plane.calc_signed_distance(ipB);
+          if (std::fabs(sdist) > NEAR_ZERO)
+            continue;
 
         // if the normal hasn't been set, set it
-        if (planes.empty())
-          planes.push_back(std::make_pair(plane.transform(wTb), false));
-        else
-        {
+          if (planes.empty())
+            planes.push_back(std::make_pair(plane.transform(wTb), false));
+          else
+          {
           // normal has already been set; make sure normal is aligned with
           // set normal
-          Ravelin::Vector3d normal_cand = wTb.transform_vector(plane.get_normal());
-          bool aligned_with_one = false;
-          for (unsigned j=0; j< planes.size(); j++)
-            if (planes[j].first.get_normal().dot(normal_cand) > 1.0 - NEAR_ZERO)
-              aligned_with_one = true;
-          if (!aligned_with_one)
-            planes.push_back(std::make_pair(plane.transform(wTb), false)); 
-        } 
-      }
+            Ravelin::Vector3d normal_cand = wTb.transform_vector(plane.get_normal());
+            bool aligned_with_one = false;
+            for (unsigned j=0; j< planes.size(); j++)
+              if (planes[j].first.get_normal().dot(normal_cand) > 1.0 - NEAR_ZERO)
+                aligned_with_one = true;
+              if (!aligned_with_one)
+                planes.push_back(std::make_pair(plane.transform(wTb), false)); 
+            } 
+          }
 
       // get all vertices from A and B
-      const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
-      const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
+          const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
+          const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
 
       // now we need to find *exactly* one normal
-      if (planes.empty())
-      {
-        FILE_LOG(LOG_COLDET) << "unable to find normal!" << std::endl;
-        return output_begin;
-      }
-      else if (planes.size() > 1)
-      {
+          if (planes.empty())
+          {
+            FILE_LOG(LOG_COLDET) << "unable to find normal!" << std::endl;
+            return output_begin;
+          }
+          else if (planes.size() > 1)
+          {
         // look for planes with non-zero distances on both sides 
-        for (unsigned i=0; i< planes.size(); i++)
-        {
+            for (unsigned i=0; i< planes.size(); i++)
+            {
           // get the plane
-          const Plane& plane = planes[i].first;
+              const Plane& plane = planes[i].first;
 
           // see whether all vertices from the other polyhedron are all on
           // one side of the plane 
-          double min_neg = 0.0;
-          double max_pos = 0.0;
+              double min_neg = 0.0;
+              double max_pos = 0.0;
 
           // see which polyhedron plane was taken from and process the other
-          if (!planes[i].second)
-          { 
+              if (!planes[i].second)
+              { 
             // loop through all vertices from A
-            for (unsigned j=0; j< vertsA.size(); j++)
-            {
-              double sdist = plane.calc_signed_distance(wTa.transform_point(Point3d(vertsA[j]->o, poseA)));
-              if (sdist < min_neg)
-                min_neg = sdist;
-              if (sdist > max_pos)
-                max_pos = sdist;
-              if (-min_neg > NEAR_ZERO && max_pos > NEAR_ZERO)
-              {
-                planes[i] = planes.back();
-                planes.pop_back();
-                i--;
-                break;
+                for (unsigned j=0; j< vertsA.size(); j++)
+                {
+                  double sdist = plane.calc_signed_distance(wTa.transform_point(Point3d(vertsA[j]->o, poseA)));
+                  if (sdist < min_neg)
+                    min_neg = sdist;
+                  if (sdist > max_pos)
+                    max_pos = sdist;
+                  if (-min_neg > NEAR_ZERO && max_pos > NEAR_ZERO)
+                  {
+                    planes[i] = planes.back();
+                    planes.pop_back();
+                    i--;
+                    break;
+                  }
+                }
               }
-            }
-          }
-          else
-          {            
+              else
+              {            
             // loop through all vertices from B
-            for (unsigned j=0; j< vertsB.size(); j++)
-            {
-              double sdist = plane.calc_signed_distance(wTb.transform_point(Point3d(vertsB[j]->o, poseB)));
-              if (sdist < min_neg)
-                min_neg = sdist;
-              if (sdist > max_pos)
-                max_pos = sdist;
-              if (-min_neg > NEAR_ZERO && max_pos > NEAR_ZERO)
-              {
-                planes[i] = planes.back();
-                planes.pop_back();
-                i--;
-                break;
+                for (unsigned j=0; j< vertsB.size(); j++)
+                {
+                  double sdist = plane.calc_signed_distance(wTb.transform_point(Point3d(vertsB[j]->o, poseB)));
+                  if (sdist < min_neg)
+                    min_neg = sdist;
+                  if (sdist > max_pos)
+                    max_pos = sdist;
+                  if (-min_neg > NEAR_ZERO && max_pos > NEAR_ZERO)
+                  {
+                    planes[i] = planes.back();
+                    planes.pop_back();
+                    i--;
+                    break;
+                  }
+                }
               }
-            }
-          }
-        } 
-      } 
+            } 
+          } 
 
       // if we still have more than one plane, normal is indeterminate 
-      if (planes.size() > 1)
-      {
-        FILE_LOG(LOG_COLDET) << "normal is indeterminate!" << std::endl;
-        return output_begin;
-      }
+          if (planes.size() > 1)
+          {
+            FILE_LOG(LOG_COLDET) << "normal is indeterminate!" << std::endl;
+            return output_begin;
+          }
 
       // get the normal
-      const Ravelin::Vector3d& n = planes.front().first.get_normal(); 
+          const Ravelin::Vector3d& n = planes.front().first.get_normal(); 
 
       // compute the convex hulls of the two sets of vertices
-      std::vector<Point3d> voA, voB, hullA, hullB;
-      BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsA)
-        voA.push_back(wTa.transform_point(Point3d(v->o, poseA)));
-      BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsB)
-        voB.push_back(wTb.transform_point(Point3d(v->o, poseB)));
-      CompGeom::calc_convex_hull(voA.begin(), voA.end(), n, std::back_inserter(hullA));
-      CompGeom::calc_convex_hull(voB.begin(), voB.end(), n, std::back_inserter(hullB));
+          std::vector<Point3d> voA, voB, hullA, hullB;
+          BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsA)
+          voA.push_back(wTa.transform_point(Point3d(v->o, poseA)));
+          BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsB)
+          voB.push_back(wTb.transform_point(Point3d(v->o, poseB)));
+          CompGeom::calc_convex_hull(voA.begin(), voA.end(), n, std::back_inserter(hullA));
+          CompGeom::calc_convex_hull(voB.begin(), voB.end(), n, std::back_inserter(hullB));
 
       // compute the intersection of the convex hulls 
-      std::vector<Point3d> isect;
-      CompGeom::intersect_convex_polygons(hullA.begin(), hullA.end(), 
-                                          hullB.begin(), hullB.end(), n, 
-                                          std::back_inserter(isect));
+          std::vector<Point3d> isect;
+          CompGeom::intersect_convex_polygons(hullA.begin(), hullA.end(), 
+            hullB.begin(), hullB.end(), n, 
+            std::back_inserter(isect));
 
       // create the contacts
-      for (unsigned i=0; i< isect.size(); i++)
-        *output_begin++ = create_contact(cgA, cgB, isect[i], n, 0.0);
+          for (unsigned i=0; i< isect.size(); i++)
+            *output_begin++ = create_contact(cgA, cgB, isect[i], n, 0.0);
 
-      return output_begin;
-    }
+          return output_begin;
+        }
 
     // setup minimum distance, contact normal, and the contact plane offset
-    double min_dist = INF;
-    Ravelin::Vector3d normal(GLOBAL);
-    double offset = INF;
+        double min_dist = INF;
+        Ravelin::Vector3d normal(GLOBAL);
+        double offset = INF;
 
     // get the vertices from the polyhedron
-    const std::vector<Ravelin::Origin3d>& vertices = tpoly->get_vertices();
- 
+        const std::vector<Ravelin::Origin3d>& vertices = tpoly->get_vertices();
+
     // compute the skip distance, used to compute the normal 
-    double skip_dist = std::numeric_limits<double>::max();
-    const std::vector<IndexedTri>& facets = tpoly->get_facets();
-    for (unsigned i=0; i< facets.size(); i++)
-    {
+        double skip_dist = std::numeric_limits<double>::max();
+        const std::vector<IndexedTri>& facets = tpoly->get_facets();
+        for (unsigned i=0; i< facets.size(); i++)
+        {
       // setup a triangle
-      Triangle tri(Point3d(vertices[facets[i].a], GLOBAL), 
-                   Point3d(vertices[facets[i].b], GLOBAL),
-                   Point3d(vertices[facets[i].c], GLOBAL));
+          Triangle tri(Point3d(vertices[facets[i].a], GLOBAL), 
+           Point3d(vertices[facets[i].b], GLOBAL),
+           Point3d(vertices[facets[i].c], GLOBAL));
 
       // get the maximum distance of all vertices
-      double max_vert_dist = -std::numeric_limits<double>::max();
+          double max_vert_dist = -std::numeric_limits<double>::max();
 
       // ensure that the plane containing this triangle is from 
       // polyhedron B by checking that signed distances from all vertices of B 
       // are negative
       // NOTE: this is currently an O(n) operation, but it could be turned into
       //       an O(lg N) one
-      for (unsigned j=0; j< polyB.get_vertices().size(); j++)
-      {
-        Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
-        double tri_dist = tri.calc_signed_dist(v);
-        max_vert_dist = std::max(tri_dist, max_vert_dist);
-      }
+          for (unsigned j=0; j< polyB.get_vertices().size(); j++)
+          {
+            Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
+            double tri_dist = tri.calc_signed_dist(v);
+            max_vert_dist = std::max(tri_dist, max_vert_dist);
+          }
 
       // update the skip distance
-      skip_dist = std::min(skip_dist, max_vert_dist);
-    }
+          skip_dist = std::min(skip_dist, max_vert_dist);
+        }
 
     // make the skip distance tolerant
-    skip_dist = std::max(skip_dist, NEAR_ZERO);
+        skip_dist = std::max(skip_dist, NEAR_ZERO);
 
     // determine the normal; the normal will be from the face that
     // yields the minimum maximum distance
-    for (unsigned i=0; i< facets.size(); i++)
-    {
+        for (unsigned i=0; i< facets.size(); i++)
+        {
       // setup a triangle
-      Triangle tri(Point3d(vertices[facets[i].a], GLOBAL), 
-                   Point3d(vertices[facets[i].b], GLOBAL),
-                   Point3d(vertices[facets[i].c], GLOBAL));
+          Triangle tri(Point3d(vertices[facets[i].a], GLOBAL), 
+           Point3d(vertices[facets[i].b], GLOBAL),
+           Point3d(vertices[facets[i].c], GLOBAL));
 
       // ensure that the plane containing this triangle is from 
       // polyhedron B by checking that signed distances from all vertices of B 
       // are negative
       // NOTE: this is currently an O(n) operation, but it could be turned into
       //       an O(lg N) one
-      bool skip = false;
-      for (unsigned j=0; j< polyB.get_vertices().size(); j++)
-      {
-        Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
-        double tri_dist = tri.calc_signed_dist(v);
-        if (tri_dist > skip_dist + NEAR_ZERO)
-        {
-          skip = true;
-          break;
-        }
-      }
-      if (skip)
-        continue;
+          bool skip = false;
+          for (unsigned j=0; j< polyB.get_vertices().size(); j++)
+          {
+            Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
+            double tri_dist = tri.calc_signed_dist(v);
+            if (tri_dist > skip_dist + NEAR_ZERO)
+            {
+              skip = true;
+              break;
+            }
+          }
+          if (skip)
+            continue;
 
       // get the reverse of the normal 
-      Ravelin::Vector3d ncand = -tri.calc_normal();
+          Ravelin::Vector3d ncand = -tri.calc_normal();
 
       // get the offset
-      double offset_cand = tri.calc_offset(ncand);
+          double offset_cand = tri.calc_offset(ncand);
 
       // get the extremal point in the direction of the inverse normal
       // NOTE: this is currently an O(n) operation, but it could be turned into
       //       an O(lg N) one
-      Point3d p(tpoly->find_extreme_vertex(Ravelin::Origin3d(ncand)), GLOBAL);
+          Point3d p(tpoly->find_extreme_vertex(Ravelin::Origin3d(ncand)), GLOBAL);
 
       // compute the distance of the extremal point from the face
-      double dist = ncand.dot(p) - offset_cand;
-      FILE_LOG(LOG_COLDET) << "candidate normal: " << tri.calc_normal() << " signed dist: " << dist << std::endl;
-      assert(dist > -NEAR_ZERO);
-      if (dist < min_dist)
-      {
+          double dist = ncand.dot(p) - offset_cand;
+          FILE_LOG(LOG_COLDET) << "candidate normal: " << tri.calc_normal() << " signed dist: " << dist << std::endl;
+          assert(dist > -NEAR_ZERO);
+          if (dist < min_dist)
+          {
         // if the absolute distance is less than the minimum, we've found our
         // normal
-        min_dist = dist;
-        normal = -ncand;
-        offset = -offset_cand; 
-      }
-    }
-    FILE_LOG(LOG_COLDET) << "contact normal: " << normal << std::endl;
+            min_dist = dist;
+            normal = -ncand;
+            offset = -offset_cand; 
+          }
+        }
+        FILE_LOG(LOG_COLDET) << "contact normal: " << normal << std::endl;
 
     // get each vertex, creating a contact point
-    for (unsigned i=0; i< vertices.size(); i++)
-    {
+        for (unsigned i=0; i< vertices.size(); i++)
+        {
       // compute the interpenetration depth
-      double depth = normal.dot(Point3d(vertices[i], GLOBAL)) - offset;
+          double depth = normal.dot(Point3d(vertices[i], GLOBAL)) - offset;
 
       // create the contact
-      *output_begin++ = create_contact(cgA, cgB, Point3d(vertices[i], GLOBAL), normal, depth);
-    }
+          *output_begin++ = create_contact(cgA, cgB, Point3d(vertices[i], GLOBAL), normal, depth);
+        }
 
-    return output_begin;
-  }
+        return output_begin;
+      }
 
   // case #3: use closest features
   // get the type of the first feature
-  if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
-  {
-    featA = eVertex;
-    boost::shared_ptr<const Polyhedron::Vertex> vA_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
-    vA = boost::const_pointer_cast<Polyhedron::Vertex>(vA_const);
-  }
-  else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
-  {
-    featA = eEdge;
-    boost::shared_ptr<const Polyhedron::Edge> eA_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
-    eA = boost::const_pointer_cast<Polyhedron::Edge>(eA_const);
-  }
-  else 
-  {
-    featA = eFace;
-    boost::shared_ptr<const Polyhedron::Face> fA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
-    fA = boost::const_pointer_cast<Polyhedron::Face>(fA_const);
-  }
+      if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
+      {
+        featA = eVertex;
+        boost::shared_ptr<const Polyhedron::Vertex> vA_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+        vA = boost::const_pointer_cast<Polyhedron::Vertex>(vA_const);
+      }
+      else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
+      {
+        featA = eEdge;
+        boost::shared_ptr<const Polyhedron::Edge> eA_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+        eA = boost::const_pointer_cast<Polyhedron::Edge>(eA_const);
+      }
+      else 
+      {
+        featA = eFace;
+        boost::shared_ptr<const Polyhedron::Face> fA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+        fA = boost::const_pointer_cast<Polyhedron::Face>(fA_const);
+      }
 
   // get the type of the second feature
-  if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
-  {
-    featB = eVertex;
-    boost::shared_ptr<const Polyhedron::Vertex> vB_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
-    vB = boost::const_pointer_cast<Polyhedron::Vertex>(vB_const);
-  }
-  else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
-  {
-    featB = eEdge;
-    boost::shared_ptr<const Polyhedron::Edge> eB_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
-    eB = boost::const_pointer_cast<Polyhedron::Edge>(eB_const);
-  }
-  else 
-  {
-    featB = eFace;
-    boost::shared_ptr<const Polyhedron::Face> fB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
-    fB = boost::const_pointer_cast<Polyhedron::Face>(fB_const);
-  }
+      if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
+      {
+        featB = eVertex;
+        boost::shared_ptr<const Polyhedron::Vertex> vB_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+        vB = boost::const_pointer_cast<Polyhedron::Vertex>(vB_const);
+      }
+      else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
+      {
+        featB = eEdge;
+        boost::shared_ptr<const Polyhedron::Edge> eB_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+        eB = boost::const_pointer_cast<Polyhedron::Edge>(eB_const);
+      }
+      else 
+      {
+        featB = eFace;
+        boost::shared_ptr<const Polyhedron::Face> fB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+        fB = boost::const_pointer_cast<Polyhedron::Face>(fB_const);
+      }
 
   // find *a* pair of closest points on the two closest features
-  Point3d pA0, pB0;
-  if (featA == eVertex)
-  {
+      Point3d pA0, pB0;
+      if (featA == eVertex)
+      {
     // vertex serves fine
-    Point3d pA = Point3d(vA->o, poseA);
-    pA0 = wTa.transform_point(pA);
-    if (featB == eVertex)
-    {
-      Point3d pB = Point3d(vB->o, poseB);
-      pB0 = wTb.transform_point(pB);
-    }
-    else if (featB == eEdge)
-    {
+        Point3d pA = Point3d(vA->o, poseA);
+        pA0 = wTa.transform_point(pA);
+        if (featB == eVertex)
+        {
+          Point3d pB = Point3d(vB->o, poseB);
+          pB0 = wTb.transform_point(pB);
+        }
+        else if (featB == eEdge)
+        {
       // find the closest point on the line segment to pA
-      LineSeg3 seg;
-      seg.first = wTb.transform_point(Point3d(eB->v1->o, poseB));
-      seg.second = wTb.transform_point(Point3d(eB->v2->o, poseB));
-      double t;
-      CompGeom::calc_dist(seg, pA0, t, pB0);
-    }
-    else
-    {
+          LineSeg3 seg;
+          seg.first = wTb.transform_point(Point3d(eB->v1->o, poseB));
+          seg.second = wTb.transform_point(Point3d(eB->v2->o, poseB));
+          double t;
+          CompGeom::calc_dist(seg, pA0, t, pB0);
+        }
+        else
+        {
       // find the closest point on the face to pA
-      Triangle t = get_triangle(fB, wTb);
-      Triangle::calc_sq_dist(t, pA0, pB0);
-    }
-  }
-  else if (featA == eEdge)
-  {
-    if (featB == eVertex)
-    {
+          Triangle t = get_triangle(fB, wTb);
+          Triangle::calc_sq_dist(t, pA0, pB0);
+        }
+      }
+      else if (featA == eEdge)
+      {
+        if (featB == eVertex)
+        {
       // get the point in the global frame
-      pB0 = wTb.transform_point(Point3d(vB->o, poseB));
+          pB0 = wTb.transform_point(Point3d(vB->o, poseB));
 
       // find the closest point on the line segment to pB
-      LineSeg3 seg;
-      seg.first = wTa.transform_point(Point3d(eA->v1->o, poseA));
-      seg.second = wTa.transform_point(Point3d(eA->v2->o, poseA));
-      double t;
-      CompGeom::calc_dist(seg, pB0, t, pA0);
-    }
-    else if (featB == eEdge)
-    {
+          LineSeg3 seg;
+          seg.first = wTa.transform_point(Point3d(eA->v1->o, poseA));
+          seg.second = wTa.transform_point(Point3d(eA->v2->o, poseA));
+          double t;
+          CompGeom::calc_dist(seg, pB0, t, pA0);
+        }
+        else if (featB == eEdge)
+        {
       // find two closest points on the two line segments
-      LineSeg3 segA, segB;
-      segA.first = wTa.transform_point(Point3d(eA->v1->o, poseA));
-      segA.second = wTa.transform_point(Point3d(eA->v2->o, poseA));
-      segB.first = wTb.transform_point(Point3d(eB->v1->o, poseB));
-      segB.second = wTb.transform_point(Point3d(eB->v2->o, poseB));
-      CompGeom::calc_closest_points(segA, segB, pA0, pB0);
-    }
-    else
-    {
+          LineSeg3 segA, segB;
+          segA.first = wTa.transform_point(Point3d(eA->v1->o, poseA));
+          segA.second = wTa.transform_point(Point3d(eA->v2->o, poseA));
+          segB.first = wTb.transform_point(Point3d(eB->v1->o, poseB));
+          segB.second = wTb.transform_point(Point3d(eB->v2->o, poseB));
+          CompGeom::calc_closest_points(segA, segB, pA0, pB0);
+        }
+        else
+        {
       // find a closest point on the edge to a closest point on the face
-      LineSeg3 seg;
-      seg.first = wTa.transform_point(Point3d(eA->v1->o, poseA));
-      seg.second = wTa.transform_point(Point3d(eA->v2->o, poseA));
+          LineSeg3 seg;
+          seg.first = wTa.transform_point(Point3d(eA->v1->o, poseA));
+          seg.second = wTa.transform_point(Point3d(eA->v2->o, poseA));
 
       // find the closest point on the face to the line segment 
-      Triangle t = get_triangle(fB, wTb);
-      Triangle::calc_sq_dist(t, seg, pB0, pA0);
-    }
-  }
-  else
-  {
-    if (featB == eVertex)
-    {
-      pB0 = wTb.transform_point(Point3d(vB->o, poseB));
+          Triangle t = get_triangle(fB, wTb);
+          Triangle::calc_sq_dist(t, seg, pB0, pA0);
+        }
+      }
+      else
+      {
+        if (featB == eVertex)
+        {
+          pB0 = wTb.transform_point(Point3d(vB->o, poseB));
 
       // find the closest point on the face to pB
-      Triangle t = get_triangle(fA, wTa);
-      Triangle::calc_sq_dist(t, pB0, pA0);
-    }
-    else if (featB == eEdge)
-    {
+          Triangle t = get_triangle(fA, wTa);
+          Triangle::calc_sq_dist(t, pB0, pA0);
+        }
+        else if (featB == eEdge)
+        {
       // find a closest point on the edge to a closest point on the face
-      LineSeg3 seg;
-      seg.first = wTb.transform_point(Point3d(eB->v1->o, poseB));
-      seg.second = wTb.transform_point(Point3d(eB->v2->o, poseB));
+          LineSeg3 seg;
+          seg.first = wTb.transform_point(Point3d(eB->v1->o, poseB));
+          seg.second = wTb.transform_point(Point3d(eB->v2->o, poseB));
 
       // find the closest point on the face to the line segment 
-      Triangle t = get_triangle(fA, wTa);
-      Triangle::calc_sq_dist(t, seg, pA0, pB0);
-    }
-    else
-    {
+          Triangle t = get_triangle(fA, wTa);
+          Triangle::calc_sq_dist(t, seg, pA0, pB0);
+        }
+        else
+        {
       // find closest points on each face 
-      Triangle tA = get_triangle(fA, wTa);
-      Triangle tB = get_triangle(fB, wTb);
-      Triangle::calc_sq_dist(tA, tB, pA0, pB0);
-    }
-  }
+          Triangle tA = get_triangle(fA, wTa);
+          Triangle tB = get_triangle(fB, wTb);
+          Triangle::calc_sq_dist(tA, tB, pA0, pB0);
+        }
+      }
 
   // calculate the vector between *a* pair of closest points on the two 
   // features
-  Ravelin::Vector3d d = Ravelin::Vector3d::normalize(pA0 - pB0);
+      Ravelin::Vector3d d = Ravelin::Vector3d::normalize(pA0 - pB0);
 
   // determine the two plane offsets
-  double o1 = -d.dot(pA0);
-  double o2 = d.dot(pB0);
+      double o1 = -d.dot(pA0);
+      double o2 = d.dot(pB0);
 
   // setup points from each polyhedron
-  std::vector<Point3d> pointsA, pointsB;
+      std::vector<Point3d> pointsA, pointsB;
 
   // get all vertices from the first polyhedron whose projection along the
   // normal is as close to the closest point to the second polyhedron
-  std::vector<boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
-  for (unsigned i=0; i< vAa.size(); i++)
-  {
+      std::vector<boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
+      for (unsigned i=0; i< vAa.size(); i++)
+      {
     // get the vertex in the global frame
-    Point3d p = wTa.transform_point(Point3d(vAa[i]->o, poseA));
+        Point3d p = wTa.transform_point(Point3d(vAa[i]->o, poseA));
 
     // calculate the signed distance
-    double sdist = -d.dot(p) - o1;
-    if (sdist > -NEAR_ZERO)
-      pointsA.push_back(p);
-  }
+        double sdist = -d.dot(p) - o1;
+        if (sdist > -NEAR_ZERO)
+          pointsA.push_back(p);
+      }
 
   // get all vertices from the second polyhedron whose projection along the
   // normal is as close to the closest point to the first polyhedron
-  std::vector<boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
-  for (unsigned i=0; i< vBb.size(); i++)
-  {
+      std::vector<boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
+      for (unsigned i=0; i< vBb.size(); i++)
+      {
     // get the vertex in the global frame
-    Point3d p = wTb.transform_point(Point3d(vBb[i]->o, poseB));
+        Point3d p = wTb.transform_point(Point3d(vBb[i]->o, poseB));
 
     // calculate the signed distance
-    double sdist = d.dot(p) - o2;
-    if (sdist > -NEAR_ZERO)
-      pointsB.push_back(p);
-  }
+        double sdist = d.dot(p) - o2;
+        if (sdist > -NEAR_ZERO)
+          pointsB.push_back(p);
+      }
 
   // if only one closest point on a polyhedron, no intersections are necessary 
-  if (pointsA.size() == 1 || pointsB.size() == 1)
-  {
+      if (pointsA.size() == 1 || pointsB.size() == 1)
+      {
     // create a contact point midway between pA0 and pB0 
-    pA0 += pB0; 
-    pA0 *= 0.5;
-    *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
-    return output_begin;
-  }
+        pA0 += pB0; 
+        pA0 *= 0.5;
+        *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
+        return output_begin;
+      }
 
   // ** from here on out, we'll have to project points to 2D
   // determine the 3D to 2D projection matrix
-  Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(d);
+      Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(d);
 
   // determine two offsets and average them
-  o1 = CompGeom::determine_3D_to_2D_offset(pointsA.front(), R);  
-  o2 = CompGeom::determine_3D_to_2D_offset(pointsB.front(), R);  
-  double o = (o1 + o2)*0.5;
+      o1 = CompGeom::determine_3D_to_2D_offset(pointsA.front(), R);  
+      o2 = CompGeom::determine_3D_to_2D_offset(pointsB.front(), R);  
+      double o = (o1 + o2)*0.5;
 
   // project all points to the same plane
-  std::vector<Ravelin::Origin2d> pointsA2, pointsB2;
-  CompGeom::to_2D(pointsA.begin(), pointsA.end(), R, std::back_inserter(pointsA2));
-  CompGeom::to_2D(pointsB.begin(), pointsB.end(), R, std::back_inserter(pointsB2));
- 
+      std::vector<Ravelin::Origin2d> pointsA2, pointsB2;
+      CompGeom::to_2D(pointsA.begin(), pointsA.end(), R, std::back_inserter(pointsA2));
+      CompGeom::to_2D(pointsB.begin(), pointsB.end(), R, std::back_inserter(pointsB2));
+
   // if two closest points on each polyhedron, possible edge/edge contact;
   // compute the intersection
-  if (pointsA.size() == 2 && pointsB.size() == 2)
-  {
+      if (pointsA.size() == 2 && pointsB.size() == 2)
+      {
     // setup the two line segments
-    LineSeg2 seg1(Point2d(pointsA2.front(), GLOBAL_2D), Point2d(pointsA2.back(), GLOBAL_2D));
-    LineSeg2 seg2(Point2d(pointsB2.front(), GLOBAL_2D), Point2d(pointsB2.back(), GLOBAL_2D));
+        LineSeg2 seg1(Point2d(pointsA2.front(), GLOBAL_2D), Point2d(pointsA2.back(), GLOBAL_2D));
+        LineSeg2 seg2(Point2d(pointsB2.front(), GLOBAL_2D), Point2d(pointsB2.back(), GLOBAL_2D));
 
     // compute the line segment intersection
-    Point2d isect, isect2;
-    if (CompGeom::intersect_segs(seg1, seg2, isect, isect2) == CompGeom::eSegSegEdge)
-    {
+        Point2d isect, isect2;
+        if (CompGeom::intersect_segs(seg1, seg2, isect, isect2) == CompGeom::eSegSegEdge)
+        {
       // prepare to project back to 3D
-      Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
+          Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
 
       // project the intersections back to 3D and setup contact points there 
-      Point3d p(CompGeom::to_3D(Ravelin::Origin2d(isect), RT, o), GLOBAL);
-      Point3d p2(CompGeom::to_3D(Ravelin::Origin2d(isect), RT, o), GLOBAL);
-      *output_begin++ = create_contact(cgA, cgB, p, d, dist);
-      *output_begin++ = create_contact(cgA, cgB, p2, d, dist);
-      return output_begin;
-    }
-    else
-    {
+          Point3d p(CompGeom::to_3D(Ravelin::Origin2d(isect), RT, o), GLOBAL);
+          Point3d p2(CompGeom::to_3D(Ravelin::Origin2d(isect), RT, o), GLOBAL);
+          *output_begin++ = create_contact(cgA, cgB, p, d, dist);
+          *output_begin++ = create_contact(cgA, cgB, p2, d, dist);
+          return output_begin;
+        }
+        else
+        {
       // treat this as a point contact
       // create a contact point midway between pA0 and pB0 
-      pA0 += pB0; 
-      pA0 *= 0.5;
-      *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
-      return output_begin;
-    }
-  }
+          pA0 += pB0; 
+          pA0 *= 0.5;
+          *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
+          return output_begin;
+        }
+      }
 
   // if two closest points on one polyhedron, and three or more on another,
   // possible edge/face contact; compute the intersection 
-  if (pointsA.size() == 2)
-  {
+      if (pointsA.size() == 2)
+      {
     // setup the line segment
-    LineSeg2 seg(Point2d(pointsA2.front(), GLOBAL_2D), Point2d(pointsA2.back(), GLOBAL_2D));
+        LineSeg2 seg(Point2d(pointsA2.front(), GLOBAL_2D), Point2d(pointsA2.back(), GLOBAL_2D));
 
     // determine the polygon corresponding to the other
-    std::vector<Ravelin::Origin2d> pointsB2_cvx;
-    CompGeom::calc_convex_hull(pointsB2.begin(), pointsB2.end(), std::back_inserter(pointsB2_cvx));
+        std::vector<Ravelin::Origin2d> pointsB2_cvx;
+        CompGeom::calc_convex_hull(pointsB2.begin(), pointsB2.end(), std::back_inserter(pointsB2_cvx));
 
     // copy as Vector2d type
-    std::vector<Ravelin::Vector2d> cvx(pointsB2_cvx.size());
-    for (unsigned i=0; i< pointsB2_cvx.size(); i++)
-      cvx[i] = pointsB2_cvx[i];
+        std::vector<Ravelin::Vector2d> cvx(pointsB2_cvx.size());
+        for (unsigned i=0; i< pointsB2_cvx.size(); i++)
+          cvx[i] = pointsB2_cvx[i];
 
     // intersect the segment with a convex polygon
-    double te, tl;
-    if (CompGeom::intersect_seg_convex_polygon(cvx.begin(), cvx.end(), seg, te, tl))
-    {
+        double te, tl;
+        if (CompGeom::intersect_seg_convex_polygon(cvx.begin(), cvx.end(), seg, te, tl))
+        {
       // prepare to project back to 3D
-      Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
+          Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
 
       // compute the two endpoints
-      Point2d pe2 = seg.first*(1.0-te) + seg.second*te;
-      Point2d pl2 = seg.first*(1.0-tl) + seg.second*tl;
+          Point2d pe2 = seg.first*(1.0-te) + seg.second*te;
+          Point2d pl2 = seg.first*(1.0-tl) + seg.second*tl;
 
       // project the points to 3D
-      Point3d pe(CompGeom::to_3D(Ravelin::Origin2d(pe2), RT, o), GLOBAL);
-      Point3d pl(CompGeom::to_3D(Ravelin::Origin2d(pl2), RT, o), GLOBAL);
+          Point3d pe(CompGeom::to_3D(Ravelin::Origin2d(pe2), RT, o), GLOBAL);
+          Point3d pl(CompGeom::to_3D(Ravelin::Origin2d(pl2), RT, o), GLOBAL);
 
       // create contact points
-      *output_begin++ = create_contact(cgA, cgB, pe, d, dist);
-      *output_begin++ = create_contact(cgA, cgB, pl, d, dist);
-      return output_begin;
-    }
-    else
-    {
+          *output_begin++ = create_contact(cgA, cgB, pe, d, dist);
+          *output_begin++ = create_contact(cgA, cgB, pl, d, dist);
+          return output_begin;
+        }
+        else
+        {
       // treat this as a point contact
       // create a contact point midway between pA0 and pB0 
-      pA0 += pB0; 
-      pA0 *= 0.5;
-      *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
-      return output_begin;
-    }
-  }
-  else if (pointsB.size() == 2)
-  {
+          pA0 += pB0; 
+          pA0 *= 0.5;
+          *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
+          return output_begin;
+        }
+      }
+      else if (pointsB.size() == 2)
+      {
     // setup the line segment
-    LineSeg2 seg(Point2d(pointsB2.front(), GLOBAL_2D), Point2d(pointsB2.back(), GLOBAL_2D));
+        LineSeg2 seg(Point2d(pointsB2.front(), GLOBAL_2D), Point2d(pointsB2.back(), GLOBAL_2D));
 
     // determine the polygon corresponding to the other
-    std::vector<Ravelin::Origin2d> pointsA2_cvx;
-    CompGeom::calc_convex_hull(pointsA2.begin(), pointsA2.end(), std::back_inserter(pointsA2_cvx));
+        std::vector<Ravelin::Origin2d> pointsA2_cvx;
+        CompGeom::calc_convex_hull(pointsA2.begin(), pointsA2.end(), std::back_inserter(pointsA2_cvx));
 
     // copy as Vector2d type
-    std::vector<Ravelin::Vector2d> cvx(pointsA2_cvx.size());
-    for (unsigned i=0; i< pointsA2_cvx.size(); i++)
-      cvx[i] = pointsA2_cvx[i];
+        std::vector<Ravelin::Vector2d> cvx(pointsA2_cvx.size());
+        for (unsigned i=0; i< pointsA2_cvx.size(); i++)
+          cvx[i] = pointsA2_cvx[i];
 
     // intersect the segment with a convex polygon
-    double te, tl;
-    if (CompGeom::intersect_seg_convex_polygon(cvx.begin(), cvx.end(), seg, te, tl))
-    {
+        double te, tl;
+        if (CompGeom::intersect_seg_convex_polygon(cvx.begin(), cvx.end(), seg, te, tl))
+        {
       // prepare to project back to 3D
-      Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
+          Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
 
       // compute the two endpoints
-      Point2d pe2 = seg.first*(1.0-te) + seg.second*te;
-      Point2d pl2 = seg.first*(1.0-tl) + seg.second*tl;
+          Point2d pe2 = seg.first*(1.0-te) + seg.second*te;
+          Point2d pl2 = seg.first*(1.0-tl) + seg.second*tl;
 
       // project the points to 3D
-      Point3d pe(CompGeom::to_3D(Ravelin::Origin2d(pe2), RT, o), GLOBAL);
-      Point3d pl(CompGeom::to_3D(Ravelin::Origin2d(pl2), RT, o), GLOBAL);
+          Point3d pe(CompGeom::to_3D(Ravelin::Origin2d(pe2), RT, o), GLOBAL);
+          Point3d pl(CompGeom::to_3D(Ravelin::Origin2d(pl2), RT, o), GLOBAL);
 
       // create contact points
-      *output_begin++ = create_contact(cgA, cgB, pe, d, dist);
-      *output_begin++ = create_contact(cgA, cgB, pl, d, dist);
-      return output_begin;
-    }
-    else
-    {
+          *output_begin++ = create_contact(cgA, cgB, pe, d, dist);
+          *output_begin++ = create_contact(cgA, cgB, pl, d, dist);
+          return output_begin;
+        }
+        else
+        {
       // treat this as a point contact
       // create a contact point midway between pA0 and pB0 
-      pA0 += pB0; 
-      pA0 *= 0.5;
-      *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
-      return output_begin;
-    }
-  }
+          pA0 += pB0; 
+          pA0 *= 0.5;
+          *output_begin++ = create_contact(cgA, cgB, pA0, d, dist);
+          return output_begin;
+        }
+      }
 
   // *** if we're here, we have at least three contacts on each polyhedron ***
- 
+
   // compute their convex hulls
-  std::vector<Ravelin::Origin2d> pointsA2_cvx, pointsB2_cvx;
-  CompGeom::calc_convex_hull(pointsA2.begin(), pointsA2.end(), std::back_inserter(pointsA2_cvx));
-  CompGeom::calc_convex_hull(pointsB2.begin(), pointsB2.end(), std::back_inserter(pointsB2_cvx));
+      std::vector<Ravelin::Origin2d> pointsA2_cvx, pointsB2_cvx;
+      CompGeom::calc_convex_hull(pointsA2.begin(), pointsA2.end(), std::back_inserter(pointsA2_cvx));
+      CompGeom::calc_convex_hull(pointsB2.begin(), pointsB2.end(), std::back_inserter(pointsB2_cvx));
 
   // copy as Vector2d types
-  std::vector<Ravelin::Vector2d> cvxA(pointsA2_cvx.size()), cvxB(pointsB2_cvx.size());
-  for (unsigned i=0; i< pointsA2_cvx.size(); i++)
-    cvxA[i] = pointsA2_cvx[i];
-  for (unsigned i=0; i< pointsB2_cvx.size(); i++)
-    cvxB[i] = pointsB2_cvx[i];
+      std::vector<Ravelin::Vector2d> cvxA(pointsA2_cvx.size()), cvxB(pointsB2_cvx.size());
+      for (unsigned i=0; i< pointsA2_cvx.size(); i++)
+        cvxA[i] = pointsA2_cvx[i];
+      for (unsigned i=0; i< pointsB2_cvx.size(); i++)
+        cvxB[i] = pointsB2_cvx[i];
 
   // compute their intersection
-  std::vector<Ravelin::Vector2d> isect;
-  CompGeom::intersect_convex_polygons(cvxA.begin(), cvxA.end(), cvxB.begin(), cvxB.end(), std::back_inserter(isect));
+      std::vector<Ravelin::Vector2d> isect;
+      CompGeom::intersect_convex_polygons(cvxA.begin(), cvxA.end(), cvxB.begin(), cvxB.end(), std::back_inserter(isect));
 
   // project back to 3D and compute contact points
-  Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
-  for (unsigned i=0; i< isect.size(); i++)
-  {
-    Point3d p(CompGeom::to_3D(Ravelin::Origin2d(isect[i]), RT, o), GLOBAL);
-    *output_begin++ = create_contact(cgA, cgB, p, d, dist);
-  }
-  return output_begin;
+      Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
+      for (unsigned i=0; i< isect.size(); i++)
+      {
+        Point3d p(CompGeom::to_3D(Ravelin::Origin2d(isect[i]), RT, o), GLOBAL);
+        *output_begin++ = create_contact(cgA, cgB, p, d, dist);
+      }
+      return output_begin;
 
 /*
   // check possibilities here
@@ -1358,21 +1567,21 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron_soft(CollisionGeometryPt
 }
 
 template <class OutputIterator>
-  OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
+OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
-    return output_begin;
-  }
+  return output_begin;
+}
 
 template <class OutputIterator>
-  OutputIterator CCD::find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin){
+OutputIterator CCD::find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
-    return output_begin;
-  }
+  return output_begin;
+}
 
 template <class OutputIterator>
-  OutputIterator CCD::find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin)
 {
   // NOTE: the contact point will be *at* the vertex
   //convert the vertex point to a Vector3d
@@ -1387,7 +1596,7 @@ template <class OutputIterator>
 }
 
 template <class OutputIterator>
-  OutputIterator CCD::find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin)
 {
   //TODO: Implement this(maybe)
   return output_begin;
@@ -1398,8 +1607,8 @@ template <class OutputIterator>
  * \note contact points are created along the edge
  */
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin)
-{
+ OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin)
+ {
   // set global frame (in 2D)
   const boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
 
@@ -1492,7 +1701,7 @@ OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionG
 
   //Face B:
   //We calculate the transform from cgB to GLOBAL for later use
-    Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
+  Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
 
   //2. get all vertex from face
   Polyhedron::VertexFaceIterator vfiB(fB,true);
@@ -1512,53 +1721,53 @@ OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionG
   //adding output
   for(unsigned i=0;i<isect.size();i++)
     *output_begin++ = create_contact(cgA, cgB, isect[i], -normal_0, signed_dist);  
-    return output_begin;
+  return output_begin;
 }
 
 template <class OutputIterator>
-  OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
-  {
-    std::vector<Point3d> vA, vB;
-    double dist;
-    std::vector<Ravelin::Vector3d> n;
+OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+{
+  std::vector<Point3d> vA, vB;
+  double dist;
+  std::vector<Ravelin::Vector3d> n;
 
   // get the vertices from A and B
-    cgA->get_vertices(vA);
-    cgB->get_vertices(vB);
+  cgA->get_vertices(vA);
+  cgB->get_vertices(vB);
 
   // examine all points from A against B
-    for (unsigned i=0; i< vA.size(); i++)
-    {
+  for (unsigned i=0; i< vA.size(); i++)
+  {
     // see whether the point is inside the primitive
-      if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
-      {
+    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
+    {
       // add the contact points
-        for (unsigned j=0; j< n.size(); j++)
-          *output_begin++ = create_contact(cgA, cgB, vA[i], n[j], dist);
-      }
+      for (unsigned j=0; j< n.size(); j++)
+        *output_begin++ = create_contact(cgA, cgB, vA[i], n[j], dist);
     }
+  }
 
   // examine all points from B against A
-    for (unsigned i=0; i< vB.size(); i++)
-    {
+  for (unsigned i=0; i< vB.size(); i++)
+  {
     // see whether the point is inside the primitive
-      if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
-      {
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
+    {
       // add the contact points
-        for (unsigned j=0; j< n.size(); j++)
-          *output_begin++ = create_contact(cgA, cgB, vB[i], -n[j], dist);
-      }
+      for (unsigned j=0; j< n.size(); j++)
+        *output_begin++ = create_contact(cgA, cgB, vB[i], -n[j], dist);
     }
-
-    return output_begin;
   }
+
+  return output_begin;
+}
 
 
 // find the contacts between a plane and a generic shape
 template <class OutputIterator>
-  OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
-  {
-    Ravelin::Vector3d normal;
+OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
+{
+  Ravelin::Vector3d normal;
   Point3d p; // this is plane
 
   // Set intitial value of distance to contact
@@ -2033,8 +2242,8 @@ template <class OutputIterator>
 
 /// Finds contacts for two spheres (one piece of code works for both separated and non-separated spheres)
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
-{
+    OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+    {
   // get the output iterator
       OutputIterator o = output_begin;
 
