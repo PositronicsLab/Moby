@@ -263,6 +263,34 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     }
 
     // TODO: speed up axis tests by removing duplicate and anti-parallel vectors
+    std::vector<Ravelin::Vector3d>::iterator tvi = test_vectors.begin();
+    
+    while (tvi != test_vectors.end()){
+      
+      Ravelin::Vector3d vi = *tvi;
+      std::vector<Ravelin::Vector3d>::iterator tvii = tvi;
+
+      ++tvii;
+      while(tvii != test_vectors.end()){
+
+        Ravelin::Vector3d vii = *tvii;
+        
+        if(fabs(fabs(vi.dot(vii))-1) < NEAR_ZERO){
+          
+          // No need to increment tvii because new one is returned
+          tvii = test_vectors.erase(tvii);
+
+        }
+        else{
+          ++tvii;
+        }
+
+      }
+      
+
+      tvi++;
+    }
+
 
     // create Vector3d for all vertices
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
