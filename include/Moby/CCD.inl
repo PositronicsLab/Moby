@@ -313,7 +313,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         if (min_overlap - overlap > NEAR_ZERO) {
           min_overlap = overlap;
           min_axis = *test_i;
-          if (fabs(overlap - o1) > NEAR_ZERO) {
+          if (fabs(overlap - o1) < NEAR_ZERO) {
             direction = -1;
             a_vertex = vAa[max_index_a];
             assert(a_vertex);
