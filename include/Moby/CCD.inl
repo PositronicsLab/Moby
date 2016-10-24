@@ -223,10 +223,9 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   // contact plane are treated as being on the contact manifold.
   if (dist > 0.0)
   {
-
     // Setup the normal in the global frame
     Point3d closestAw, closestBw;
-    find_closest_points(closestA, closestB, closestAw, closestBw, wTa, wTb);
+    find_closest_points(closestA, closestB, wTa, wTb, closestAw, closestBw);
     normal =  closestAw - closestBw;
     normal.normalize();
     contact_plane.set_normal(normal);
@@ -296,8 +295,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
       project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
 
-      // Bjoern: I may be mistaken here, but shouldn't the amount of overlap
-      // be std::max(max_a, max_b) - std::min(min_a, min_b)?
+      // Compute the amount of overlap.
       double o1 = max_a - min_b;
       double o2 = max_b - min_a;
 

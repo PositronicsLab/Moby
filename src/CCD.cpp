@@ -1166,13 +1166,13 @@ Origin3d CCD::get_arbitrary_point(shared_ptr<const Polyhedron::Feature> feat)
   }
 }
 
-void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, boost::shared_ptr<const Polyhedron::Feature> fB, Point3d& pA, Point3d& pB, Ravelin::Transform3d wTa, Ravelin::Transform3d wTb){
+void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, boost::shared_ptr<const Polyhedron::Feature> fB, const Ravelin::Transform3d& wTa, const Ravelin::Transform3d& wTb, Point3d& pA, Point3d& pB){
   if (dynamic_pointer_cast<const Polyhedron::Vertex>(fA)) {
     
     // fA is an vertex
     shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(fA);
 
-    // The point from  
+    // Setup the point from A.
     Ravelin::Vector3d vAa(vA->o, wTa.source);
     pA = wTa.transform_point(vAa);
 
@@ -1181,51 +1181,49 @@ void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, b
       // fB is a vertex
       shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(fB);
 
-      // create vectors
+      // Setup the point from B
       Ravelin::Vector3d vBb(vB->o, wTb.source);
     
       //Transforming point into world frame
-      pB = wTa.transform_point(vBb);
-
+      pB = wTb.transform_point(vBb);
     }
     else if (dynamic_pointer_cast<const Polyhedron::Edge>(fB)) {
 
       // fB is an edge
       shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(fB);
 
-
       Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), wTb.source);
       Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), wTb.source);
     
-      // transform fB into frame A
+      // transform the edge into the world frame
       Ravelin::Vector3d vB1w = wTb.transform_point(vB1b);
       Ravelin::Vector3d vB2w = wTb.transform_point(vB2b);
 
-      //create line segment
+      // Create line segment
       LineSeg3 line(vB1w,vB2w);
      
-      //compute distance and closest point
+      // Compute distance and closest point
       Point3d p;
       double t;
       double dist = CompGeom::calc_dist(line,pA,t,p);
       pB = p;
-
     }
     else {
 
       // fB is a face
       boost::shared_ptr<const Pose3d> GLOBAL3D;
-      //cast features to non-constant
+
+      // cast features to non-constant
       boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(fA);
       boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(fB);
       boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);     
-      // create vector for A
 
-      // transform A using the inverse of aTb
-      Ravelin::Vector3d vAb = wTb.inverse().transform_point(wTa.transform_point(vAa));
-      vAb.pose = GLOBAL3D;
-      // find the minimum
-      Plane planeB = faceB->get_plane();
+      // Transform point from A into B's frame.
+      Ravelin::Vector3d vAb = wTb.inverse_transform_point(wTa.transform_point(vAa));
+      vAb.pose = GLOBAL3D;                 // hack around plane being in B's frame
+
+      // Find the minimum
+      Plane planeB = faceB->get_plane();   // plane will be in B's frame
       double dist = planeB.calc_signed_distance(vAb);
 
       // project the point onto the plane
@@ -1234,21 +1232,22 @@ void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, b
       // this is correct because when v-clip ends and a face vertex case
       // the vertex will always be in the voronoi region, and therefore,
       // the vertex projection is always on face B.
+      vAb_on_planeB.pose = wTb.source;
       pB = wTb.transform_point(vAb_on_planeB);
-    }    
-
+    }
   }
   else if (dynamic_pointer_cast<const Polyhedron::Edge>(fA)) {
 
     // fA is an edge
-
     if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
 
       // already implemented, just need to flip it.
-      find_closest_points(fB, fA, pB, pA, wTb, wTa);
+      find_closest_points(fB, fA, wTb, wTa, pB, pA);
     }
     else if (dynamic_pointer_cast<const Polyhedron::Edge>(fB)) {
-          //casting pointers
+      // Features are two edges.
+
+      // Cast pointers
       boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(fA);
       boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(fB);
     
@@ -1273,13 +1272,12 @@ void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, b
       Point3d p1;
       Point3d p2;
       double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
-
       pA = p1;
       pB = p2;
     }
     else {
 
-      // should not be reached
+      // should not be reached b/c V-Clip does not return face/edge.
       assert(false);
     }
   }
@@ -1287,7 +1285,7 @@ void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, b
      if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
 
       // already implemented, just need to flip it.
-      find_closest_points(fB, fA, pB, pA, wTb, wTa);
+      find_closest_points(fB, fA, wTb, wTa, pB, pA);
     }
     else{
       // should not be reached
