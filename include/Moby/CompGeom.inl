@@ -383,7 +383,8 @@ unsigned CompGeomSpecOne<ForwardIterator, Point3d*>::calc_dimensionality(Forward
 /**
  * \param begin iterator to beginning of container of type Ravelin::Vector3
  * \param end iterator to end of container of type Ravelin::Vector3
- * \param endpoints the two farthest points on the segment on return
+ * \param endpoints the two farthest points on the segment on return (the
+ *        two points will be coincident if the segment is degenerate)
  */
 template <class ForwardIterator>
 void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Point3d*, Point3d*>& endpoints)
@@ -492,7 +493,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
   for (ForwardIterator i = source_begin; i != source_end; i++)
     FILE_LOG(LOG_COMPGEOM) << "  " << **i << std::endl;
   FILE_LOG(LOG_COMPGEOM) << "using normal: " << normal << std::endl;
-  
+
   // **************************************************************
   // first, we need to project the 3D surface to a 2D polygon
   // **************************************************************
@@ -1459,10 +1460,10 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
  * \param begin iterator pointing to start of collection of Point2d elements
  * \param end iterator pointing to end of collection of Point2d elements
  * \param seg the line segment
- * \param outbegin an iterator to a container of type LineSeg2 that will 
- *        store line segments on/in the polygon on return 
+ * \param outbegin an iterator to a container of type LineSeg2 that will
+ *        store line segments on/in the polygon on return
  * \param tol the tolerance for parallel lines
- * \return ePolygonSegInside if the polygon 
+ * \return ePolygonSegInside if the polygon
  * \note polygon must be given in counter-clockwise order
  * \note first vertex should not appear twice
  */
@@ -1489,7 +1490,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::inters
     j++;
     if (j == end)
       j = begin;
-  
+
     // intersect the two segments
     switch (CompGeom::intersect_segs(seg, LineSeg2(*i, *j), isect1, isect2))
     {
@@ -1497,7 +1498,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::inters
         break;
 
       case CompGeom::eSegSegIntersect:
-      case CompGeom::eSegSegVertex: 
+      case CompGeom::eSegSegVertex:
         points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
         break;
 
@@ -2710,22 +2711,61 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_
  Point2d* versions of functions END 
  ****************************************************************************/
 
-/// Computes the intersection of a polygon and a line segment
+/// Computes the intersection of a convex polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Point2d elements
- * \param end iterator pointing to end of collection of Point2d elements
+ * \param begin iterator pointing to start of collection of Point3d elements
+ * \param end iterator pointing to end of collection of Point3d elements
  * \param seg the line segment
- * \param outbegin an iterator to a container of type LineSeg2 that will 
- *        store line segments on/in the polygon on return 
+ * \param te the parameter of the line segment for the beginning of the
+ *        intersection; (1-te)*seg.first + te*seg.second is point of 
+ *        intersection
+ * \param tl the parameter of the line segment for the end of the intersection;
+ *        (1-tl)*seg.first + tl*seg.second is point of intersection
  * \param tol the tolerance for parallel lines
- * \return ePolygonSegInside if the polygon 
- * \note polygon must be given in counter-clockwise order
+ * \return <b>true</b> if the two intersect and <b>false</b> otherwise
  * \note first vertex should not appear twice
  */
-template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeom::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
+template <class ForwardIterator>
+bool CompGeomSpecOne<ForwardIterator, Point3d>::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, const LineSeg3& seg, double& te, double& tl, double tol)
 {
-  return CompGeomSpecTwo<ForwardIterator, OutputIterator, typename std::iterator_traits<ForwardIterator>::value_type>::intersect_seg_polygon(begin, end, seg, outbegin);
+  // **************************************************************
+  // first, we need to project the 3D surface to a 2D polygon
+  // **************************************************************
+
+  // determine the normal, if necessary
+  Ravelin::Vector3d n = normal;
+  if (std::fabs(n.norm() - 1.0) > NEAR_ZERO)
+  {
+    double offset;
+    CompGeom::fit_plane(begin, end, n, offset);
+  }
+
+  // compute the 3D to 2D projection matrix
+  Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(n);
+
+  // get the 2D to 3D offset
+  Ravelin::Origin3d p1(*begin);
+  double offset = CompGeom::determine_3D_to_2D_offset(p1, R);
+
+  // get the transpose (i.e., inverse) of the rotation matrix
+  Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
+
+  // project the points to 2D
+  unsigned sz = std::distance(begin, end);
+  std::vector<Point2d> points_2D(sz);
+  CompGeom::to_2D(begin, end, R, points_2D.begin());
+
+  // reverse the points if necessary
+  if (!CompGeom::ccw(points_2D.begin(), points_2D.end()))
+    std::reverse(points_2D.begin(), points_2D.end());
+
+  // Get the line segment in 2D
+  LineSeg2 seg2;
+  seg2.first = CompGeom::to_2D(seg.first, R);
+  seg2.second = CompGeom::to_2D(seg.second, R);
+
+  // compute the intersection
+  return CompGeom::intersect_seg_convex_polygon(points_2D.begin(), points_2D.end(), seg2, te, tl, tol);
 }
 
 /// Computes the 3D convex hull of a set of points
@@ -2982,6 +3022,29 @@ bool CompGeom::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterat
 {
   return CompGeomSpecOne<ForwardIterator, typename std::iterator_traits<ForwardIterator>::value_type
   >::intersect_seg_convex_polygon(begin, end, seg, te, tl, tol);
+}
+
+/// Computes the intersection of a convex polygon and a line segment
+/**
+ * \param begin iterator pointing to start of collection of Origin3d elements
+ * \param end iterator pointing to end of collection of Origin3d elements
+ * \param normal the normal to the polygon
+ * \param seg the line segment
+ * \param te the parameter of the line segment for the beginning of the
+ *        intersection; (1-te)*seg.first + te*seg.second is point of 
+ *        intersection
+ * \param tl the parameter of the line segment for the end of the intersection;
+ *        (1-tl)*seg.first + tl*seg.second is point of intersection
+ * \param tol the tolerance for parallel lines
+ * \return <b>true</b> if the two intersect and <b>false</b> otherwise
+ * \note polygon must be given in counter-clockwise order
+ * \note first vertex should not appear twice
+ * \note taken from http://geometryalgorithms.com 
+ */
+template <class ForwardIterator>
+bool CompGeom::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, const LineSeg3& seg, double& te, double& tl, double tol)
+{
+  return CompGeomSpecOne<ForwardIterator, typename std::iterator_traits<ForwardIterator>::value_type>::intersect_seg_convex_polygon(begin, end, normal, seg, te, tl, tol);
 }
 
 /**

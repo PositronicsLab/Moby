@@ -177,6 +177,7 @@ template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   const double INF = std::numeric_limits<double>::max();
+  const unsigned TRI_VERTS = 3;
   std::vector<std::pair<Ravelin::Vector3d, double> > hs;
   enum FeatureType { eNone, eVertex, eEdge, eFace };
   FeatureType featA = eNone, featB = eNone;
@@ -331,16 +332,15 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
   }
 
+  // TODO: need to look for the case where there are two minimally overlapping axes
   // TODO: do we need to call v-clip to find closest points (for when bodies are intersecting), but after they have been pushed apart to a kissing configuration?
   // TODO: setup the contact plane for intersecting bodies
   // TODO: figure out what is the case for distance zero
-  // TODO: ensure that normal offset method works properly for intersecting bodies
+  // TODO: make the normal offset method work properly for intersecting bodies
   const double HALF_DIST = dist * 0.5;
 
   // Determine the vertices from A that are on the contact plane.
-  std::vector<Point3d> vertsA_on_contact,vertsB_on_contact;
-
-
+  std::vector<Point3d> vertsA_on_contact;
   const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsA = polyA.get_vertices();
   for (unsigned i=0; i< vertsA.size(); i++)
   {
@@ -350,8 +350,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       vertsA_on_contact.push_back(point);
   }
 
-
   // Determine the vertices from B that are on the contact plane
+  std::vector<Point3d> vertsB_on_contact;
   const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
   for (unsigned i=0; i< vertsB.size(); i++)
   {
@@ -361,217 +361,357 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       vertsB_on_contact.push_back(point);
   }
 
-  
-  std::vector<Point3d> isect;
-  std::vector <Ravelin::Vector3d> convhull_a, convhull_b;
+  // Setup the points of intersection.
+  std::vector<Ravelin::Vector3d> convhull_a, convhull_b;
 
-  if (vertsA_on_contact.size() >= 3 && vertsB_on_contact.size() >= 3){
-
-    // area vs. area
-    // We can simply compute the convex hull and intersect them
-   
-    // computing the convex hull of the vertices from A
-    CompGeom::calc_convex_hull(vertsA_on_contact.begin(),
-                                vertsA_on_contact.end(),
-                                normal,
-                                std::back_inserter(convhull_a));
+  // Try to calculate convex hull of A
+  if (vertsA_on_contact.size() >= 3)  // minimum necessary for 2D hull
+  {
+    // Hull might still fail
+    try {
+      // computing the convex hull of the vertices from A
+      CompGeom::calc_convex_hull(vertsA_on_contact.begin(),
+                                 vertsA_on_contact.end(),
+                                 normal,
+                                 std::back_inserter(convhull_a));
+    }
+    catch (Ravelin::NumericalException e) {}
 
     // check for ccw
-    if (!CompGeom::ccw(convhull_a.begin(), convhull_a.end(),normal)) {
+    if (!CompGeom::ccw(convhull_a.begin(), convhull_a.end(),normal))
       std::reverse(convhull_a.begin(), convhull_a.end());
-    }
-
-    // computing the convex hull of the vertices from b
-    CompGeom::calc_convex_hull(vertsB_on_contact.begin(),
-                               vertsB_on_contact.end(),
-                               normal,
-                               std::back_inserter(convhull_b));
-
-
-    // check for ccw
-    if (!CompGeom::ccw(convhull_b.begin(), convhull_b.end(),normal)) {
-      std::reverse(convhull_b.begin(), convhull_b.end());
-    }
-    
-    CompGeom::intersect_convex_polygons(convhull_a.begin(),
-                                        convhull_a.end(),
-                                        convhull_b.begin(),
-                                        convhull_b.end(),
-                                        normal,
-                                        isect.begin());
   }
-  else if (vertsA_on_contact.size() == 1) {
-  
-    // When there is only one vertex of polyhedron A
-    // The intersection will be that point
-    isect.push_back(vertsA_on_contact.front());
 
-  } else if (vertsB_on_contact.size() == 1) {
-  
-    // When there is only one vertex of polyhedron A
-    // The intersection will be that point
-    isect.push_back(vertsB_on_contact.front());
-  
-  } else if (vertsA_on_contact.size() == 2 && vertsB_on_contact.size() == 2 ) {
+  // Try to calculate convex hull of B
+  if (vertsB_on_contact.size() >= 3)  // minimum necessary for 2D hull
+  {
+    // Hull might still fail
+    try {
+      // computing the convex hull of the vertices from b
+      CompGeom::calc_convex_hull(vertsB_on_contact.begin(),
+                                 vertsB_on_contact.end(),
+                                 normal,
+                                 std::back_inserter(convhull_b));
+    }
+    catch (Ravelin::NumericalException e) {}
 
-    // When both of them are segments
-    // We then intersects the segments to find intersection of them.
+    // Make the ordering of the polygon ccw with respect to the normal.
+    if (!CompGeom::ccw(convhull_b.begin(), convhull_b.end(),normal))
+      std::reverse(convhull_b.begin(), convhull_b.end());
+  }
 
-    LineSeg3 seg_a(Point3d(vertsA_on_contact[0].data(), GLOBAL), Point3d(vertsA_on_contact[1].data(), GLOBAL));
-    LineSeg3 seg_b(Point3d(vertsA_on_contact[0].data(), GLOBAL), Point3d(vertsA_on_contact[1].data(), GLOBAL));
+  // Now determine the type of contact shape.
+  if (!convhull_a.empty()) {
+    // Look for case that points from B correspond to a polygon too
+    if (!convhull_b.empty()) {
 
-    Point3d isect1,isect2;
+      // Intersect the polygons
+      std::vector <Point3d> isect;
+      CompGeom::intersect_convex_polygons(convhull_a.begin(),
+                                          convhull_a.end(),
+                                          convhull_b.begin(),
+                                          convhull_b.end(),
+                                          normal,
+                                          std::back_inserter(isect));
 
-    CompGeom::SegSegIntersectType result = CompGeom::intersect_segs(seg_a, seg_b, isect1, isect2);
-    
-    // Maybe a switch on the result should be used(?)
+      // Output the points.
+      for (unsigned i = 0; i < isect.size(); i++)
+        *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist);
+      return output_begin;
+    } else {
+      // We won't have a polygon from B. vertsB either represents a point or
+      // a line segment. Look for both cases by first finding line endpoints.
+      LineSeg3 endpoints;
+      CompGeom::determine_seg_endpoints(vertsB_on_contact.begin(),
+                                        vertsB_on_contact.end(), endpoints);
+      if ((endpoints.first - endpoints.second).norm() < NEAR_ZERO) {
+        // It's effectively just a single point. We'll use it. Note that we
+        // could try something like seeing whether the point is inside the
+        // polygon. We know the bodies are in contact and we know the normal.
+        // We just need a point.
+        *output_begin++ = create_contact(cgA, cgB, endpoints.first, normal,
+                                         dist);
+        return output_begin;
+      }
+      else
+      {
+        // Two separate points: intersect the line segment with the polygon.
+        double te, tl;
+        if (!CompGeom::intersect_seg_convex_polygon(convhull_a.begin(),
+                                                   convhull_a.end(),
+                                                   normal,
+                                                   endpoints, te, tl)) {
+          // In the case of no intersection, we _should_ log an error message so
+          // that this behavior can be examined in more detail. Instead, using
+          // the reasoning above, we'll choose to believe that having a somewhat
+          // wrong point (as would be the case if there were no intersection) is
+          // better than having no point at all.
+          *output_begin++ = create_contact(cgA, cgB, endpoints.first, normal,
+                                           dist);
+          return output_begin;
+        }
 
-    if(result != CompGeom::eSegSegNoIntersect){
-      isect.push_back(isect1);
-      if(result == CompGeom::eSegSegEdge){
-        isect.push_back(isect2);        
+        Point3d p1 = (1-tl)*endpoints.first + tl*endpoints.second;
+        Point3d p2 = (1-te)*endpoints.first + te*endpoints.second;
+        *output_begin++ = create_contact(cgA, cgB, p1, normal, dist);
+        *output_begin++ = create_contact(cgA, cgB, p2, normal, dist);
+        return output_begin;
       }
     }
+  }
+  else  // vertsA does not represent a polygon
+  {
+    // vertsA represents either a point or a line segment. Look for both
+    // cases by first finding line endpoints.
+    LineSeg3 endpointsA;
+    CompGeom::determine_seg_endpoints(vertsA_on_contact.begin(),
+                                      vertsA_on_contact.end(), endpointsA);
 
-  } else if (vertsA_on_contact.size() == 2){
+    // Look for the case that points from B correspond to a polygon.
+    if (!convhull_b.empty()) {
 
-    // segment A vs polygon B
-    // we then tries to intersect the segment a with polygon B
-    
+      // Determine the topology of points from A.
+      if ((endpointsA.first - endpointsA.second).norm() < NEAR_ZERO) {
+        // We've found a point. See discussion on identical case above.
+        *output_begin++ = create_contact(cgA, cgB, endpointsA.first,
+                                         normal, dist);
+        return output_begin;
+      } else {
+        // A represents a line seg; intersect the line segment with the polygon.
+        double te, tl;
+        if (!CompGeom::intersect_seg_convex_polygon(convhull_a.begin(),
+                                               convhull_a.end(),
+                                               normal,
+                                               endpointsA, te, tl)) {
+          // In the case of no intersection, we _should_ log an error message so
+          // that this behavior can be examined in more detail. Instead, using
+          // the reasoning above, we'll choose to believe that having a somewhat
+          // wrong point (as would be the case if there were no intersection) is
+          // better than having no point at all.
+            *output_begin++ = create_contact(cgA, cgB, endpointsA.first, normal,
+                                             dist);
+            return output_begin;
+        }
 
-    // projecting all points to 2d
-    Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(normal);
-    double offset_3d = CompGeom::determine_3D_to_2D_offset(vertsA_on_contact[0], _2DT3D);
+        Point3d p1 = (1-tl)*endpointsA.first + tl*endpointsA.second;
+        Point3d p2 = (1-te)*endpointsA.first + te*endpointsA.second;
+        *output_begin++ = create_contact(cgA, cgB, p1, normal, dist);
+        *output_begin++ = create_contact(cgA, cgB, p2, normal, dist);
+        return output_begin;
+      }
 
-    std::vector <Ravelin::Origin2d> verts_2D_a, verts_2D_b;
+      // Should not still be here- we just handled case that B is a polygon.
+      assert(false);
+    } else // vertics from B do not correspond to a polygon either.
+    {
+      // If we're here, then we could have a point from each shape, a
+      // point and a line segment from the shapes, or a line segment
+      // from each shape. The last is the one that requires the most
+      // conversation because we then need to intersect the line segments.
+      // For the same reason as was discussed in the point-on-polygon case
+      // above, we'll simply return the single point from a shape otherwise.
 
-    for (std::vector<Ravelin::Vector3d>::iterator vAoci = vertsA_on_contact.begin();
-          vAoci != vertsA_on_contact.end(); ++vAoci) {
-      verts_2D_a.push_back(CompGeom::to_2D(*vAoci, _2DT3D));
+      // Determine topology of points from B.
+      LineSeg3 endpointsB;
+      CompGeom::determine_seg_endpoints(vertsB_on_contact.begin(),
+                                        vertsB_on_contact.end(), endpointsB);
+
+      // Look for the easy cases
+      if ((endpointsA.first - endpointsA.second).norm() < NEAR_ZERO) {
+        *output_begin++ = create_contact(cgA, cgB, endpointsA.first, normal,
+                                         dist);
+        return output_begin;
+      }
+      if ((endpointsB.first - endpointsB.second).norm() < NEAR_ZERO) {
+        *output_begin++ = create_contact(cgA, cgB, endpointsB.first, normal,
+                                         dist);
+        return output_begin;
+      }
+
+      // If we're still here- it's the line intersection case. Urgh.
+      // Rather than intersect the line segments properly, which is a PITA,
+      // let's just find a closest point between them.
+      Point3d cpA, cpB;
+      CompGeom::calc_closest_points(endpointsA, endpointsB, cpA, cpB);
+      *output_begin++ =
+          create_contact(cgA, cgB, (cpA + cpB) * 0.5, normal, dist);
+      return output_begin;
+    } // end else for points from B not belonging to a polygon
+  } // end else for dist > 0.0
+    /*
+
+else if (vertsA_on_contact.size() == 1) {
+
+  // When there is only one vertex of polyhedron A
+  // The intersection will be that point
+  isect.push_back(vertsA_on_contact.front());
+
+} else if (vertsB_on_contact.size() == 1) {
+
+  // When there is only one vertex of polyhedron A
+  // The intersection will be that point
+  isect.push_back(vertsB_on_contact.front());
+
+} else if (vertsA_on_contact.size() == 2 && vertsB_on_contact.size() == 2 ) {
+
+  // When both of them are segments
+  // We then intersects the segments to find intersection of them.
+
+  LineSeg3 seg_a(Point3d(vertsA_on_contact[0].data(), GLOBAL), Point3d(vertsA_on_contact[1].data(), GLOBAL));
+  LineSeg3 seg_b(Point3d(vertsA_on_contact[0].data(), GLOBAL), Point3d(vertsA_on_contact[1].data(), GLOBAL));
+
+  Point3d isect1,isect2;
+
+  CompGeom::SegSegIntersectType result = CompGeom::intersect_segs(seg_a, seg_b, isect1, isect2);
+
+  // Maybe a switch on the result should be used(?)
+
+  if(result != CompGeom::eSegSegNoIntersect){
+    isect.push_back(isect1);
+    if(result == CompGeom::eSegSegEdge){
+      isect.push_back(isect2);
     }
+  }
 
-    for (std::vector<Ravelin::Vector3d>::iterator vBoci = vertsB_on_contact.begin();
-        vBoci != vertsB_on_contact.end(); ++vBoci) {
-    
-      verts_2D_b.push_back(CompGeom::to_2D(*vBoci, _2DT3D));
-    
-    }
+} else if (vertsA_on_contact.size() == 2){
 
-    // create segment A
-    LineSeg2 seg_a(Point2d(verts_2D_a[0], GLOBAL_2D), 
-                    Point2d(verts_2D_a[1], GLOBAL_2D));
+  // segment A vs polygon B
+  // we then tries to intersect the segment a with polygon B
 
-    // create the polygon by computing convex hull
-    std::vector <Point2d> convhull_b_2D;
-    std::vector <LineSeg2> isect2;
-    CompGeom::calc_convex_hull(verts_2D_b.begin(), verts_2D_b.end(), 
-                                convhull_b_2D.begin());
 
-    // make sure the list is counter-clock-wise
-    if (!CompGeom::ccw(convhull_b_2D.begin(), convhull_b_2D.end())) {
-      std::reverse(convhull_b_2D.begin(), convhull_b_2D.end());
-    }
+  // projecting all points to 2d
+  Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(normal);
+  double offset_3d = CompGeom::determine_3D_to_2D_offset(vertsA_on_contact[0], _2DT3D);
 
-    // intersecting the line and the polygon
-    CompGeom::intersect_seg_polygon(convhull_b_2D.begin(), convhull_b_2D.end(),
-                                    seg_a, isect2.begin());
+  std::vector <Ravelin::Origin2d> verts_2D_a, verts_2D_b;
 
-    // projecting the points back to 3d and add them to the list
-    for (std::vector<LineSeg2>::iterator isecti = isect2.begin();
-          isecti != isect2.end(); ++isecti) {
+  for (std::vector<Ravelin::Vector3d>::iterator vAoci = vertsA_on_contact.begin();
+        vAoci != vertsA_on_contact.end(); ++vAoci) {
+    verts_2D_a.push_back(CompGeom::to_2D(*vAoci, _2DT3D));
+  }
 
-          LineSeg2 l = *isecti;
+  for (std::vector<Ravelin::Vector3d>::iterator vBoci = vertsB_on_contact.begin();
+      vBoci != vertsB_on_contact.end(); ++vBoci) {
 
-          Ravelin::Vector2d v = l.first;
-          Ravelin::Origin2d o(v.x(), v.y());
+    verts_2D_b.push_back(CompGeom::to_2D(*vBoci, _2DT3D));
 
-          isect.push_back(Ravelin::Vector3d(
-                          CompGeom::to_3D(o,_2DT3D.inverse(), offset_3d),
-                          GLOBAL));
+  }
 
-          v = l.second;
-          o = Ravelin::Origin2d(v.x(), v.y());
+  // create segment A
+  LineSeg2 seg_a(Point2d(verts_2D_a[0], GLOBAL_2D),
+                  Point2d(verts_2D_a[1], GLOBAL_2D));
 
-          isect.push_back(Ravelin::Vector3d(
-                          CompGeom::to_3D(o, _2DT3D.inverse(), offset_3d), 
-                          GLOBAL));
-    }
+  // create the polygon by computing convex hull
+  std::vector <Point2d> convhull_b_2D;
+  std::vector <LineSeg2> isect2;
+  CompGeom::calc_convex_hull(verts_2D_b.begin(), verts_2D_b.end(),
+                              convhull_b_2D.begin());
+
+  // make sure the list is counter-clock-wise
+  if (!CompGeom::ccw(convhull_b_2D.begin(), convhull_b_2D.end())) {
+    std::reverse(convhull_b_2D.begin(), convhull_b_2D.end());
+  }
+
+  // intersecting the line and the polygon
+  CompGeom::intersect_seg_polygon(convhull_b_2D.begin(), convhull_b_2D.end(),
+                                  seg_a, isect2.begin());
+
+  // projecting the points back to 3d and add them to the list
+  for (std::vector<LineSeg2>::iterator isecti = isect2.begin();
+        isecti != isect2.end(); ++isecti) {
+
+        LineSeg2 l = *isecti;
+
+        Ravelin::Vector2d v = l.first;
+        Ravelin::Origin2d o(v.x(), v.y());
+
+        isect.push_back(Ravelin::Vector3d(
+                        CompGeom::to_3D(o,_2DT3D.inverse(), offset_3d),
+                        GLOBAL));
+
+        v = l.second;
+        o = Ravelin::Origin2d(v.x(), v.y());
+
+        isect.push_back(Ravelin::Vector3d(
+                        CompGeom::to_3D(o, _2DT3D.inverse(), offset_3d),
+                        GLOBAL));
+  }
 
 } else if (vertsB_on_contact.size() == 2) {
 
-    // segment B vs polygon A
-    // we then tries to intersect the segment B with polygon A
-    
+  // segment B vs polygon A
+  // we then tries to intersect the segment B with polygon A
 
-    // projecting all points to 2d
-    Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(normal);
-    double offset_3d = CompGeom::determine_3D_to_2D_offset(vertsA_on_contact[0], _2DT3D);
 
-    std::vector <Ravelin::Origin2d> verts_2D_a, verts_2D_b;
+  // projecting all points to 2d
+  Ravelin::Matrix3d _2DT3D = CompGeom::calc_3D_to_2D_matrix(normal);
+  double offset_3d = CompGeom::determine_3D_to_2D_offset(vertsA_on_contact[0], _2DT3D);
 
-    for (std::vector<Ravelin::Vector3d>::iterator vAoci = vertsA_on_contact.begin();
-          vAoci != vertsA_on_contact.end(); ++vAoci) {
-      verts_2D_a.push_back(CompGeom::to_2D(*vAoci, _2DT3D));
-    }
+  std::vector <Ravelin::Origin2d> verts_2D_a, verts_2D_b;
 
-    for (std::vector<Ravelin::Vector3d>::iterator vBoci = vertsB_on_contact.begin();
-        vBoci != vertsB_on_contact.end(); ++vBoci) {
-    
-      verts_2D_b.push_back(CompGeom::to_2D(*vBoci, _2DT3D));
-    
-    }
-
-    // create segment b
-    LineSeg2 seg_b(Point2d(verts_2D_b[0], GLOBAL_2D), 
-                    Point2d(verts_2D_b[1], GLOBAL_2D));
-
-    // create the polygon by computing convex hull
-    std::vector <Point2d> convhull_a_2D;
-    std::vector <LineSeg2> isect2;
-    CompGeom::calc_convex_hull(verts_2D_a.begin(), verts_2D_a.end(), 
-                                convhull_a_2D.begin());
-
-    // make sure the list is counter-clock-wise
-    if (!CompGeom::ccw(convhull_a_2D.begin(), convhull_a_2D.end())) {
-      std::reverse(convhull_a_2D.begin(), convhull_a_2D.end());
-    }
-
-    // intersecting the line and the polygon
-    CompGeom::intersect_seg_polygon(convhull_a_2D.begin(), convhull_a_2D.end(),
-                                    seg_b, isect2.begin());
-
-    // projecting the points back to 3d and add them to the list
-    for (std::vector<LineSeg2>::iterator isecti = isect2.begin();
-          isecti != isect2.end(); ++isecti) {
-
-          LineSeg2 l = *isecti;
-
-          Ravelin::Vector2d v = l.first;
-          Ravelin::Origin2d o(v.x(), v.y());
-
-          isect.push_back(Ravelin::Vector3d(
-                          CompGeom::to_3D(o,_2DT3D.inverse(), offset_3d),
-                          GLOBAL));
-
-          v = l.second;
-          o = Ravelin::Origin2d(v.x(), v.y());
-
-          isect.push_back(Ravelin::Vector3d(
-                          CompGeom::to_3D(o, _2DT3D.inverse(), offset_3d), 
-                          GLOBAL));
-    }
+  for (std::vector<Ravelin::Vector3d>::iterator vAoci = vertsA_on_contact.begin();
+        vAoci != vertsA_on_contact.end(); ++vAoci) {
+    verts_2D_a.push_back(CompGeom::to_2D(*vAoci, _2DT3D));
   }
 
+  for (std::vector<Ravelin::Vector3d>::iterator vBoci = vertsB_on_contact.begin();
+      vBoci != vertsB_on_contact.end(); ++vBoci) {
+
+    verts_2D_b.push_back(CompGeom::to_2D(*vBoci, _2DT3D));
+
+  }
+
+  // create segment b
+  LineSeg2 seg_b(Point2d(verts_2D_b[0], GLOBAL_2D),
+                  Point2d(verts_2D_b[1], GLOBAL_2D));
+
+  // create the polygon by computing convex hull
+  std::vector <Point2d> convhull_a_2D;
+  std::vector <LineSeg2> isect2;
+  CompGeom::calc_convex_hull(verts_2D_a.begin(), verts_2D_a.end(),
+                              convhull_a_2D.begin());
+
+  // make sure the list is counter-clock-wise
+  if (!CompGeom::ccw(convhull_a_2D.begin(), convhull_a_2D.end())) {
+    std::reverse(convhull_a_2D.begin(), convhull_a_2D.end());
+  }
+
+  // intersecting the line and the polygon
+  CompGeom::intersect_seg_polygon(convhull_a_2D.begin(), convhull_a_2D.end(),
+                                  seg_b, isect2.begin());
+
+  // projecting the points back to 3d and add them to the list
+  for (std::vector<LineSeg2>::iterator isecti = isect2.begin();
+        isecti != isect2.end(); ++isecti) {
+
+        LineSeg2 l = *isecti;
+
+        Ravelin::Vector2d v = l.first;
+        Ravelin::Origin2d o(v.x(), v.y());
+
+        isect.push_back(Ravelin::Vector3d(
+                        CompGeom::to_3D(o,_2DT3D.inverse(), offset_3d),
+                        GLOBAL));
+
+        v = l.second;
+        o = Ravelin::Origin2d(v.x(), v.y());
+
+        isect.push_back(Ravelin::Vector3d(
+                        CompGeom::to_3D(o, _2DT3D.inverse(), offset_3d),
+                        GLOBAL));
+  }
+}
 
 
 
 
-  CompGeom::calc_convex_hull(verts.begin(), verts.end(), normal, std::back_inserter(isect));
 
-    // Output the points.
-  for (unsigned i = 0; i < isect.size(); i++)
-    *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist);
+CompGeom::calc_convex_hull(verts.begin(), verts.end(), normal, std::back_inserter(isect));
 
+  // Output the points.
+for (unsigned i = 0; i < isect.size(); i++)
+  *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist);
+*/
   /*
   // case #1: attempt to use volume of intersection
   if (dist <= 0.0) {

@@ -214,6 +214,9 @@ class CompGeom
     template <class ForwardIterator>
     static bool intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, double& te, double& tl, double tol = NEAR_ZERO);
 
+    template <class ForwardIterator>
+    static bool intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, const LineSeg3& seg, double& te, double& tl, double tol = NEAR_ZERO);
+
     template <class ForwardIterator, class OutputIterator>
     static OutputIterator intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin);
 
@@ -285,6 +288,7 @@ class CompGeomSpecOne<T, Point3d>
   friend class CompGeom;
 
   private:
+    static bool intersect_seg_convex_polygon(T begin, T end, const Ravelin::Vector3d& normal, const LineSeg3& seg, double& te, double& tl, double tol);
     static unsigned calc_dimensionality(T begin, T end, double tol);
     static TessellatedPolyhedronPtr calc_convex_hull(T begin, T end); 
     static bool is_convex_polygon(T begin, T end, const Ravelin::Vector3d& normal, double tol);
