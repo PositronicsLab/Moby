@@ -340,12 +340,12 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
   }
 
-  // TODO: need to look for the case where there are two minimally overlapping axes
-  // TODO: do we need to call v-clip to find closest points (for when bodies are intersecting), but after they have been pushed apart to a kissing configuration?
-  // TODO: setup the contact plane for intersecting bodies
-  // TODO: figure out what is the case for distance zero
-  // TODO: make the normal offset method work properly for intersecting bodies
   const double HALF_DIST = dist * 0.5;
+
+  // setup a tolerance
+  double tol = NEAR_ZERO + std::fabs(HALF_DIST);
+
+redoA:
 
   // Determine the vertices from A that are on the contact plane.
   double min_vertsA_dist = std::numeric_limits<double>::max();
@@ -354,13 +354,25 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   for (unsigned i=0; i< vertsA.size(); i++)
   {
     // project the point toward the plane
-    Point3d point = wTa.transform_point(Point3d(vertsA[i]->o, poseA)) - normal*HALF_DIST;
+    Point3d point = wTa.transform_point(Point3d(vertsA[i]->o, poseA));
     double dist = contact_plane.calc_signed_distance(point);
-    if (dist < NEAR_ZERO)
+    if (dist  < tol)
       vertsA_on_contact.push_back(point);
     min_vertsA_dist = std::min(min_vertsA_dist, dist);
   }
 
+  // We must find at least one point that is on the contact plane. Repeat
+  // if necessary.
+  if (vertsA_on_contact.empty())
+  {
+    tol = std::max(tol*1.1, std::fabs(min_vertsA_dist)*1.1);
+    goto redoA;
+  }
+
+  // reset the tolerance
+  tol = std::fabs(HALF_DIST) + NEAR_ZERO;
+
+redoB:
   // Determine the vertices from B that are on the contact plane
   double max_vertsB_dist = -std::numeric_limits<double>::max();
   std::vector<Point3d> vertsB_on_contact;
@@ -368,11 +380,18 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   for (unsigned i=0; i< vertsB.size(); i++)
   {
     // project the point toward the plane
-    Point3d point = wTb.transform_point(Point3d(vertsB[i]->o, poseB)) + normal*HALF_DIST;
+    Point3d point = wTb.transform_point(Point3d(vertsB[i]->o, poseB));
     double dist = contact_plane.calc_signed_distance(point);
-    if (dist > -NEAR_ZERO)
+    if (dist > -tol)
       vertsB_on_contact.push_back(point);
     max_vertsB_dist = std::max(max_vertsB_dist, dist);
+  }
+
+  // Again, we must find at least one point that is on the contact plane.
+  if (vertsB_on_contact.empty())
+  {
+    tol = std::max(tol*1.1, std::fabs(max_vertsB_dist)*1.1);
+    goto redoB;
   }
 
   // Setup the points of intersection.
