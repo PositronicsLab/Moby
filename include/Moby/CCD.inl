@@ -328,6 +328,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     Point3d closestAw = wTa.transform_point(Point3d(a_vertex->o, poseA));
     Point3d closestBw = wTb.transform_point(Point3d(b_vertex->o, poseB));
     normal =  closestAw - closestBw;
+    normal.normalize();
     contact_plane.set_normal(normal);
     contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
   }

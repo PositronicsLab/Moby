@@ -1230,7 +1230,7 @@ void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, b
 
       // project the point onto the plane
       Ravelin::Vector3d vAb_on_planeB = vAb - planeB.get_normal()*dist;
-
+      vAb_on_planeB.pose = wTb.source;
       // this is correct because when v-clip ends and a face vertex case
       // the vertex will always be in the voronoi region, and therefore,
       // the vertex projection is always on face B.
