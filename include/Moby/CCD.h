@@ -25,6 +25,7 @@
 #include <Moby/BV.h>
 #include <Moby/GJK.h>
 #include <Moby/Polyhedron.h>
+#include <Moby/PolyhedralPrimitive.h>
 
 namespace Moby {
 
@@ -119,12 +120,8 @@ class CCD : public CollisionDetection
 
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
 
-    void project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index);
-
     void create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, const Ravelin::Vector3d& axis, const Ravelin::Transform3d& wTv, std::vector<Ravelin::Vector3d>& ch_vertices);
 
-    std::vector<Ravelin::Vector3d> create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, Ravelin::Transform3d &wTa);
-    
     template <class OutputIterator>
     OutputIterator find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 

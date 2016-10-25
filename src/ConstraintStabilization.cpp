@@ -102,7 +102,7 @@ double ConstraintStabilization::evaluate_unilateral_constraints(shared_ptr<Const
   uC.clear();
 
   // calculate the pairwise distances
-  sim->calc_pairwise_distances();
+  sim->calc_signed_pairwise_distances();
 
   // get the maximum amount of unilateral constraint violation
   const vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;

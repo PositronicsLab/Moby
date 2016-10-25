@@ -93,6 +93,7 @@ class ConstraintSimulator : public Simulator
     void determine_geometries();
     void broad_phase(double dt);
     void calc_pairwise_distances();
+    void calc_signed_pairwise_distances();
     void visualize_contact( Constraint& constraint );
 
     /// The vector of rigid constraints

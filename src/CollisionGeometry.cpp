@@ -217,6 +217,8 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, std::vector<Vec
   return primitive->calc_dist_and_normal(px, normals);
 }
 
+/// Calculates the unsigned distance for a primitive
+
 /// Calculates the signed distance for a primitive
 double CollisionGeometry::calc_signed_dist(const Point3d& p)
 {
@@ -231,6 +233,23 @@ double CollisionGeometry::calc_signed_dist(const Point3d& p)
 
   // call the primitive function
   return primitive->calc_signed_dist(px);
+}
+
+/// Calculates the distances between two geometries and returns closest points if geometries are not interpenetrating
+double CollisionGeometry::calc_dist(CollisionGeometryPtr gA, CollisionGeometryPtr gB, Point3d& pA, Point3d& pB) 
+{
+  // get the two primitives
+  PrimitivePtr primA = gA->get_geometry();
+  PrimitivePtr primB = gB->get_geometry();
+
+  // setup poses for the points
+  pA.pose = primA->get_pose(gA);
+  pB.pose = primB->get_pose(gB);
+
+  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_dist() - computing distance between " << gA->get_single_body()->body_id << " and " << gB->get_single_body()->body_id << std::endl;
+
+  // now compute the signed distance
+  return primA->calc_dist(primB, pA, pB);
 }
 
 /// Calculates the signed distances between two geometries and returns closest points if geometries are not interpenetrating

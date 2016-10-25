@@ -48,6 +48,12 @@ class CollisionDetection : public virtual Base
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<Constraint>& contacts, double TOL = NEAR_ZERO) = 0;
     static Constraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
 
+    /// Calculates the distance between two geometries
+    virtual double calc_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, Point3d& p1, Point3d& p2)
+    {
+      return CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+    }
+
     /// Calculates the signed distance between two geometries
     virtual double calc_signed_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, Point3d& p1, Point3d& p2)
     {

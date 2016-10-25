@@ -30,6 +30,33 @@ using boost::weak_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
+/// The pointer to the test vectors
+vector<Vector3d>* PolyhedralPrimitive::test_vecs;
+
+/// Special comparison routine for separating axis test 
+bool PolyhedralPrimitive::compare_vecs(unsigned i, unsigned j)
+{
+  return (std::fabs((*test_vecs)[i][0]) < std::fabs((*test_vecs)[j][0]));
+}
+
+/// Creates a set of edge vectors for the separating axis test
+void PolyhedralPrimitive::create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& edge_vectors)
+{
+  edge_vectors.clear(); 
+  BOOST_FOREACH(boost::shared_ptr<Polyhedron::Edge> edge, edges)
+  {
+    Ravelin::Vector3d v1_e(edge->v1->o,wTe.source);
+    Ravelin::Vector3d v2_e(edge->v2->o,wTe.source);
+
+    Ravelin::Vector3d v1_w = wTe.transform_point(v1_e);
+    Ravelin::Vector3d v2_w = wTe.transform_point(v2_e);
+    
+    Ravelin::Vector3d edge_v = (v2_w - v1_w);
+    edge_v.normalize();
+    edge_vectors.push_back(edge_v);
+  }
+}
+
 /// Determines whether the primitive is convex
 bool PolyhedralPrimitive::is_convex() const
 {
@@ -263,6 +290,27 @@ void PolyhedralPrimitive::calc_mass_properties()
   std::cerr << "Polyhedral::calc_mass_properties() - implement me!" << std::endl;
 }
 
+/// Computes the distance between two polyhedra
+double PolyhedralPrimitive::calc_dist(shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const
+{
+  const double INF = std::numeric_limits<double>::max();
+  shared_ptr<TessellatedPolyhedron> tpoly;
+
+  // verify that p is convex
+  if (!is_convex() && !p->is_convex())
+    throw std::runtime_error("Polyhedron is not convex!");
+
+  // if the primitive is polyhedral and convex, can use vclip 
+  shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
+  shared_ptr<const Pose3d> poseA = pthis.pose;
+  shared_ptr<const Pose3d> poseB = pp.pose;
+  shared_ptr<const Polyhedron::Feature> closestA, closestB;
+
+  // attempt to use vclip
+  double dist = Polyhedron::vclip(bthis, p, poseA, poseB, closestA, closestB); 
+  return std::max(dist, 0.0);
+}
+
 /// Computes the signed distance between two polyhedra
 double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const
 {
@@ -284,6 +332,152 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
   if (dist >= 0.0)
     return dist;
 
+  // get the two polyhedra
+  const Polyhedron& polyA = bthis->get_polyhedron();
+  const Polyhedron& polyB = p->get_polyhedron();
+
+  // get transforms to global frame
+  Ravelin::Transform3d wTa = Ravelin::Pose3d::calc_relative_pose(poseA, GLOBAL);
+  Ravelin::Transform3d wTb = Ravelin::Pose3d::calc_relative_pose(poseB, GLOBAL);
+
+  // Compute first set of testing vectors from face normals
+  std::vector<Ravelin::Vector3d> test_vectors;
+  const std::vector<boost::shared_ptr<Polyhedron::Face> >& fA = polyA.get_faces();
+  const std::vector<boost::shared_ptr<Polyhedron::Face> >& fB = polyB.get_faces();
+  for (unsigned i=0; i< fA.size(); i++)
+    test_vectors.push_back(wTa.transform_vector(Ravelin::Vector3d(fA[i]->get_plane().get_normal().data(), poseA)));
+  for (unsigned i=0; i< fB.size(); i++)
+    test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
+
+  // create testing axes (cross-products of edges from A and B)
+  const std::vector <boost::shared_ptr<Polyhedron::Edge> >
+      &edgesA = polyA.get_edges();
+  const std::vector <boost::shared_ptr<Polyhedron::Edge> >
+      &edgesB = polyB.get_edges();
+  std::vector <Ravelin::Vector3d> evA, evB;
+  create_edge_vector(edgesA, wTa, evA);
+  create_edge_vector(edgesB, wTb, evB);
+  for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
+       evAi != evA.end(); ++evAi) {
+    for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();
+         evBi != evB.end(); ++evBi) {
+      Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
+      double nrm = xv.norm();
+      if (nrm > NEAR_ZERO) {
+        xv /= nrm;
+        test_vectors.push_back(xv);
+      }
+    }
+  }
+
+  // We want to find parallel and anti-parallel normalized vectors. The
+  // algorithm works like this: 
+  // Sort based on the magnitude of the first dimension of the vector.
+  // Check the distance of all vectors within distance TOL of the given
+  // dimension.
+  const unsigned X = 0; 
+  const double TOL = 1e-2;  // large tolerance
+  std::vector<unsigned> vecs(test_vectors.size());
+  for (unsigned i=0; i< test_vectors.size(); i++)
+    vecs[i] = i;
+  test_vecs = &test_vectors;
+  std::sort(vecs.begin(), vecs.end(), compare_vecs);
+
+  unsigned end = vecs.size()-1;
+  for (int i=end-1; i>= 0; i--)
+  {
+    // look for the first vector that is farther than than tolerance from
+    // end's element
+    if (std::fabs(test_vectors[end][X]) - std::fabs(test_vectors[i][X]) > TOL)
+    {
+      // compare all of the vectors up to, but not including, i 
+      for (int j=end-1; j > i; j--)
+      {
+        if (std::fabs(std::fabs(test_vectors[end].dot(test_vectors[j]) - 1.0)) < 1e-4)
+        {
+          test_vectors.erase(test_vectors.begin()+j);
+          end--;  // we must now decrease end and i 
+          i--;  // 
+        }
+      }
+
+      // now must update end
+      end--; 
+    }
+  }
+
+  // create Vector3d for all vertices
+  std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
+  std::vector <boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
+
+  std::vector <Ravelin::Vector3d> vector_a;
+  BOOST_FOREACH(boost::shared_ptr < Polyhedron::Vertex > vertex, vAa)
+  {
+    Ravelin::Vector3d v(vertex->o, wTa.source);
+    Ravelin::Vector3d vw = wTa.transform_point(v);
+    vector_a.push_back(vw);
+  }
+  std::vector <Ravelin::Vector3d> vector_b;
+  BOOST_FOREACH(boost::shared_ptr < Polyhedron::Vertex > vertex, vBb)
+  {
+    Ravelin::Vector3d v(vertex->o, wTb.source);
+    Ravelin::Vector3d vw = wTb.transform_point(v);
+    vector_b.push_back(vw);
+  }
+
+  // ***********************************************************************
+  // find the minimum overlap
+  // ***********************************************************************
+  double min_overlap = std::numeric_limits<double>::max();
+  Ravelin::Vector3d min_axis;
+  boost::shared_ptr <Polyhedron::Vertex> a_vertex, b_vertex;
+  int direction = 1;
+  for (std::vector<Ravelin::Vector3d>::iterator test_i = test_vectors.begin(); test_i != test_vectors.end(); ++test_i) {
+    double min_a, max_a, min_b, max_b;
+    boost::shared_ptr <Polyhedron::Vertex> minV_a, minV_b, maxV_a, maxV_b;
+    unsigned min_index_a, min_index_b, max_index_a, max_index_b;
+
+    // project vertices onto the candidate axis
+    // NOTE: this could be done in O(lg n) time of the number of vertices rather
+    // than the current O(n) time operation.
+    project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
+    project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
+
+    // Compute the amount of overlap.
+    double o1 = max_a - min_b;
+    double o2 = max_b - min_a;
+
+    if (o1 > 0.0 && o2 > 0.0) {
+      // there is an overlap
+      double overlap = std::min(o1, o2);
+      boost::shared_ptr <Polyhedron::Vertex> v1, v2;
+
+      if (min_overlap - overlap > NEAR_ZERO) {
+        min_overlap = overlap;
+        min_axis = *test_i;
+        if (fabs(overlap - o1) < NEAR_ZERO) {
+          direction = -1;
+          a_vertex = vAa[max_index_a];
+          assert(a_vertex);
+          b_vertex = vBb[min_index_b];
+          assert(b_vertex);
+        } else {
+          direction = 1;
+          b_vertex = vBb[max_index_b];
+          assert(b_vertex);
+          a_vertex = vAa[min_index_a];
+          assert(a_vertex);
+        }
+      }
+    }
+  }
+
+  // ensure that the distance is negated
+  assert(min_overlap >= 0.0);
+  dist = -min_overlap;
+
+
+/*
   // compute transforms
   Transform3d wTa = Pose3d::calc_relative_pose(poseA, GLOBAL);
   Transform3d wTb = Pose3d::calc_relative_pose(poseB, GLOBAL);
@@ -353,6 +547,43 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
   // return the negative minimum distance; don't worry about closest points
   // during interpenetration
   return -min_dist;
+  */
+}
+
+/// Computes the distance between this primitive and another
+double PolyhedralPrimitive::calc_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
+{
+  // now try polyhedron/sphere
+  shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
+  if (spherep)
+  {
+    throw std::runtime_error("Sphere/polyhedron distance not yet implemented");
+    return 0.0;
+  } 
+
+  // now try polyhedron/plane
+  shared_ptr<const PlanePrimitive> planep = dynamic_pointer_cast<const PlanePrimitive>(p);
+  if (planep)
+  {
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return planep->calc_signed_dist(bthis, pp, pthis);
+  }
+
+  // now try polyhedron/heightmap
+  shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
+  if (hmp)
+  {
+    throw std::runtime_error("Heightmap/polyhedron distance not yet implemented");
+    return 0.0;
+  }
+
+  // now try convex polyhedron/convex polyhedron
+  shared_ptr<const PolyhedralPrimitive> polyp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+  if (polyp)
+    return calc_dist(polyp, pthis, pp);
+
+  throw std::runtime_error("Unanticipated signed distance types!");
+  return 0.0;
 }
 
 /// Computes the signed distance between this primitive and another
@@ -489,4 +720,27 @@ void PolyhedralPrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<cons
     in.close();
 }
 
+void PolyhedralPrimitive::project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index)
+{
+  // initialize outputs to indicator and safe values
+  min_index = max_index = std::numeric_limits<unsigned>::max();
+  min_dot = std::numeric_limits<double>::max();
+  max_dot = -std::numeric_limits<double>::max();
+
+  for(unsigned i = 0 ; i < vectors.size(); ++i)
+  {
+    double value = axis.dot(vectors[i]);
+    if (value < min_dot)
+    {
+      min_dot = value;
+      min_index = i;
+    }
+
+    if (value > max_dot)
+    {
+      max_dot = value;
+      max_index = i;
+    }
+  }
+}
 

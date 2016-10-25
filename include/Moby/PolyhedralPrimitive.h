@@ -21,11 +21,14 @@ namespace Moby {
  */
 class PolyhedralPrimitive : public Primitive 
 {
+  friend class CCD;
+
   public:
 
     PolyhedralPrimitive() : Primitive() { }
     PolyhedralPrimitive(const Ravelin::Pose3d& T) : Primitive(T) { }
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    virtual double calc_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     virtual double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& normals) const;
     virtual osg::Node* create_visualization();
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
@@ -66,7 +69,14 @@ class PolyhedralPrimitive : public Primitive
     boost::shared_ptr<const IndexedTriArray> _mesh;
     void calc_mass_properties();
     double calc_signed_dist(boost::shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const;
+    double calc_dist(boost::shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const;
     Polyhedron _poly;
+
+  private:
+    static void project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index);
+    static std::vector<Ravelin::Vector3d>* test_vecs;
+    static bool compare_vecs(unsigned i, unsigned j);
+    static void create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, const Ravelin::Transform3d &wTa, std::vector<Ravelin::Vector3d>& edge_vectors);
 }; // end class
 
 #include "PolyhedralPrimitive.inl"

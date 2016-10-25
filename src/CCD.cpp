@@ -1293,7 +1293,6 @@ void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, b
     }
 
   }
-
 }
 
 /****************************************************************************

@@ -465,6 +465,33 @@ void ConstraintSimulator::determine_geometries()
   _geometries.erase(std::unique(_geometries.begin(), _geometries.end()), _geometries.end());
 }
 
+/// Computes *signed* pairwise distances of geometries at their current poses, using broad phase results to determine which pairs should be checked
+/**
+ * \param pairwise_distances on return, contains the pairwise distances
+ */
+void ConstraintSimulator::calc_signed_pairwise_distances()
+{
+  // clear the vector
+  _pairwise_distances.clear();
+
+  // setup the pointer to the simulator
+  _coldet->set_simulator(dynamic_pointer_cast<ConstraintSimulator>(shared_from_this()));
+
+  for (unsigned i=0; i< _pairs_to_check.size(); i++)
+  {
+    PairwiseDistInfo pdi;
+    pdi.a = _pairs_to_check[i].first;
+    pdi.b = _pairs_to_check[i].second;
+    pdi.dist = _coldet->calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    Pose3d poseA(*pdi.a->get_pose());
+    Pose3d poseB(*pdi.b->get_pose());
+    poseA.update_relative_pose(GLOBAL);
+    poseB.update_relative_pose(GLOBAL);
+    FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::calc_pairwise_distances() - signed distance between " << pdi.a->get_single_body()->body_id << " and " << pdi.b->get_single_body()->body_id << ": " << pdi.dist << std::endl;
+    _pairwise_distances.push_back(pdi);
+  }
+}
+
 /// Computes pairwise distances of geometries at their current poses, using broad phase results to determine which pairs should be checked
 /**
  * \param pairwise_distances on return, contains the pairwise distances
@@ -482,7 +509,7 @@ void ConstraintSimulator::calc_pairwise_distances()
     PairwiseDistInfo pdi;
     pdi.a = _pairs_to_check[i].first;
     pdi.b = _pairs_to_check[i].second;
-    pdi.dist = _coldet->calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    pdi.dist = _coldet->calc_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
     Pose3d poseA(*pdi.a->get_pose());
     Pose3d poseB(*pdi.b->get_pose());
     poseA.update_relative_pose(GLOBAL);

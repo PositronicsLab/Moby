@@ -83,49 +83,6 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   return find_contacts_generic(cgA, cgB, output_begin, TOL);
 }
 
-inline std::vector<Ravelin::Vector3d> CCD::create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, Ravelin::Transform3d &wTe)
-{
-  std::vector<Ravelin::Vector3d > edge_vectors;
-  BOOST_FOREACH(boost::shared_ptr<Polyhedron::Edge> edge, edges)
-  {
-    Ravelin::Vector3d v1_e(edge->v1->o,wTe.source);
-    Ravelin::Vector3d v2_e(edge->v2->o,wTe.source);
-
-    Ravelin::Vector3d v1_w = wTe.transform_point(v1_e);
-    Ravelin::Vector3d v2_w = wTe.transform_point(v2_e);
-    
-    Ravelin::Vector3d edge_v = (v2_w - v1_w);
-    edge_v.normalize();
-    edge_vectors.push_back(edge_v);
-  }
-
-  return edge_vectors;
-}
-
-inline void CCD::project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index)
-{
-  // initialize outputs to indicator and safe values
-  min_index = max_index = std::numeric_limits<unsigned>::max();
-  min_dot = std::numeric_limits<double>::max();
-  max_dot = -std::numeric_limits<double>::max();
-
-  for(unsigned i = 0 ; i < vectors.size(); ++i)
-  {
-    double value = axis.dot(vectors[i]);
-    if (value < min_dot)
-    {
-      min_dot = value;
-      min_index = i;
-    }
-
-    if (value > max_dot)
-    {
-      max_dot = value;
-      max_index = i;
-    }
-  }
-}
-
 inline void CCD::create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, const Ravelin::Vector3d& axis, const Ravelin::Transform3d& wTv, std::vector<Ravelin::Vector3d>& ch_vectors)
 {
   std::vector <boost::shared_ptr<Polyhedron::Vertex> > visited_vertices;
@@ -246,76 +203,61 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     for (unsigned i=0; i< fB.size(); i++)
       test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
 
-    // speed up axis tests by removing duplicate and anti-parallel vectors
-    std::vector<Ravelin::Vector3d>::iterator tvi = test_vectors.begin();
-    while (tvi != test_vectors.end()){
-
-      // copy the iterator and advance it
-      Ravelin::Vector3d vi = *tvi;
-      std::vector<Ravelin::Vector3d>::iterator tvii = tvi;
-      ++tvii;
-
-      while(tvii != test_vectors.end()){
-
-        Ravelin::Vector3d vii = *tvii;
-
-        if (std::fabs(std::fabs(vi.dot(vii))-1.0) < NEAR_ZERO) {
-          // No need to increment tvii because new one is returned
-          tvii = test_vectors.erase(tvii);
-        }
-        else{
-          ++tvii;
+    // create testing axes (cross-products of edges from A and B)
+    const std::vector <boost::shared_ptr<Polyhedron::Edge> >
+        &edgesA = polyA.get_edges();
+    const std::vector <boost::shared_ptr<Polyhedron::Edge> >
+        &edgesB = polyB.get_edges();
+    std::vector <Ravelin::Vector3d> evA, evB;
+    PolyhedralPrimitive::create_edge_vector(edgesA, wTa, evA);
+    PolyhedralPrimitive::create_edge_vector(edgesB, wTb, evB);
+    for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
+         evAi != evA.end(); ++evAi) {
+      for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();
+           evBi != evB.end(); ++evBi) {
+        Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
+        double nrm = xv.norm();
+        if (nrm > NEAR_ZERO) {
+          xv /= nrm;
+          test_vectors.push_back(xv);
         }
       }
-      tvi++;
     }
 
-    // if we have more than 100 vectors, don't worry about cross products
-    if (test_vectors.size() < 100) {
-      std::vector<Ravelin::Vector3d> ee_test_vectors;
+    // We want to find parallel and anti-parallel normalized vectors. The
+    // algorithm works like this: 
+    // Sort based on the magnitude of the first dimension of the vector.
+    // Check the distance of all vectors within distance TOL of the given
+    // dimension.
+    const unsigned X = 0; 
+    const double TOL = 1e-2;  // large tolerance
+    std::vector<unsigned> vecs(test_vectors.size());
+    for (unsigned i=0; i< test_vectors.size(); i++)
+      vecs[i] = i;
+    PolyhedralPrimitive::test_vecs = &test_vectors;
+    std::sort(vecs.begin(), vecs.end(), PolyhedralPrimitive::compare_vecs);
 
-      // create testing axes (cross-products of edges from A and B)
-      const std::vector <boost::shared_ptr<Polyhedron::Edge> >
-          &edgesA = polyA.get_edges();
-      const std::vector <boost::shared_ptr<Polyhedron::Edge> >
-          &edgesB = polyB.get_edges();
-      std::vector <Ravelin::Vector3d> evA = create_edge_vector(edgesA, wTa);
-      std::vector <Ravelin::Vector3d> evB = create_edge_vector(edgesB, wTb);
-      for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
-           evAi != evA.end(); ++evAi) {
-        for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();
-             evBi != evB.end(); ++evBi) {
-          Ravelin::Vector3d xv = Ravelin::Vector3d::cross(*evAi, *evBi);
-          double nrm = xv.norm();
-          if (nrm > NEAR_ZERO) {
-            xv /= nrm;
-            ee_test_vectors.push_back(xv);
+    unsigned end = vecs.size()-1;
+    for (int i=end-1; i>= 0; i--)
+    {
+      // look for the first vector that is farther than than tolerance from
+      // end's element
+      if (std::fabs(test_vectors[end][X]) - std::fabs(test_vectors[i][X]) > TOL)
+      {
+        // compare all of the vectors up to, but not including, i 
+        for (int j=end-1; j > i; j--)
+        {
+          if (std::fabs(std::fabs(test_vectors[end].dot(test_vectors[j]) - 1.0)) < 1e-4)
+          {
+            test_vectors.erase(test_vectors.begin()+j);
+            end--;  // we must now decrease end and i 
+            i--;  // 
           }
         }
+
+        // now must update end
+        end--; 
       }
-
-      // speed up axis tests by removing duplicate and anti-parallel vectors
-      tvi = test_vectors.begin();
-      while (tvi != test_vectors.end()){
-
-        // get an iterator from the edge/edge tests
-        std::vector<Ravelin::Vector3d>::iterator evi = ee_test_vectors.begin();
-
-        while(evi != ee_test_vectors.end()){
-
-          if (std::fabs(std::fabs(tvi->dot(*evi))-1.0) < NEAR_ZERO) {
-            // No need to increment tvii because new one is returned
-            evi = ee_test_vectors.erase(evi);
-          }
-          else{
-            ++evi;
-          }
-        }
-        tvi++;
-      }
-
-      // now add the two sets together
-      test_vectors.insert(test_vectors.end(), ee_test_vectors.begin(), ee_test_vectors.end());
     }
 
     // create Vector3d for all vertices
@@ -352,8 +294,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       // project vertices onto the candidate axis
       // NOTE: this could be done in O(lg n) time of the number of vertices rather
       // than the current O(n) time operation.
-      project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
-      project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
+      PolyhedralPrimitive::project(vector_a, *test_i, min_a, max_a, min_index_a, max_index_a);
+      PolyhedralPrimitive::project(vector_b, *test_i, min_b, max_b, min_index_b, max_index_b);
 
       // Compute the amount of overlap.
       double o1 = max_a - min_b;
