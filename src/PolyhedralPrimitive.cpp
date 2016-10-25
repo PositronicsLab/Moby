@@ -476,7 +476,7 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
   assert(min_overlap >= 0.0);
   dist = -min_overlap;
 
-
+  return dist;
 /*
   // compute transforms
   Transform3d wTa = Pose3d::calc_relative_pose(poseA, GLOBAL);
