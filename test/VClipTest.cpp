@@ -203,6 +203,7 @@ out.close();
       }
 
 
+
   // boost::shared_ptr<Moby::BoxPrimitive> p(new BoxPrimitive(2,2,2));
   //   boost::shared_ptr<Moby::BoxPrimitive> q(new BoxPrimitive(2,2,2));
 
@@ -266,9 +267,13 @@ out.close();
         clock_t m_end_c = times(&mdstop);
         total_m += m_end_c - m_start_c;
 
-        EXPECT_NEAR(dist_vclip, dist_m, TOL);
+        EXPECT_NEAR(dist_vclip, dist_m, TOL) << *q_pose <<std::endl;
     }
    // ProfilerStop();
+
+    for(int i = 0; i < VERTEX_NUMBER; i++){
+      std::cout << v[i] <<std::endl;
+    }
     std::cout << "average vclip time: " << total_vc/(double) MAX_ITERATION <<std::endl;
     std::cout<< "average minkowski time " << total_m/(double) MAX_ITERATION << std::endl;
 
