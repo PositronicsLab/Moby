@@ -9,8 +9,8 @@
 #include <Moby/Log.h>
 #include <gperftools/profiler.h> 
 #include <sys/times.h>
-  #include <ccd/ccd.h>
-  #include <ccd/quat.h> // for work with quaternions
+#include <ccd/ccd.h>
+#include <ccd/quat.h> // for work with quaternions
 #include "support.h"
 
 
@@ -25,7 +25,7 @@ using namespace Moby;
   }
 
 
-
+/*
   TEST(Vclip, Apart_BB_VClip)
   {
     const double TOL = 1e-6;
@@ -178,19 +178,17 @@ out.close();
       }
   }
 */
-
-  TEST(Vclip, Penetrating_BB_Vclip)
+/*
+  TEST(Vclip, Penetrating_Poly_Vclip)
   {
 
-    //ProfilerStart("prof.out");
-  	Moby::Log<Moby::OutputToFile>::reporting_level = (LOG_COLDET);
-  	Moby::OutputToFile::stream.open("logging.out");
+    Moby::Log<Moby::OutputToFile>::reporting_level = (LOG_COLDET);
+    Moby::OutputToFile::stream.open("logging.out");
     const double TOL = 1e-6;
     const double TRANS_RND_MAX = 1.0;
     const double TRANS_RND_MIN = -1.0;
     const int MAX_ITERATION = 10000;
     const int VERTEX_NUMBER = 8;
-  
 
     // set up ccd_t struct
     ccd_t ccd;
@@ -209,13 +207,9 @@ out.close();
     box2.y = 2.;
     box2.z = 2;
 
-
-
     CCD_INIT(&ccd);
     ccd.support1 = ccdSupport;
     ccd.support2 = ccdSupport;
-
-    
     
       // now intersect holds 0 if obj1 and obj2 intersect, -1 otherwise
       // in depth, dir and pos is stored penetration depth, direction of
@@ -323,7 +317,7 @@ out.close();
 
         int intersect = ccdGJKIntersect(&p, &q, &ccd);
 
-        Vector3d dir_vector(ccdVec3X(&sep), ccdVec3Y(&sep), ccdVec3Z(&sep));
+//        Vector3d dir_vector(ccdVec3X(&sep), ccdVec3Y(&sep), ccdVec3Z(&sep));
 
         depth = 0;
 
@@ -343,3 +337,137 @@ out.close();
     std::cout<< "average ccd time " << total_ccd/(double) MAX_ITERATION << std::endl;
 
   }
+*/
+  TEST(Vclip, Penetrating_BB_Vclip)
+  {
+    //ProfilerStart("prof.out");
+    Moby::Log<Moby::OutputToFile>::reporting_level = (LOG_COLDET);
+    Moby::OutputToFile::stream.open("logging.out");
+    const double TOL = 1e-6;
+    const double TRANS_RND_MAX = 1.0;
+    const double TRANS_RND_MIN = -1.0;
+    const int MAX_ITERATION = 100;
+    const int VERTEX_NUMBER = 8;
+
+    // set up ccd_t struct
+    ccd_t ccd;
+    CCD_BOX(box1);
+    CCD_BOX(box2);
+    int res;
+    ccd_vec3_t axis;
+    ccd_quat_t rot;
+    ccd_real_t depth;
+    ccd_vec3_t dir, pos;
+
+    fprintf(stderr, "\n\n\n---- boxboxPenetration ----\n\n\n");
+
+    // setup box dimensions 
+    const double WIDTH = 2, HEIGHT = 2, DEPTH = 2;
+    box1.x = box2.x = WIDTH;
+    box1.y = box2.y = HEIGHT;
+    box1.z = box2.z = DEPTH;
+
+    // setup libccd
+    CCD_INIT(&ccd);
+    ccd.support1 = ccdSupport;
+    ccd.support2 = ccdSupport;
+
+    // create box primitives    
+    boost::shared_ptr<Moby::BoxPrimitive> p(new BoxPrimitive(WIDTH,HEIGHT,DEPTH));
+    boost::shared_ptr<Moby::BoxPrimitive> q(new BoxPrimitive(WIDTH,HEIGHT,DEPTH));
+    std::vector<Origin3d> v(VERTEX_NUMBER);
+    v[0] = Origin3d(-WIDTH/2.0, -HEIGHT/2, -DEPTH/2);
+    v[1] = Origin3d(-WIDTH/2.0, -HEIGHT/2, +DEPTH/2);
+    v[2] = Origin3d(-WIDTH/2.0, +HEIGHT/2, -DEPTH/2);
+    v[3] = Origin3d(-WIDTH/2.0, +HEIGHT/2, +DEPTH/2);
+    v[4] = Origin3d(+WIDTH/2.0, -HEIGHT/2, -DEPTH/2);
+    v[5] = Origin3d(+WIDTH/2.0, -HEIGHT/2, +DEPTH/2);
+    v[6] = Origin3d(+WIDTH/2.0, +HEIGHT/2, -DEPTH/2);
+    v[7] = Origin3d(+WIDTH/2.0, +HEIGHT/2, +DEPTH/2);
+    TessellatedPolyhedronPtr p_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
+    TessellatedPolyhedronPtr q_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
+
+    const Polyhedron& p_pol = p->get_polyhedron();
+    const Polyhedron& q_pol = q->get_polyhedron();
+    boost::shared_ptr<const Moby::Primitive> qconst = q;
+
+    double trans_q_x, trans_q_y, trans_q_z, quat_q_x, quat_q_y, quat_q_z, quat_q_w;
+    double total_vc,total_m,total_ccd, total_ccd2;
+
+    for(int i = 0; i< MAX_ITERATION; i++)
+    {
+      // TODO: setup random positions and orientations for q
+      trans_q_x = get_random(TRANS_RND_MIN,TRANS_RND_MAX);
+      trans_q_y = get_random(TRANS_RND_MIN,TRANS_RND_MAX);
+      trans_q_z = get_random(TRANS_RND_MIN,TRANS_RND_MAX);
+      quat_q_x = get_random(-1.0, 1.0);
+      quat_q_y = get_random(-1.0, 1.0);
+      quat_q_z = get_random(-1.0, 1.0);
+      quat_q_w = get_random(-1.0, 1.0);     
+      Origin3d q_trans(trans_q_x, trans_q_y, trans_q_z);
+      Quatd q_quat(quat_q_x, quat_q_y, quat_q_z, quat_q_w);
+      q_quat.normalize();
+      boost::shared_ptr<Ravelin::Pose3d> p_pose(new Pose3d(Origin3d(0, 0, 0)));
+      boost::shared_ptr<Ravelin::Pose3d> q_pose(new Pose3d(q_quat,q_trans));
+
+      // setup arbitrary closest features
+      boost::shared_ptr<const Polyhedron::Feature> closestP = p_pol.get_faces().front();
+      boost::shared_ptr<const Polyhedron::Feature> closestQ = q_pol.get_faces().front();
+
+      //calculate distance using vclip
+      Point3d pointp(p_pose);
+      Point3d pointq(q_pose);
+
+      tms vcstart;  
+      clock_t v_start_c = times(&vcstart);
+      double dist_vclip = p->calc_signed_dist(qconst, pointp, pointq);
+      tms vcstop;  
+      clock_t v_end_c = times(&vcstart);
+      total_vc += (v_end_c-v_start_c);
+
+      // Minkowskii
+      tms mdstart;  
+      clock_t m_start_c = times(&mdstart);
+
+      TessellatedPolyhedronPtr m_diff = TessellatedPolyhedron::minkowski(*p_tess, p_pose, *q_tess, q_pose);
+
+      Ravelin::Origin3d o(0,0,0);
+      double dist_m = m_diff->calc_signed_distance(o);
+
+      tms mdstop;  
+      clock_t m_end_c = times(&mdstop);
+      total_m += m_end_c - m_start_c;
+
+      std::cout<< i << std::endl;
+      EXPECT_NEAR(dist_vclip, dist_m, TOL) << *q_pose <<std::endl;
+
+      // try CCD
+      tms ccdstart;  
+      clock_t ccd_start_c = times(&ccdstart);            
+      ccdVec3Set(&box2.pos, trans_q_x, trans_q_y, trans_q_z);
+      ccdQuatSet(&box2.quat, q_quat.x, q_quat.y, q_quat.z, q_quat.w);
+      res = ccdGJKPenetration(&box1, &box2, &ccd, &depth, &dir, &pos);
+      clock_t ccd_end_c = times(&ccdstart);
+      if (dist_m >= 0.0)
+        EXPECT_NEAR(depth,0.0,TOL);
+      else
+        EXPECT_NEAR(-depth,dist_m,TOL);
+
+      // try libccd using the (faster) intersection test
+      ccd_start_c = times(&ccdstart);            
+      int intersect = ccdGJKIntersect(&p, &q, &ccd);
+      depth = 0;
+      ccd_end_c = times(&ccdstart);
+      total_ccd2 += (ccd_end_c-ccd_start_c);
+    }
+   // ProfilerStop();
+
+    for(int i = 0; i < VERTEX_NUMBER; i++){
+      std::cout << v[i] <<std::endl;
+    }
+    std::cout << "average vclip time: " << total_vc/(double) MAX_ITERATION <<std::endl;
+    std::cout<< "average minkowski time " << total_m/(double) MAX_ITERATION << std::endl;
+    std::cout<< "average ccd time " << total_ccd/(double) MAX_ITERATION << std::endl;
+    std::cout<< "average ccd intersect time " << total_ccd2/(double) MAX_ITERATION << std::endl;
+  }
+
