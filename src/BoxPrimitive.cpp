@@ -144,6 +144,36 @@ void BoxPrimitive::construct_polyhedron()
   CompGeom::calc_convex_hull(v, v+N_BOX_VERTS)->to_polyhedron(_poly); 
   assert(_poly.get_faces().size() == 6 || _poly.get_faces().size() == 12);
   assert(_poly.get_vertices().size() == 8);
+/*
+  // Create the vertices.
+  vector<shared_ptr<Polyhedron::Vertex> > v(N_BOX_VERTS);
+  for (unsigned i=0; i< v.size(); i++)
+    v[i] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
+  v[0]->o[X] = -_xlen*0.5;  v[0]->o[Y] = -_ylen*0.5;  v[0]->o[Z] = -_zlen*0.5;
+  v[1]->o[X] = -_xlen*0.5;  v[1]->o[Y] = -_ylen*0.5;  v[1]->o[Z] = +_zlen*0.5;
+  v[2]->o[X] = -_xlen*0.5;  v[2]->o[Y] = +_ylen*0.5;  v[2]->o[Z] = -_zlen*0.5;
+  v[3]->o[X] = -_xlen*0.5;  v[3]->o[Y] = +_ylen*0.5;  v[3]->o[Z] = +_zlen*0.5;
+  v[4]->o[X] = +_xlen*0.5;  v[4]->o[Y] = -_ylen*0.5;  v[4]->o[Z] = -_zlen*0.5;
+  v[5]->o[X] = +_xlen*0.5;  v[5]->o[Y] = -_ylen*0.5;  v[5]->o[Z] = +_zlen*0.5;
+  v[6]->o[X] = +_xlen*0.5;  v[6]->o[Y] = +_ylen*0.5;  v[6]->o[Z] = -_zlen*0.5;
+  v[7]->o[X] = +_xlen*0.5;  v[7]->o[Y] = +_ylen*0.5;  v[7]->o[Z] = +_zlen*0.5;
+
+  // Create the edges and faces simultaneously
+  const unsigned N_EDGES = 12, N_FACES = 6;
+  vector<shared_ptr<Polyhedron::Edge> > e(N_EDGES);
+  vector<shared_ptr<Polyhedron::Face> > f(N_FACES);
+  for (unsigned i=0; i< e.size(); i++)
+    e[i] = shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge);
+  for (unsigned i=0; i< f.size(); i++)
+    f[i] = shared_ptr<Polyhedron::Face>(new Polyhedron::Face);
+
+  // setup the four edges on the bottom of the box (e0...e3) from { v0, v1, v4, v5 }
+  e[0]->v1 = v[0];
+
+  // Create the faces.
+
+  // Create the polyhedron.
+   */
 }
 
 /// Computes the signed distance from the box to a primitive

@@ -9,8 +9,10 @@
 #include <Moby/Log.h>
 #include <gperftools/profiler.h> 
 #include <sys/times.h>
+#ifdef USE_LIBCCD
 #include <ccd/ccd.h>
 #include <ccd/quat.h> // for work with quaternions
+#endif
 #include "support.h"
 
 
@@ -24,8 +26,6 @@ using namespace Moby;
     return (r_max-r_min) * ((double) rand() / (double) RAND_MAX) + r_min;
   }
 
-
-/*
   TEST(Vclip, Apart_BB_VClip)
   {
     const double TOL = 1e-6;
@@ -44,7 +44,7 @@ using namespace Moby;
       v[7] = Origin3d(+1.0, +1.0, +1.0);
 
 
-      boost::shared_ptr<Moby::BoxPrimitive> p(new BoxPrimitive(2,2,2));
+    boost::shared_ptr<Moby::BoxPrimitive> p(new BoxPrimitive(2,2,2));
     boost::shared_ptr<Moby::BoxPrimitive> q(new BoxPrimitive(2,2,2));
 
     TessellatedPolyhedronPtr p_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
@@ -178,7 +178,7 @@ out.close();
       }
   }
 */
-/*
+
   TEST(Vclip, Penetrating_Poly_Vclip)
   {
 
@@ -191,6 +191,7 @@ out.close();
     const int VERTEX_NUMBER = 8;
 
     // set up ccd_t struct
+    #ifdef USE_LIBCCD
     ccd_t ccd;
     CCD_BOX(box1);
     CCD_BOX(box2);
@@ -199,17 +200,16 @@ out.close();
     ccd_quat_t rot;
     ccd_real_t depth;
     ccd_vec3_t dir, pos;
-
-    fprintf(stderr, "\n\n\n---- boxboxPenetration ----\n\n\n");
-
     box1.x = box1.y = box1.z = 2.;
     box2.x = 2;
     box2.y = 2.;
     box2.z = 2;
+    fprintf(stderr, "\n\n\n---- boxboxPenetration ----\n\n\n");
 
     CCD_INIT(&ccd);
     ccd.support1 = ccdSupport;
     ccd.support2 = ccdSupport;
+    #endif
     
       // now intersect holds 0 if obj1 and obj2 intersect, -1 otherwise
       // in depth, dir and pos is stored penetration depth, direction of
@@ -250,7 +250,7 @@ out.close();
     boost::shared_ptr<const Moby::Primitive> qconst = q;
 
     double trans_q_x, trans_q_y, trans_q_z, quat_q_x, quat_q_y, quat_q_z, quat_q_w;
-    double total_vc,total_m,total_ccd;
+    double total_vc = 0,total_m = 0,total_ccd = 0, total_ccd2 = 0;
 
     for(int i = 0; i< MAX_ITERATION; i++)
     {
@@ -307,25 +307,22 @@ out.close();
         // ccd
         tms ccdstart;  
         clock_t ccd_start_c = times(&ccdstart);
-        
+
+        #ifdef USE_LIBCCD        
         ccdVec3Set(&box2.pos, trans_q_x, trans_q_y, trans_q_z);
         ccdQuatSet(&box2.quat, quat_q_x, quat_q_y, quat_q_z, quat_q_w);
         ccdQuatNormalize(&box2.quat);
         res = ccdGJKPenetration(&box1, &box2, &ccd, &depth, &dir, &pos);
-
         EXPECT_NEAR(depth,dist_m,TOL);
-
-        int intersect = ccdGJKIntersect(&p, &q, &ccd);
-
-//        Vector3d dir_vector(ccdVec3X(&sep), ccdVec3Y(&sep), ccdVec3Z(&sep));
-
-        depth = 0;
-
-
         clock_t ccd_end_c = times(&ccdstart);
-
         total_ccd += (ccd_end_c-ccd_start_c);
 
+        ccd_start_c = times(&ccdstart);
+        int intersect = ccdGJKIntersect(&p, &q, &ccd);
+        ccd_end_c = times(&ccdstart);
+        total_ccd2 += (ccd_end_c-ccd_start_c);
+        depth = 0;
+        #endif
     }
    // ProfilerStop();
 
@@ -335,9 +332,10 @@ out.close();
     std::cout << "average vclip time: " << total_vc/(double) MAX_ITERATION <<std::endl;
     std::cout<< "average minkowski time " << total_m/(double) MAX_ITERATION << std::endl;
     std::cout<< "average ccd time " << total_ccd/(double) MAX_ITERATION << std::endl;
+    std::cout<< "average ccd intersection check time " << total_ccd2/(double) MAX_ITERATION << std::endl;
 
   }
-*/
+
   TEST(Vclip, Penetrating_BB_Vclip)
   {
     //ProfilerStart("prof.out");
@@ -348,8 +346,12 @@ out.close();
     const double TRANS_RND_MIN = -1.0;
     const int MAX_ITERATION = 100;
     const int VERTEX_NUMBER = 8;
+    const double WIDTH = 2, HEIGHT = 2, DEPTH = 2;
+
+    fprintf(stderr, "\n\n\n---- boxboxPenetration ----\n\n\n");
 
     // set up ccd_t struct
+    #ifdef USE_LIBCCD
     ccd_t ccd;
     CCD_BOX(box1);
     CCD_BOX(box2);
@@ -359,10 +361,7 @@ out.close();
     ccd_real_t depth;
     ccd_vec3_t dir, pos;
 
-    fprintf(stderr, "\n\n\n---- boxboxPenetration ----\n\n\n");
-
     // setup box dimensions 
-    const double WIDTH = 2, HEIGHT = 2, DEPTH = 2;
     box1.x = box2.x = WIDTH;
     box1.y = box2.y = HEIGHT;
     box1.z = box2.z = DEPTH;
@@ -371,6 +370,7 @@ out.close();
     CCD_INIT(&ccd);
     ccd.support1 = ccdSupport;
     ccd.support2 = ccdSupport;
+    #endif
 
     // create box primitives    
     boost::shared_ptr<Moby::BoxPrimitive> p(new BoxPrimitive(WIDTH,HEIGHT,DEPTH));
@@ -392,11 +392,11 @@ out.close();
     boost::shared_ptr<const Moby::Primitive> qconst = q;
 
     double trans_q_x, trans_q_y, trans_q_z, quat_q_x, quat_q_y, quat_q_z, quat_q_w;
-    double total_vc,total_m,total_ccd, total_ccd2;
+    double total_vc = 0,total_m = 0,total_ccd = 0, total_ccd2 = 0;
 
     for(int i = 0; i< MAX_ITERATION; i++)
     {
-      // TODO: setup random positions and orientations for q
+      // setup random positions and orientations for q
       trans_q_x = get_random(TRANS_RND_MIN,TRANS_RND_MAX);
       trans_q_y = get_random(TRANS_RND_MIN,TRANS_RND_MAX);
       trans_q_z = get_random(TRANS_RND_MIN,TRANS_RND_MAX);
@@ -441,6 +441,7 @@ out.close();
       std::cout<< i << std::endl;
       EXPECT_NEAR(dist_vclip, dist_m, TOL) << *q_pose <<std::endl;
 
+      #ifdef USE_LIBCCD
       // try CCD
       tms ccdstart;  
       clock_t ccd_start_c = times(&ccdstart);            
@@ -459,6 +460,7 @@ out.close();
       depth = 0;
       ccd_end_c = times(&ccdstart);
       total_ccd2 += (ccd_end_c-ccd_start_c);
+      #endif
     }
    // ProfilerStop();
 
@@ -467,7 +469,9 @@ out.close();
     }
     std::cout << "average vclip time: " << total_vc/(double) MAX_ITERATION <<std::endl;
     std::cout<< "average minkowski time " << total_m/(double) MAX_ITERATION << std::endl;
+    #ifdef USE_LIBCCD
     std::cout<< "average ccd time " << total_ccd/(double) MAX_ITERATION << std::endl;
-    std::cout<< "average ccd intersect time " << total_ccd2/(double) MAX_ITERATION << std::endl;
+    std::cout<< "average ccd intersection check time " << total_ccd2/(double) MAX_ITERATION << std::endl;
+    #endif
   }
 
