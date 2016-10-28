@@ -31,7 +31,7 @@ using namespace Moby;
     const double TOL = 1e-6;
     const double TRANS_RND_MAX = 10.0; 
     const double TRANS_RND_MIN = 2.5;
-    const int MAX_ITERATION = 1;
+    const int MAX_ITERATION = 100;
 
     std::vector<Origin3d> v(8);
       v[0] = Origin3d(-1.0, -1.0, -1.0);
@@ -184,10 +184,10 @@ out.close();
 
     Moby::Log<Moby::OutputToFile>::reporting_level = (LOG_COLDET);
     Moby::OutputToFile::stream.open("logging.out");
-    const double TOL = 1e-6;
+    const double TOL = 1e-2, CCD_TOL = 1e-1;
     const double TRANS_RND_MAX = 1.0;
     const double TRANS_RND_MIN = -1.0;
-    const int MAX_ITERATION = 10000;
+    const int MAX_ITERATION = 100;
     const int VERTEX_NUMBER = 8;
 
     // set up ccd_t struct
@@ -313,7 +313,10 @@ out.close();
         ccdQuatSet(&box2.quat, quat_q_x, quat_q_y, quat_q_z, quat_q_w);
         ccdQuatNormalize(&box2.quat);
         res = ccdGJKPenetration(&box1, &box2, &ccd, &depth, &dir, &pos);
-        EXPECT_NEAR(depth,dist_m,TOL);
+        if (dist_m >= 0.0)
+          EXPECT_NEAR(depth,0.0,TOL);
+        else
+          EXPECT_NEAR(-depth,dist_m,CCD_TOL);
         clock_t ccd_end_c = times(&ccdstart);
         total_ccd += (ccd_end_c-ccd_start_c);
 
@@ -326,9 +329,6 @@ out.close();
     }
    // ProfilerStop();
 
-    for(int i = 0; i < VERTEX_NUMBER; i++){
-      std::cout << v[i] <<std::endl;
-    }
     std::cout << "average vclip time: " << total_vc/(double) MAX_ITERATION <<std::endl;
     std::cout<< "average minkowski time " << total_m/(double) MAX_ITERATION << std::endl;
     std::cout<< "average ccd time " << total_ccd/(double) MAX_ITERATION << std::endl;
@@ -341,7 +341,7 @@ out.close();
     //ProfilerStart("prof.out");
     Moby::Log<Moby::OutputToFile>::reporting_level = (LOG_COLDET);
     Moby::OutputToFile::stream.open("logging.out");
-    const double TOL = 1e-6;
+    const double TOL = 1e-2, CCD_TOL = 1e-1;
     const double TRANS_RND_MAX = 1.0;
     const double TRANS_RND_MIN = -1.0;
     const int MAX_ITERATION = 100;
@@ -438,7 +438,6 @@ out.close();
       clock_t m_end_c = times(&mdstop);
       total_m += m_end_c - m_start_c;
 
-      std::cout<< i << std::endl;
       EXPECT_NEAR(dist_vclip, dist_m, TOL) << *q_pose <<std::endl;
 
       #ifdef USE_LIBCCD
@@ -452,7 +451,7 @@ out.close();
       if (dist_m >= 0.0)
         EXPECT_NEAR(depth,0.0,TOL);
       else
-        EXPECT_NEAR(-depth,dist_m,TOL);
+        EXPECT_NEAR(-depth,dist_m,CCD_TOL);
 
       // try libccd using the (faster) intersection test
       ccd_start_c = times(&ccdstart);            
@@ -464,9 +463,6 @@ out.close();
     }
    // ProfilerStop();
 
-    for(int i = 0; i < VERTEX_NUMBER; i++){
-      std::cout << v[i] <<std::endl;
-    }
     std::cout << "average vclip time: " << total_vc/(double) MAX_ITERATION <<std::endl;
     std::cout<< "average minkowski time " << total_m/(double) MAX_ITERATION << std::endl;
     #ifdef USE_LIBCCD
