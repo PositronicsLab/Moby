@@ -18,7 +18,7 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody id="box" enabled="true" position="0 .500 0" color=".4 0 0 1" angular-velocity="0 10.000 0" visualization-id="b1">
+      <RigidBody id="box" enabled="true" position="0 .5001 0" color=".4 0 0 1" angular-velocity="0 10.000 0" visualization-id="b1">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
@@ -30,11 +30,11 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <TimeSteppingSimulator id="simulator" >
+    <TimeSteppingSimulator id="simulator" min-step-size=".01" >
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" stiffness="0" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>
