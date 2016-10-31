@@ -51,7 +51,7 @@ class CollisionDetection : public virtual Base
     /// Calculates the distance between two geometries
     virtual double calc_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, Point3d& p1, Point3d& p2)
     {
-      return CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+      return CollisionGeometry::calc_dist(cg1, cg2, p1, p2);
     }
 
     /// Calculates the signed distance between two geometries

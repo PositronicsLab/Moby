@@ -42,6 +42,8 @@ class BoxPrimitive : public PolyhedralPrimitive
     virtual double calc_signed_dist(const Point3d& p) const;
     double calc_closest_points(boost::shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const;
     virtual double get_bounding_radius() const { return std::sqrt(_xlen*_xlen + _ylen*_ylen + _zlen*_zlen); }
+    virtual void add_to_face_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& normals) const;
+    virtual void create_edge_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& edges) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }

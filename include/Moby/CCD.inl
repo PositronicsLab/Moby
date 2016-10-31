@@ -113,9 +113,9 @@ inline void CCD::create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> s
       }
 
       std::vector <boost::shared_ptr<Polyhedron::Vertex> >::iterator vvi = std::find(visited_vertices.begin(), visited_vertices.end(), next_vertex);
-      if(vvi != visited_vertices.end())
+      if (vvi != visited_vertices.end())
       {
-          // we have visit this 
+        // we have visit this 
         continue;
       }
       else
@@ -196,21 +196,11 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   {
     // Compute first set of testing vectors from face normals
     std::vector<Ravelin::Vector3d> test_vectors;
-    const std::vector<boost::shared_ptr<Polyhedron::Face> >& fA = polyA.get_faces();
-    const std::vector<boost::shared_ptr<Polyhedron::Face> >& fB = polyB.get_faces();
-    for (unsigned i=0; i< fA.size(); i++)
-      test_vectors.push_back(wTa.transform_vector(Ravelin::Vector3d(fA[i]->get_plane().get_normal().data(), poseA)));
-    for (unsigned i=0; i< fB.size(); i++)
-      test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
-
-    // create testing axes (cross-products of edges from A and B)
-    const std::vector <boost::shared_ptr<Polyhedron::Edge> >
-        &edgesA = polyA.get_edges();
-    const std::vector <boost::shared_ptr<Polyhedron::Edge> >
-        &edgesB = polyB.get_edges();
-    std::vector <Ravelin::Vector3d> evA, evB;
-    PolyhedralPrimitive::create_edge_vector(edgesA, wTa, evA);
-    PolyhedralPrimitive::create_edge_vector(edgesB, wTb, evB);
+    std::vector<Ravelin::Vector3d> evA, evB;
+    pA->add_to_face_vector(wTa, test_vectors);
+    pB->add_to_face_vector(wTb, test_vectors); 
+    pA->create_edge_vector(wTa, evA);
+    pB->create_edge_vector(wTa, evB);
     for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
          evAi != evA.end(); ++evAi) {
       for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();
@@ -224,13 +214,14 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       }
     }
 
+/*
     // We want to find parallel and anti-parallel normalized vectors. The
     // algorithm works like this: 
     // Sort based on the magnitude of the first dimension of the vector.
     // Check the distance of all vectors within distance TOL of the given
     // dimension.
     const unsigned X = 0; 
-    const double TOL = 1e-2;  // large tolerance
+    const double TOL = 1e-3;  // large tolerance
     std::vector<unsigned> vecs(test_vectors.size());
     for (unsigned i=0; i< test_vectors.size(); i++)
       vecs[i] = i;
@@ -247,7 +238,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         // compare all of the vectors up to, but not including, i 
         for (int j=end-1; j > i; j--)
         {
-          if (std::fabs(std::fabs(test_vectors[end].dot(test_vectors[j]) - 1.0)) < 1e-4)
+          if (std::fabs(std::fabs(test_vectors[end].dot(test_vectors[j]) - 1.0)) < TOL)
           {
             test_vectors.erase(test_vectors.begin()+j);
             end--;  // we must now decrease end and i 
@@ -259,7 +250,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         end--; 
       }
     }
-
+*/
     // create Vector3d for all vertices
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vAa = polyA.get_vertices();
     std::vector <boost::shared_ptr<Polyhedron::Vertex> > vBb = polyB.get_vertices();
@@ -306,7 +297,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         double overlap = std::min(o1, o2);
         boost::shared_ptr <Polyhedron::Vertex> v1, v2;
 
-        if (min_overlap - overlap > NEAR_ZERO) {
+        if (min_overlap > overlap + NEAR_ZERO) {
           min_overlap = overlap;
           min_axis = *test_i;
           if (fabs(overlap - o1) < NEAR_ZERO) {
@@ -442,6 +433,9 @@ redoB:
                                           convhull_b.end(),
                                           normal,
                                           std::back_inserter(isect));
+
+      // TODO: case where the two polygons do not intersect must be handled
+      // by finding closest points on the two polygons.
 
       // Output the points.
       for (unsigned i = 0; i < isect.size(); i++)

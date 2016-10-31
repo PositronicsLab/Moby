@@ -39,10 +39,36 @@ bool PolyhedralPrimitive::compare_vecs(unsigned i, unsigned j)
   return (std::fabs((*test_vecs)[i][0]) < std::fabs((*test_vecs)[j][0]));
 }
 
-/// Creates a set of edge vectors for the separating axis test
-void PolyhedralPrimitive::create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& edge_vectors)
+/// Gets face normals for the polyhedron
+void PolyhedralPrimitive::add_to_face_vector(const Transform3d& wTe, vector<Vector3d>& normals) const
 {
-  edge_vectors.clear(); 
+  // get the polyhedron
+  const Polyhedron& poly = get_polyhedron();
+
+  // get the vector of faces 
+  const vector<shared_ptr<Polyhedron::Face> >& faces = poly.get_faces();
+
+  // setup normals
+  const unsigned NORMALS_ST = normals.size();
+  normals.resize(NORMALS_ST + faces.size());
+  for (unsigned i=0; i< faces.size(); i++) 
+    normals[i+NORMALS_ST] = wTe.transform_vector(Vector3d(faces[i]->get_plane().get_normal().data(), wTe.source));  
+}
+
+/// Gets edge direction vectors for the polyhedron
+void PolyhedralPrimitive::create_edge_vector(const Transform3d& wTe, vector<Vector3d>& edge_vectors) const
+{
+  // get the polyhedron
+  const Polyhedron& poly = get_polyhedron();
+
+  // get the vector of edges 
+  const vector<shared_ptr<Polyhedron::Edge> >& edges = poly.get_edges();
+
+  // clear the edge vector
+  edge_vectors.resize(edges.size()); 
+
+  // setup a loop index
+  unsigned i = 0;
   BOOST_FOREACH(boost::shared_ptr<Polyhedron::Edge> edge, edges)
   {
     Ravelin::Vector3d v1_e(edge->v1->o,wTe.source);
@@ -53,7 +79,7 @@ void PolyhedralPrimitive::create_edge_vector(const std::vector<boost::shared_ptr
     
     Ravelin::Vector3d edge_v = (v2_w - v1_w);
     edge_v.normalize();
-    edge_vectors.push_back(edge_v);
+    edge_vectors[i++] = edge_v;
   }
 }
 
@@ -342,21 +368,13 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
 
   // Compute first set of testing vectors from face normals
   std::vector<Ravelin::Vector3d> test_vectors;
-  const std::vector<boost::shared_ptr<Polyhedron::Face> >& fA = polyA.get_faces();
-  const std::vector<boost::shared_ptr<Polyhedron::Face> >& fB = polyB.get_faces();
-  for (unsigned i=0; i< fA.size(); i++)
-    test_vectors.push_back(wTa.transform_vector(Ravelin::Vector3d(fA[i]->get_plane().get_normal().data(), poseA)));
-  for (unsigned i=0; i< fB.size(); i++)
-    test_vectors.push_back(wTb.transform_vector(Ravelin::Vector3d(fB[i]->get_plane().get_normal().data(), poseB)));
+  bthis->add_to_face_vector(wTa, test_vectors);
+  p->add_to_face_vector(wTb, test_vectors);
 
   // create testing axes (cross-products of edges from A and B)
-  const std::vector <boost::shared_ptr<Polyhedron::Edge> >
-      &edgesA = polyA.get_edges();
-  const std::vector <boost::shared_ptr<Polyhedron::Edge> >
-      &edgesB = polyB.get_edges();
   std::vector <Ravelin::Vector3d> evA, evB;
-  create_edge_vector(edgesA, wTa, evA);
-  create_edge_vector(edgesB, wTb, evB);
+  bthis->create_edge_vector(wTa, evA);
+  p->create_edge_vector(wTb, evB);
   for (std::vector<Ravelin::Vector3d>::iterator evAi = evA.begin();
        evAi != evA.end(); ++evAi) {
     for (std::vector<Ravelin::Vector3d>::iterator evBi = evB.begin();

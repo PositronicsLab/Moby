@@ -39,6 +39,10 @@ class PolyhedralPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& P);
+    virtual void add_to_face_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& normals) const;
+    virtual void create_edge_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& edges) const;
+
+    /// Gets the set of edges to use for separating axis test
 
     /// Gets the polyhedron corresponding to this primitive (in its transformed state)
     const Polyhedron& get_polyhedron() const { return _poly; }
@@ -76,7 +80,6 @@ class PolyhedralPrimitive : public Primitive
     static void project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index);
     static std::vector<Ravelin::Vector3d>* test_vecs;
     static bool compare_vecs(unsigned i, unsigned j);
-    static void create_edge_vector(const std::vector<boost::shared_ptr<Polyhedron::Edge> > &edges, const Ravelin::Transform3d &wTa, std::vector<Ravelin::Vector3d>& edge_vectors);
 }; // end class
 
 #include "PolyhedralPrimitive.inl"

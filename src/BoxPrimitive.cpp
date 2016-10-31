@@ -124,6 +124,29 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
   }
 }
 
+/// Adds face vectors to the set of v 
+void BoxPrimitive::add_to_face_vector(const Transform3d& wTe, vector<Vector3d>& v) const
+{
+  // Setup three vectors to transform
+  const unsigned N_FACES = 3;
+  Vector3d normals[N_FACES];
+  normals[0] = wTe.transform_vector(Vector3d(1.0, 0.0, 0.0, wTe.source));
+  normals[1] = wTe.transform_vector(Vector3d(0.0, 1.0, 0.0, wTe.source));
+  normals[2] = wTe.transform_vector(Vector3d(0.0, 0.0, 1.0, wTe.source));
+  v.insert(v.end(), normals, normals+N_FACES);
+}
+
+/// Creates edge vectors
+void BoxPrimitive::create_edge_vector(const Transform3d& wTe, vector<Vector3d>& edges) const
+{
+  // Setup three vectors to transform
+  const unsigned N_EDGES = 3;
+  edges.resize(N_EDGES);
+  edges[0] = wTe.transform_vector(Vector3d(1.0, 0.0, 0.0, wTe.source));
+  edges[1] = wTe.transform_vector(Vector3d(0.0, 1.0, 0.0, wTe.source));
+  edges[2] = wTe.transform_vector(Vector3d(0.0, 0.0, 1.0, wTe.source));
+}
+
 /// Constructs a polyhedron from the box
 void BoxPrimitive::construct_polyhedron()
 {
