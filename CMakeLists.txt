@@ -234,6 +234,10 @@ endif (BUILD_TOOLS)
 file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
 
 # plugins
+# rolling spheres plugin
+add_library(reporter MODULE example/rolling-spheres/reporter.cpp)
+target_link_libraries(reporter Moby)
+
 # box plugin
 add_library(box-plugin MODULE example/simple-contact/box-plugin.cpp)
 target_link_libraries(box-plugin Moby)
@@ -286,6 +290,7 @@ install (FILES programs/render-movie.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install (FILES programs/render-movie-simple.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 # setup install locations for plugins
+install (TARGETS reporter DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-coldet-plugin DESTINATION lib/Moby/plugins)
 install (TARGETS contact-constrained-pendulum-coldet-plugin DESTINATION lib/Moby/plugins)
