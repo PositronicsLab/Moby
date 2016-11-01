@@ -8,7 +8,7 @@
 
   <MOBY>
     <!-- Primitives -->
-    <Polyhedron id="sph" filename="tessellated-sphere-1k.obj" />
+    <Polyhedron id="sph" filename="tessellated-sphere-200.obj" />
     <Plane id="wallyneg" />
     <Plane id="wallxpos" position="1 0 0" aangle="0 0 1 1.5707963267949" />
     <Plane id="wallxneg" position="-1 0 0" aangle="0 0 1 -1.5707963267949" />

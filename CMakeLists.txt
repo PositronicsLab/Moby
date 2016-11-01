@@ -235,7 +235,7 @@ file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=$
 
 # plugins
 # rolling spheres plugin
-add_library(reporter MODULE example/rolling-spheres/reporter.cpp)
+add_library(reporter MODULE example/polyhedral/reporter.cpp)
 target_link_libraries(reporter Moby)
 
 # box plugin
