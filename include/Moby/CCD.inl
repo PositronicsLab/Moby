@@ -190,7 +190,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
     normal =  closestAw - closestBw;
     normal.normalize();
     contact_plane.set_normal(normal);
-    contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
+    contact_plane.offset = 0.5*normal.dot(closestAw + closestBw);
   }
   else
   {
@@ -292,39 +292,36 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       double o1 = max_a - min_b;
       double o2 = max_b - min_a;
 
-      if (o1 > 0.0 && o2 > 0.0) {
-        // there is an overlap
-        double overlap = std::min(o1, o2);
-        boost::shared_ptr <Polyhedron::Vertex> v1, v2;
+      // there is an overlap
+      double overlap = std::min(o1, o2);
+      boost::shared_ptr <Polyhedron::Vertex> v1, v2;
 
-        if (min_overlap > overlap + NEAR_ZERO) {
-          min_overlap = overlap;
-          min_axis = *test_i;
-          if (fabs(overlap - o1) < NEAR_ZERO) {
-            direction = -1;
-            a_vertex = vAa[max_index_a];
-            assert(a_vertex);
-            b_vertex = vBb[min_index_b];
-            assert(b_vertex);
-          } else {
-            direction = 1;
-            b_vertex = vBb[max_index_b];
-            assert(b_vertex);
-            a_vertex = vAa[min_index_a];
-            assert(a_vertex);
-          }
+      if (overlap < min_overlap) {
+        min_overlap = overlap;
+        min_axis = *test_i;
+        if (o1 < o2) {
+          direction = -1;
+          a_vertex = vAa[max_index_a];
+          assert(a_vertex);
+          b_vertex = vBb[min_index_b];
+          assert(b_vertex);
+        } else {
+          direction = 1;
+          b_vertex = vBb[max_index_b];
+          assert(b_vertex);
+          a_vertex = vAa[min_index_a];
+          assert(a_vertex);
         }
       }
     }
 
     // ensure that the distance is negated
-    assert(min_overlap >= 0.0);
     dist = -min_overlap;
     Point3d closestAw = wTa.transform_point(Point3d(a_vertex->o, poseA));
     Point3d closestBw = wTb.transform_point(Point3d(b_vertex->o, poseB));
     normal =  min_axis * direction;
     contact_plane.set_normal(normal);
-    contact_plane.offset = 0.5*normal.dot(closestAw - closestBw);
+    contact_plane.offset = 0.5*normal.dot(closestAw + closestBw);
   }
 
   const double HALF_DIST = dist * 0.5;
