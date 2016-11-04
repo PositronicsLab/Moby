@@ -514,7 +514,7 @@ void ConstraintSimulator::calc_pairwise_distances()
     Pose3d poseB(*pdi.b->get_pose());
     poseA.update_relative_pose(GLOBAL);
     poseB.update_relative_pose(GLOBAL);
-    FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::calc_pairwise_distances() - signed distance between " << pdi.a->get_single_body()->body_id << " and " << pdi.b->get_single_body()->body_id << ": " << pdi.dist << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::calc_pairwise_distances() - Euclidean distance between " << pdi.a->get_single_body()->body_id << " and " << pdi.b->get_single_body()->body_id << ": " << pdi.dist << std::endl;
     _pairwise_distances.push_back(pdi);
   }
 }

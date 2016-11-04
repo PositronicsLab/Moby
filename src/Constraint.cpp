@@ -1250,6 +1250,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Constraint& e)
   }
   else
     assert(false);
+  o << "constraint signed distance: " << e.signed_distance << std::endl;
 
   return o;
 }
