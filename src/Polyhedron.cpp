@@ -1351,9 +1351,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 {
  // return -1.0;
   FeatureType fA, fB;
-  Polyhedron polyA, polyB;
-  polyA = pA->get_polyhedron();
-  polyB = pB->get_polyhedron();
+  const Polyhedron& polyA = pA->get_polyhedron();
+  const Polyhedron& polyB = pB->get_polyhedron();
 
   // defining the maximum iteration based on the number of total features 
   // in the two polyhedra
@@ -1374,10 +1373,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   if(!closestA){
     std::vector<boost::shared_ptr<Face> >::const_iterator vi = pA->get_polyhedron().get_faces().begin();
     closestA = boost::shared_ptr<Feature>(*vi);
-
     vi = pB->get_polyhedron().get_faces().begin();
     closestB = boost::shared_ptr<Feature>(*vi);
-  
   }
 
   // determine feature type for A
