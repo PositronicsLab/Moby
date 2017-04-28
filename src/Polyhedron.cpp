@@ -1346,8 +1346,17 @@ bool Polyhedron::VertexFaceIterator::has_next()
 
 
 
-/// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
-double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+/// Summary: Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
+
+/* 
+ Decription The function takes in two Polyhedra the Pose of the two Polyhedra and two initial feature.
+ The function will then executes the V-Clip algorithm. If the two polyhedra are separated, the function will
+ return the closest feature and returns the distance between the two object.
+ If two objects are interpenetrating, the function will try to find the penetration distance using a heuristic
+ that works only when one face is penetrated. If the heuristic is not available, the algorithm will return -1.0
+ which will signal the simulator to perform another operation to find the sign distance.
+*/
+ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
 {
  // return -1.0;
   FeatureType fA, fB;
@@ -3102,10 +3111,10 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     double max_lambda=1;
     boost::shared_ptr<const Polyhedron::Feature > min_N , max_N;
   
-    //creating vp-feature pair list
+    // creating vp-feature pair list
     std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors;
 
-    //Creating Edge vs. Vertex1 vp and adding to the list
+    // creating Edge vs. Vertex1 vp and adding to the list
     boost::shared_ptr<const Polyhedron::Feature> V = edgeA->v1;
     boost::shared_ptr<Plane> vp = voronoi_plane(F_EDGE, F_VERTEX, aTb.target, closestA, V);
     std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > pn(V , vp);
@@ -3119,13 +3128,15 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
 
     // clip edge
     bool clip_result = clip_edge(edgeB, aTb, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+    // logging clip result for debugging purposes
     FILE_LOG(LOG_COLDET) << "min_lambda: " << min_lambda <<std::endl;
     FILE_LOG(LOG_COLDET) << "max_lambda: " << max_lambda <<std::endl;
     FILE_LOG(LOG_COLDET) << "min_N: " << min_N <<std::endl;
     FILE_LOG(LOG_COLDET) << "max_N: " << max_N <<std::endl;
 
 
-    //check if the edge is completely clipped by one features
+    // check if the edge is completely clipped by one features
     if(min_N==max_N && min_N)
     {
       closestA = min_N;
@@ -3139,7 +3150,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
         return eContinue;
     }
   
-    //emptying the list
+    // emptying the list
     planes_neighbors.clear();
 
     // create edge vs. face1 vp and add it to the list
@@ -3183,7 +3194,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     double max_lambda = 1;
     boost::shared_ptr<const Polyhedron::Feature > min_N, max_N;
   
-    //creating vp-feature pair list
+    // creating vp-feature pair list
     std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors;
 
     // create edge vs. vertex1 and add it to the list
@@ -3249,7 +3260,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     }
     else
     {
-      //Check derivative and update the feature
+      // check derivative and update the feature
       if(post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N))
         return eContinue;
     }
@@ -3303,11 +3314,13 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     boost::shared_ptr<const Polyhedron::Feature > cur_feature;
     boost::shared_ptr<const Polyhedron::Feature > prev_feature;
 
-    // hueristic: choose min_N or max_N, based on which
-    // corresponding region contains more of edge being clipped.
-    // NOTE: this heuristic is presented in the paper; however, after
-    // testing, it seams like the heuristic is causing the algorithm to 
-    // stuck in a infinite loop, and therefore not used.
+   /* 
+    * hueristic: choose min_N or max_N, based on which
+    * corresponding region contains more of edge being clipped.
+    * NOTE: this heuristic is presented in the paper; however, after
+    * testing, it seams like the heuristic is causing the algorithm to 
+    * stuck in a infinite loop, and therefore not used.
+    */
   
     // if(min_lambda+max_lambda>1.0)
     //   cur_feature = min_N;
@@ -3342,7 +3355,8 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     // update feature B to the closest edge or vertex on F to E
     while (true)
     {
-      //clip feature A with the two Edge-Vertex voronoi-plane of cur_edge
+
+      // clip feature A with the two Edge-Vertex voronoi-plane of cur_edge
       boost::shared_ptr<const Polyhedron::Feature > next_feature;
       boost::shared_ptr<const Polyhedron::Edge> cur_edge = boost::static_pointer_cast<const Polyhedron::Edge>(cur_feature);
       planes_neighbors.clear();
@@ -3470,7 +3484,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
         }
         else
         {
-          //pointing ei2 to the other neighbor edge;
+          // pointing ei2 to the other neighbor edge;
           if(ei != es.begin())
           {
             ei2 = ei;
@@ -3502,7 +3516,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
         continue; 
       }
 
-      //if we are here, we are at the shortest distance edge
+      // if we are here, we are at the shortest distance edge
       closestB = cur_feature;
       fB = eEdge;
       break;
@@ -3545,7 +3559,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
   if (min_d < -NEAR_ZERO)
     dDot_min=-dDot_min;
 
-  //return the vertex that is closer to the face
+  // return the vertex that is closer to the face
   if (dDot_min >= -NEAR_ZERO)
   {
     if (min_N)
