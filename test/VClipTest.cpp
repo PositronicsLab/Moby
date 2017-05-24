@@ -12,8 +12,8 @@
 #ifdef USE_LIBCCD
 #include <ccd/ccd.h>
 #include <ccd/quat.h> // for work with quaternions
-#endif
 #include "support.h"
+#endif
 
 
 using namespace Ravelin;

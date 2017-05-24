@@ -234,10 +234,6 @@ endif (BUILD_TOOLS)
 file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
 
 # plugins
-# rolling spheres plugin
-add_library(reporter MODULE example/rolling-spheres/reporter.cpp)
-target_link_libraries(reporter Moby)
-
 # box plugin
 add_library(box-plugin MODULE example/simple-contact/box-plugin.cpp)
 target_link_libraries(box-plugin Moby)
