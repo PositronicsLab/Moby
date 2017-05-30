@@ -11,15 +11,19 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 #include <Ravelin/Log.h>
+#include <Ravelin/SForced.h>
 #include <Moby/XMLTree.h>
 #include <Moby/XMLReader.h>
 #include <Moby/XMLWriter.h>
 #include <Moby/SDFReader.h>
 
 #ifdef USE_OSG
+#include <chrono>
+#include <osg/io_utils>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <osg/Geode>
@@ -37,60 +41,115 @@
 using boost::shared_ptr;
 using Ravelin::Vector3d;
 using Ravelin::Vector2d;
+using Ravelin::SForced;
+using Ravelin::VectorNd;
 
-namespace Moby{
-  /// Handles for dynamic library loading
-  std::vector<void*> handles;
-  
-  /// Horizontal and vertical resolutions for offscreen-rendering
-  const unsigned HORZ_RES = 1024;
-  const unsigned VERT_RES = 768;
-  
-  /// Beginning iteration for logging
-  unsigned LOG_START = 0;
-  
-  /// Ending iteration for logging
-  unsigned LOG_STOP = std::numeric_limits<unsigned>::max();
-  
-  /// The logging reporting level
-  unsigned LOG_REPORTING_LEVEL = 0;
-  
-  /// The default simulation step size
-  const double DEFAULT_STEP_SIZE = .001;
-  
+namespace {
+/// Handles for dynamic library loading
+std::vector<void*> handles;
+
+/// Horizontal and vertical resolutions for offscreen-rendering
+const unsigned HORZ_RES = 1024;
+const unsigned VERT_RES = 768;
+
+/// Beginning iteration for logging
+unsigned LOG_START = 0;
+
+/// Ending iteration for logging
+unsigned LOG_STOP = std::numeric_limits<unsigned>::max();
+
+/// The logging reporting level
+unsigned LOG_REPORTING_LEVEL = 0;
+
+/// The default simulation step size
+const double DEFAULT_STEP_SIZE = .001;
+
+/// The time of the first simulation step
+double FIRST_STEP_TIME = -1;
+
+/// The time of the last simulation step
+double LAST_STEP_TIME = 0;
+
+/// Interval for offscreen renders (0=offscreen renders active for first and last iterations)
+int IMAGE_IVAL = -1;
+
+/// Interval for 3D outputs (0=3D outputs active for first and last iterations)
+int THREED_IVAL = -1;
+
+/// Interval for pickling
+int PICKLE_IVAL = -1;
+
+/// Determines whether to do onscreen rendering (false by default)
+bool ONSCREEN_RENDER = false;
+
+/// Last pickle iteration
+int LAST_PICKLE = -1;
+
+/// Extension/format for 3D outputs (default=Wavefront obj)
+char THREED_EXT[5] = "obj";
+
+/// Determines whether to update graphics (false by default, but certain
+/// options will set to true)
+bool UPDATE_GRAPHICS = false;
+
+/// Last 3D output iteration and time output
+int LAST_3D_WRITTEN = -1;
+
+/// Last image iteration output
+unsigned LAST_IMG_WRITTEN = -1;
+
+/// Outputs to stdout
+bool OUTPUT_FRAME_RATE = false;
+bool OUTPUT_ITER_NUM = false;
+bool OUTPUT_SIM_RATE = false;
+
+/// Render Contact Points
+bool RENDER_CONTACT_POINTS = false;
+
+/// The map of objects read from the simulation XML file
+std::map<std::string, Moby::BasePtr> READ_MAP;
+
+/// Whether force is being added to the simulation through picking
+bool adding_force = false;
+
+/// The position at which the mouse was clicked.
+float x_clicked, y_clicked;
+
+/// The body to add the force to.
+std::string object_of_force;
+
+/// The local point that force is applied to.
+Moby::Point3d applied_force_point;
+
+/// The direction of the applied force.
+Vector3d applied_force;
+
+/// The scale to be applied to the applied force.
+double applied_force_scale = 1;
+
+#ifdef USE_OSG
+
+/// The OpenInventor group node for Moby
+osg::Group* MOBY_GROUP;
+
+/// The OpenInventor root group node for this application
+osg::Group* MAIN_GROUP;
+
+/// Pointer to the viewer
+osgViewer::Viewer* viewer_pointer;
+#endif
+
+/// Pointer to the controller's initializer, called once (if any)
+typedef void (*init_t)(void*, const std::map<std::string, Moby::BasePtr>&, double);
+std::vector<init_t> INIT;
+}  // end anonymous namespace
+
+namespace Moby {
   /// The simulation step size (set to negative initially as a flag)
   double STEP_SIZE = -1.0;
   
-  /// The time of the first simulation step
-  double FIRST_STEP_TIME = -1;
-  
-  /// The time of the last simulation step
-  double LAST_STEP_TIME = 0;
-  
   /// The current simulation iteration
   unsigned ITER = 1;
-  
-  /// Interval for offscreen renders (0=offscreen renders active for first and last iterations)
-  int IMAGE_IVAL = -1;
-  
-  /// Interval for 3D outputs (0=3D outputs active for first and last iterations)
-  int THREED_IVAL = -1;
-  
-  /// Interval for pickling
-  int PICKLE_IVAL = -1;
-  
-  /// Determines whether to do onscreen rendering (false by default)
-  bool ONSCREEN_RENDER = false;
-  
-  /// Last pickle iteration
-  int LAST_PICKLE = -1;
-  
-  /// Extension/format for 3D outputs (default=Wavefront obj)
-  char THREED_EXT[5] = "obj";
-  
-  /// Determines whether to update graphics (false by default, but certain
-  /// options will set to true)
-  bool UPDATE_GRAPHICS = false;
   
   /// The maximum number of iterations (default infinity)
   unsigned MAX_ITER = std::numeric_limits<unsigned>::max();
@@ -101,38 +160,6 @@ namespace Moby{
   /// The total (CPU) clock time used by the simulation
   double TOTAL_TIME = 0.0;
   
-  /// Last 3D output iteration and time output
-  int LAST_3D_WRITTEN = -1;
-  
-  /// Last image iteration output
-  unsigned LAST_IMG_WRITTEN = -1;
-  
-  /// Outputs to stdout
-  bool OUTPUT_FRAME_RATE = false;
-  bool OUTPUT_ITER_NUM = false;
-  bool OUTPUT_SIM_RATE = false;
-  
-  /// Render Contact Points
-  bool RENDER_CONTACT_POINTS = false;
-  
-  /// The map of objects read from the simulation XML file
-  std::map<std::string, BasePtr> READ_MAP;
-  
-#ifdef USE_OSG
-  /// The OpenInventor group node for Moby
-  osg::Group* MOBY_GROUP;
-  
-  /// The OpenInventor root group node for this application
-  osg::Group* MAIN_GROUP;
-  
-  /// Pointer to the viewer
-  osgViewer::Viewer* viewer_pointer;
-#endif
-  
-  /// Pointer to the controller's initializer, called once (if any)
-  typedef void (*init_t)(void*, const std::map<std::string, BasePtr>&, double);
-  std::vector<init_t> INIT;
-  
   /// Checks whether was compiled with OpenSceneGraph support
   bool check_osg()
   {
@@ -142,7 +169,85 @@ namespace Moby{
     return false;
 #endif
   }
-  
+
+// Controller for a rigid body that computes forces due to picking
+VectorNd& rb_controller(shared_ptr<ControlledBody> cb, VectorNd& u, double t, void*) {
+  RigidBodyPtr rb = boost::dynamic_pointer_cast<RigidBody>(cb);
+  SForced f(rb->get_pose());
+  f.set_force(-applied_force * applied_force_scale);
+  rb->convert_to_generalized_force(rb, f, u);
+  return u;
+}
+
+#ifdef USE_OSG
+class PickHandler : public osgGA::GUIEventHandler {
+ public:
+  PickHandler() {}
+  virtual ~PickHandler() {}
+  bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+  {
+    osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
+    osgUtil::LineSegmentIntersector::Intersections intersections;
+    assert(view);
+    std::function<double(double)> sqr = [](double x) { return x*x; };
+
+    switch (ea.getEventType())
+    {
+      case osgGA::GUIEventAdapter::PUSH:
+      {
+        if (view->computeIntersections(ea, intersections))
+        {
+          applied_force_scale = 1;
+          x_clicked = ea.getX();
+          y_clicked = ea.getY();
+          adding_force = true;
+          auto hitr = intersections.begin();
+          object_of_force = hitr->nodePath.back()->getName();
+
+          // Get the object
+          RigidBodyPtr rb = boost::dynamic_pointer_cast<RigidBody>(
+              READ_MAP.find(object_of_force)->second);
+
+          // Store the force point of application.
+          applied_force_point = Point3d(hitr->getLocalIntersectPoint()[0],
+                                        hitr->getLocalIntersectPoint()[1],
+                                        hitr->getLocalIntersectPoint()[2],
+                                        rb->get_pose());
+
+          // Store the force direction.
+          applied_force = Vector3d(hitr->getLocalIntersectNormal()[0],
+                                   hitr->getLocalIntersectNormal()[1],
+                                   hitr->getLocalIntersectNormal()[2],
+                                   rb->get_pose());
+
+          return true;
+        }
+        else
+        {
+          adding_force = false;
+          return false;
+        }
+      }
+
+      case osgGA::GUIEventAdapter::DRAG: {
+        float dist = sqrt(sqr(ea.getX() - x_clicked) +
+                          sqr(ea.getY() - y_clicked));
+        applied_force_scale = 1 + (double) dist/10;
+        return adding_force;
+      }
+
+      case osgGA::GUIEventAdapter::RELEASE:
+      {
+        adding_force = false;
+        return true;
+      }
+    }
+
+    return true;
+  }
+};
+#endif
+
   /// Gets the current time (as a floating-point number)
   double get_current_time()
   {
@@ -163,7 +268,15 @@ namespace Moby{
       viewer_pointer->frame();
     }
 #endif
-    
+
+    // See whether we're adding force and for how long.
+    RigidBodyPtr rb = boost::dynamic_pointer_cast<RigidBody>(
+        READ_MAP.find(object_of_force)->second);
+    if (adding_force)
+      rb->controller = &rb_controller;
+    else if (rb)
+      rb->controller = nullptr;
+
     // get the simulator as event driven simulation
     boost::shared_ptr<TimeSteppingSimulator> eds = boost::dynamic_pointer_cast<TimeSteppingSimulator>( s );
     
@@ -527,7 +640,7 @@ namespace Moby{
     // process tags
     process_tag("window", driver_tree, process_window_tag);
     process_tag("camera", driver_tree, process_camera_tag);
-    
+
     // change back to current directory
     chdir(cwd.get());
   }
@@ -546,6 +659,7 @@ namespace Moby{
     const double DYNAMICS_FREQ = 0.001;
     viewer_pointer = new osgViewer::Viewer();
     viewer_pointer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer_pointer->addEventHandler(new PickHandler());
 #endif
     
     // setup some default options
@@ -666,9 +780,34 @@ namespace Moby{
       BOOST_FOREACH(ControlledBodyPtr db, eds->get_dynamic_bodies())
       READ_MAP[db->id] = db;
     }
-    
-    // setup the offscreen renderer if necessary
+
 #ifdef USE_OSG
+    // associate all rigid body ids with their underlying visualization based
+    // nodes
+    for (auto& i : READ_MAP)
+    {
+      RigidBodyPtr rb = boost::dynamic_pointer_cast<RigidBody>(i.second);
+      if (rb)
+      {
+        std::queue<osg::Group*> q;
+        q.push(rb->get_visualization_data());
+        while (!q.empty())
+        {
+          osg::Group* group = q.front();
+          q.pop();
+          for (int j = 0; j< group->getNumChildren(); j++)
+          {
+            osg::Node* node = group->getChild(j);
+            osg::Group* group_cand = node->asGroup();
+            if (group_cand)
+              q.push(group_cand);
+            node->setName(i.first);
+          }
+        }
+      }
+    }
+
+    // setup the offscreen renderer if necessary
     if (IMAGE_IVAL > 0)
     {
       // TODO: setup offscreen renderer here
