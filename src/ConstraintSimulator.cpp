@@ -10,6 +10,7 @@
 #include <Moby/Dissipation.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
+#include <Moby/PseudoRigidBody.h>
 #include <Moby/ControlledBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
@@ -451,13 +452,23 @@ void ConstraintSimulator::determine_geometries()
       _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
     else
     {
-      ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
-      BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, ab->get_links())
+      PseudoRigidBodyPtr prb = dynamic_pointer_cast<PseudoRigidBody>(db);
+      if (prb)
       {
-        RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(rbd);
-        _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
+        // TODO: implement me.
+        std::cerr << "ConstraintSimulator::determine_geometries() must be implemented for pseudo-rigid bodies" << std::endl;
       }
-    }
+      else
+      {
+        ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+        assert(ab);
+        BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, ab->get_links())
+        {
+          RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(rbd);
+          _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
+        }
+      }
+    } 
   }
 
   // sort and remove duplicates

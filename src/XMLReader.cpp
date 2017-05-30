@@ -26,6 +26,7 @@
 #include <Moby/Simulator.h>
 #include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RigidBody.h>
+#include <Moby/PseudoRigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/TorusPrimitive.h>
@@ -174,8 +175,10 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   // read SDF models
   process_tag("SDF", moby_tree, &read_sdf, id_map);
 
-  // read and construct all rigid bodies (including articulated body links)
+  // read and construct all rigid bodies (including articulated body links) and
+  // pseudo-rigid bodies
   process_tag("RigidBody", moby_tree, &read_rigid_body, id_map);
+  process_tag("PseudoRigidBody", moby_tree, &read_pseudo_rigid_body, id_map);
 
   // read and construct all joints -- we do this after the links have been read
   process_tag("RevoluteJoint", moby_tree, &read_revolute_joint, id_map);
@@ -630,6 +633,22 @@ void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, B
       }
     }
   }
+}
+
+/// Reads and constructs the PseudoRigidBody object
+/**
+ * \pre node is named PseudoRigidBody
+ */
+void XMLReader::read_pseudo_rigid_body(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "PseudoRigidBody") == 0);
+
+  // create a new PseudoRigidBody object
+  boost::shared_ptr<Base> b(new PseudoRigidBody());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the RigidBody object

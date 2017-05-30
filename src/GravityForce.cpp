@@ -9,6 +9,7 @@
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RigidBody.h>
+#include <Moby/PseudoRigidBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/GravityForce.h>
 
@@ -47,10 +48,37 @@ void GravityForce::add_force(shared_ptr<DynamicBodyd> body)
   }
   else
   {
-    // it's an articulated body, get it as such
-    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
-    if (ab)
+    // Check to see whether it's a pseudo-rigid body.
+    PseudoRigidBodyPtr prb = dynamic_pointer_cast<PseudoRigidBody>(body);
+    if (prb)
     {
+      // get the pose
+      shared_ptr<Pose3d> P(new Pose3d(*prb->_core->get_pose()));
+      P->update_relative_pose(GLOBAL);
+      P->q.set_identity();
+
+      // add the gravitational force to the core
+      SForced w(boost::const_pointer_cast<const Pose3d>(P));
+      w.set_force(gravity * prb->_core->get_mass());
+      prb->_core->add_force(w);
+
+      // get the mass of each point mass
+      const double m = prb->get_compliant_layer_mass() / prb->num_masses();
+
+      // add the gravitational force to each point mass.
+      for (unsigned i=0; i< prb->_point_mass_states.size(); i++)
+      {
+        prb->_point_mass_states[i].f += 
+          Pose3d::transform_vector(prb->_point_mass_states[i].x.pose,
+                                   gravity * m);
+      }
+    }
+    else
+    {        
+      // it's an articulated body, get it as such
+      ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
+      assert(ab);
+
       // get the vector of links
       const std::vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
       

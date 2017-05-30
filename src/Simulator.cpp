@@ -14,6 +14,7 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/RigidBody.h>
+#include <Moby/PseudoRigidBody.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SparseJacobian.h>
@@ -284,14 +285,26 @@ void Simulator::add_dynamic_body(ControlledBodyPtr body)
   }
   else
   {
-    // it must be a rigid body
+    // check for a rigid body
     RigidBodyPtr rigidbody = dynamic_pointer_cast<RigidBody>(body);
-    assert(rigidbody);
+    if (rigidbody)
+    {
+      // get the visualization data and add it to the simulator
+      osg::Node* rb_vdata = rigidbody->get_visualization_data();
+      if (rb_vdata)
+        _persistent_vdata->addChild(rb_vdata);
+    }
+    else
+    {
+      // it must be a pseudo-rigid body
+      PseudoRigidBodyPtr pseudo_rigid_body = dynamic_pointer_cast<PseudoRigidBody>(body);
+      assert(pseudo_rigid_body);
 
-    // get the visualization data and add it to the simulator
-    osg::Node* rb_vdata = rigidbody->get_visualization_data();
-    if (rb_vdata)
-      _persistent_vdata->addChild(rb_vdata);
+      // get the visualization data and add it to the simulator
+      osg::Node* prb_vdata = pseudo_rigid_body->get_visualization_data();
+      if (prb_vdata)
+        _persistent_vdata->addChild(prb_vdata);
+    }
   }
   #endif
   

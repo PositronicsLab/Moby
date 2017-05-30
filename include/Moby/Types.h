@@ -22,6 +22,7 @@ namespace Moby {
 
 class TessellatedPolyhedron;
 class Simulator;
+class PseudoRigidBody;
 class RigidBody;
 class SingleBody;
 class ArticulatedBody;
@@ -60,6 +61,9 @@ typedef boost::shared_ptr<Simulator> SimulatorPtr;
 
 /// Rigid body smart pointer
 typedef boost::shared_ptr<RigidBody> RigidBodyPtr;
+
+/// Pseudo rigid body smart pointer
+typedef boost::shared_ptr<PseudoRigidBody> PseudoRigidBodyPtr;
 
 /// Articulated body smart pointer
 typedef boost::shared_ptr<ArticulatedBody> ArticulatedBodyPtr;

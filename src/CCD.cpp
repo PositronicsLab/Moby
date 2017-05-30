@@ -24,6 +24,7 @@
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/PseudoRigidBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
@@ -1316,7 +1317,17 @@ void CCD::broad_phase(double dt, const vector<ControlledBodyPtr>& bodies, vector
         rbs.push_back(dynamic_pointer_cast<RigidBody>(rb));
     }
     else
-      rbs.push_back(dynamic_pointer_cast<RigidBody>(bodies[i]));
+    {
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(bodies[i]);
+      if (rb)
+        rbs.push_back(rb);
+      else
+      {
+        PseudoRigidBodyPtr prb = dynamic_pointer_cast<PseudoRigidBody>(bodies[i]);
+        assert(prb);
+        std::cerr << "PseudoRigidBody not yet supported by the collision detector" << std::endl;
+      }
+    }
   }
 
   // look to see whether the bounds vector needs to be rebuilt

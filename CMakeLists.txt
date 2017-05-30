@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp Constraint.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp QP.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RCArticulatedBodyInvDyn.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp Constraint.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp LP.cpp OBB.cpp OSGGroupWrapper.cpp QP.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp PseudoRigidBody.cpp RCArticulatedBody.cpp RCArticulatedBodyInvDyn.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -286,7 +286,6 @@ install (FILES programs/render-movie.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install (FILES programs/render-movie-simple.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 # setup install locations for plugins
-install (TARGETS reporter DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-coldet-plugin DESTINATION lib/Moby/plugins)
 install (TARGETS contact-constrained-pendulum-coldet-plugin DESTINATION lib/Moby/plugins)
