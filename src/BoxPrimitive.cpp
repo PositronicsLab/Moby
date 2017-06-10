@@ -150,28 +150,25 @@ void BoxPrimitive::create_edge_vector(const Transform3d& wTe, vector<Vector3d>& 
 /// Constructs a polyhedron from the box
 void BoxPrimitive::construct_polyhedron()
 {
-  const unsigned N_BOX_VERTS = 8, X = 0, Y = 1, Z = 2;
-  Origin3d v[N_BOX_VERTS];
+  const unsigned N_BOX_VERTS = 8, N_BOX_EDGES = 12, N_BOX_FACES = 6;
+  const unsigned X = 0, Y = 1, Z = 2;
 
-  // setup the box vertices
-  v[0][X] = -_xlen*0.5;  v[0][Y] = -_ylen*0.5;  v[0][Z] = -_zlen*0.5; 
-  v[1][X] = -_xlen*0.5;  v[1][Y] = -_ylen*0.5;  v[1][Z] = +_zlen*0.5; 
-  v[2][X] = -_xlen*0.5;  v[2][Y] = +_ylen*0.5;  v[2][Z] = -_zlen*0.5; 
-  v[3][X] = -_xlen*0.5;  v[3][Y] = +_ylen*0.5;  v[3][Z] = +_zlen*0.5; 
-  v[4][X] = +_xlen*0.5;  v[4][Y] = -_ylen*0.5;  v[4][Z] = -_zlen*0.5; 
-  v[5][X] = +_xlen*0.5;  v[5][Y] = -_ylen*0.5;  v[5][Z] = +_zlen*0.5; 
-  v[6][X] = +_xlen*0.5;  v[6][Y] = +_ylen*0.5;  v[6][Z] = -_zlen*0.5; 
-  v[7][X] = +_xlen*0.5;  v[7][Y] = +_ylen*0.5;  v[7][Z] = +_zlen*0.5; 
-
-  // compute the convex hull
-  CompGeom::calc_convex_hull(v, v+N_BOX_VERTS)->to_polyhedron(_poly); 
-  assert(_poly.get_faces().size() == 6 || _poly.get_faces().size() == 12);
-  assert(_poly.get_vertices().size() == 8);
-/*
   // Create the vertices.
-  vector<shared_ptr<Polyhedron::Vertex> > v(N_BOX_VERTS);
+  vector<shared_ptr<Polyhedron::Vertex>> v(N_BOX_VERTS);
   for (unsigned i=0; i< v.size(); i++)
     v[i] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
+
+  // Create the edges.
+  vector<shared_ptr<Polyhedron::Edge>> e(N_BOX_EDGES);
+  for (unsigned i=0; i< N_BOX_EDGES; ++i)
+    e[i] = shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge);
+
+  // Create the faces.
+  vector<shared_ptr<Polyhedron::Face>> f(N_BOX_FACES);
+  for (unsigned i=0; i< N_BOX_FACES; ++i)
+    f[i] = shared_ptr<Polyhedron::Face>(new Polyhedron::Face);
+
+  // Set the vertex locations.
   v[0]->o[X] = -_xlen*0.5;  v[0]->o[Y] = -_ylen*0.5;  v[0]->o[Z] = -_zlen*0.5;
   v[1]->o[X] = -_xlen*0.5;  v[1]->o[Y] = -_ylen*0.5;  v[1]->o[Z] = +_zlen*0.5;
   v[2]->o[X] = -_xlen*0.5;  v[2]->o[Y] = +_ylen*0.5;  v[2]->o[Z] = -_zlen*0.5;
@@ -181,22 +178,73 @@ void BoxPrimitive::construct_polyhedron()
   v[6]->o[X] = +_xlen*0.5;  v[6]->o[Y] = +_ylen*0.5;  v[6]->o[Z] = -_zlen*0.5;
   v[7]->o[X] = +_xlen*0.5;  v[7]->o[Y] = +_ylen*0.5;  v[7]->o[Z] = +_zlen*0.5;
 
-  // Create the edges and faces simultaneously
-  const unsigned N_EDGES = 12, N_FACES = 6;
-  vector<shared_ptr<Polyhedron::Edge> > e(N_EDGES);
-  vector<shared_ptr<Polyhedron::Face> > f(N_FACES);
+  // -- Set the edges and face for the +z plane face
+  e[0]->v1 = v[1];   e[0]->v2 = v[5];   // Bottom edge.
+  e[1]->v1 = v[5];   e[1]->v2 = v[7];   // Right edge.
+  e[2]->v1 = v[7];   e[2]->v2 = v[3];   // Upper edge.
+  e[3]->v1 = v[3];   e[3]->v2 = v[1];   // Left edge.
+  f[0]->e = { e[0], e[1], e[2], e[3] };
+  e[0]->face1 = e[1]->face1 = e[2]->face1 = e[3]->face1 = f[0];
+
+  // -- Set the edges and face for the +x plane face.
+  // "Near edge" (from viewer at +z) is e[1].
+  e[4]->v1 = v[5];   e[4]->v2 = v[4];   // Bottom edge.
+  e[5]->v1 = v[4];   e[5]->v2 = v[6];   // Far edge.
+  e[6]->v1 = v[6];   e[6]->v2 = v[7];   // Top edge.
+  f[1]->e = { e[1], e[4], e[5], e[6] };
+  e[1]->face2 = f[1];
+  e[4]->face1 = e[5]->face1 = e[6]->face1 = f[1];
+
+  // -- Set the edges and face for the -z plane face.
+  // "Right edge" (from viewer at +z) is e[5].
+  e[7]->v1 = v[6];   e[7]->v2 = v[2];   // Top edge.
+  e[8]->v1 = v[2];   e[8]->v2 = v[0];   // Left edge.
+  e[9]->v1 = v[0];   e[9]->v2 = v[4];   // Bottom edge.
+  f[2]->e = { e[5], e[7], e[8], e[9] };
+  e[5]->face2 = f[2];
+  e[7]->face1 = e[8]->face1 = e[9]->face1 = f[2];
+
+  // -- Set the edges and face for the -x plane face.
+  // "Far edge" (from viewer at +z) is e[8].
+  // "Near edge" is e[3]
+  e[10]->v1 = v[3];  e[10]->v2 = v[2];  // Top edge.
+  e[11]->v1 = v[0];  e[11]->v2 = v[1];  // Bottom edge.
+  f[3]->e = { e[3], e[10], e[8], e[11] };
+  e[3]->face2 = e[8]->face2 = f[3];
+  e[10]->face1 = e[11]->face1 = f[3];
+
+  // -- Set the edges and face for the +y plane face.
+  // "Near edge" (from viewer at +z) is e[2]
+  // "Right edge" is e[6]
+  // "Far edge" is e[7]
+  // "Left edge" is e[10]
+  f[4]->e = { e[2], e[6], e[7], e[10] };
+  e[2]->face2 = e[6]->face2 = e[7]->face2 = e[10]->face2 = f[4];
+
+  // -- Set the edges and face for the -y plane face.
+  // "Near edge" (from viewer at +z) is e[0].
+  // "Right edge" is e[4].
+  // "Far edge" is e[9].
+  // "Left edge" is e[11].
+  f[5]->e = { e[0], e[11], e[9], e[4] };
+  e[0]->face2 = e[11]->face2 = e[9]->face2 = e[4]->face2 = f[5];
+
+  // Set edges incident to each vertex.
+  for (unsigned i=0; i< e.size(); i++) {
+    e[i]->v1->e.push_back(e[i]);
+    e[i]->v2->e.push_back(e[i]);
+  }
+
+  // Verify that every plane is "gettable".
+  for (unsigned i=0; i< f.size(); ++i)
+    f[i]->get_plane();
+
+  // Verify that every edge is coincident to two faces.
   for (unsigned i=0; i< e.size(); i++)
-    e[i] = shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge);
-  for (unsigned i=0; i< f.size(); i++)
-    f[i] = shared_ptr<Polyhedron::Face>(new Polyhedron::Face);
-
-  // setup the four edges on the bottom of the box (e0...e3) from { v0, v1, v4, v5 }
-  e[0]->v1 = v[0];
-
-  // Create the faces.
+    assert(e[i]->face1 && e[i]->face2);
 
   // Create the polyhedron.
-   */
+  _poly = Polyhedron(v, e, f);
 }
 
 /// Computes the signed distance from the box to a primitive

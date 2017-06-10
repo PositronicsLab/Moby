@@ -1,13 +1,17 @@
 #include <Ravelin/VectorNd.h>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/LinAlgd.h>
+#include <Moby/CompGeom.h>
 #include <Moby/Constants.h>
 #include <Moby/Types.h>
 #include <Moby/XMLTree.h>
+#include <Moby/BoxPrimitive.h>
 #include <Moby/PseudoRigidBody.h>
 
 using std::map;
 using std::list;
+using std::pair;
+using std::vector;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using namespace Ravelin;
@@ -17,212 +21,16 @@ PseudoRigidBody::PseudoRigidBody()
 {
   // Must setup visualization and collision geometry here; inertia will be
   // read in with the rigid body. 
+  BoxPrimitive box(1, 1, 1);
+  construct_from_polyhedron(box.get_polyhedron(), 0.1);
 
+/*  
   // Setup initial point mass locations.
   const double XC = 0.5;
   const double YC = 0.5;
   const double ZC = 0.5;
   const double DD = 1;
   std::vector<PointMass>& pms = _point_mass_states;
-
-/*
-  // This is the top of the rigid core (view is from y = positive infinity).
-  // .-----.
-  // |     |
-  // |     |
-  // .-----.
-  //
-  // ^ -z
-  // |
-  // |
-  // -----> +x
-
-  // The compliant layer will be extended, and the rigid core will no longer
-  // be visible when we add vertices- without subdivisions:
-  // * *     * *
-  // * *     * *
-  //   
-  //   
-  // * *     * *
-  // * *     * *
-  // Springs will connect each adjacent pair of vertices.
-
-  // Pistons will be added here:
-  // * *     * *
-  // *-|     |-*
-  //   
-  //   
-  // *-|     |-*
-  // * *     * *
-  
-  // Vertices will be labeled as:
-  // A B     E F
-  // C D     H G
-  //   
-  //   
-  // M N     I J
-  // P O     L K
-  // There will be four such sets.
-
-  // Default dimensions of the rigid core are a 1m x 1m x 1m cube.
-  // Default distance between A/B, A/C, etc. is 1cm.
-  
-  // Plane YC + DD
-  pms.push_back(PointMass(Point3d(-XC - DD, YC + DD, -ZC - DD))); // A
-  pms.push_back(PointMass(Point3d(-XC,      YC + DD, -ZC - DD))); // B
-  pms.push_back(PointMass(Point3d(-XC - DD, YC + DD, -ZC     ))); // C
-  pms.push_back(PointMass(Point3d(-XC     , YC + DD, -ZC     ))); // D 
-   
-  pms.push_back(PointMass(Point3d(+XC     , YC + DD, -ZC - DD))); // E
-  pms.push_back(PointMass(Point3d(+XC + DD, YC + DD, -ZC - DD))); // F
-  pms.push_back(PointMass(Point3d(+XC + DD, YC + DD, -ZC     ))); // G
-  pms.push_back(PointMass(Point3d(+XC     , YC + DD, -ZC     ))); // H 
-  
-  pms.push_back(PointMass(Point3d(+XC     , YC + DD, +ZC     ))); // I 
-  pms.push_back(PointMass(Point3d(+XC + DD, YC + DD, +ZC     ))); // J
-  pms.push_back(PointMass(Point3d(+XC + DD, YC + DD, +ZC + DD))); // K
-  pms.push_back(PointMass(Point3d(+XC     , YC + DD, +ZC + DD))); // L 
-   
-  pms.push_back(PointMass(Point3d(-XC - DD, YC + DD, +ZC     ))); // M 
-  pms.push_back(PointMass(Point3d(-XC     , YC + DD, +ZC     ))); // N
-  pms.push_back(PointMass(Point3d(-XC     , YC + DD, +ZC + DD))); // O
-  pms.push_back(PointMass(Point3d(-XC - DD, YC + DD, +ZC + DD))); // P 
-
-  // Plane YC
-  pms.push_back(PointMass(Point3d(-XC - DD, YC, -ZC - DD))); // A
-  pms.push_back(PointMass(Point3d(-XC,      YC, -ZC - DD))); // B
-  pms.push_back(PointMass(Point3d(-XC - DD, YC, -ZC     ))); // C
-  pms.push_back(PointMass(Point3d(-XC     , YC, -ZC     ))); // D 
-   
-  pms.push_back(PointMass(Point3d(+XC     , YC, -ZC - DD))); // E
-  pms.push_back(PointMass(Point3d(+XC + DD, YC, -ZC - DD))); // F
-  pms.push_back(PointMass(Point3d(+XC + DD, YC, -ZC     ))); // G
-  pms.push_back(PointMass(Point3d(+XC     , YC, -ZC     ))); // H 
-  
-  pms.push_back(PointMass(Point3d(+XC     , YC, +ZC     ))); // I 
-  pms.push_back(PointMass(Point3d(+XC + DD, YC, +ZC     ))); // J
-  pms.push_back(PointMass(Point3d(+XC + DD, YC, +ZC + DD))); // K
-  pms.push_back(PointMass(Point3d(+XC     , YC, +ZC + DD))); // L 
-   
-  pms.push_back(PointMass(Point3d(-XC - DD, YC, +ZC     ))); // M 
-  pms.push_back(PointMass(Point3d(-XC     , YC, +ZC     ))); // N
-  pms.push_back(PointMass(Point3d(-XC     , YC, +ZC + DD))); // O
-  pms.push_back(PointMass(Point3d(-XC - DD, YC, +ZC + DD))); // P 
-
-  // Plane -YC
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC, -ZC - DD))); // A
-  pms.push_back(PointMass(Point3d(-XC,      -YC, -ZC - DD))); // B
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC, -ZC     ))); // C
-  pms.push_back(PointMass(Point3d(-XC     , -YC, -ZC     ))); // D 
-   
-  pms.push_back(PointMass(Point3d(+XC     , -YC, -ZC - DD))); // E
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC, -ZC - DD))); // F
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC, -ZC     ))); // G
-  pms.push_back(PointMass(Point3d(+XC     , -YC, -ZC     ))); // H 
-  
-  pms.push_back(PointMass(Point3d(+XC     , -YC, +ZC     ))); // I 
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC, +ZC     ))); // J
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC, +ZC + DD))); // K
-  pms.push_back(PointMass(Point3d(+XC     , -YC, +ZC + DD))); // L 
-   
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC, +ZC     ))); // M 
-  pms.push_back(PointMass(Point3d(-XC     , -YC, +ZC     ))); // N
-  pms.push_back(PointMass(Point3d(-XC     , -YC, +ZC + DD))); // O
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC, +ZC + DD))); // P 
-
-  // Plane -YC - DD
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC - DD, -ZC - DD))); // A
-  pms.push_back(PointMass(Point3d(-XC,      -YC - DD, -ZC - DD))); // B
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC - DD, -ZC     ))); // C
-  pms.push_back(PointMass(Point3d(-XC     , -YC - DD, -ZC     ))); // D 
-   
-  pms.push_back(PointMass(Point3d(+XC     , -YC - DD, -ZC - DD))); // E
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC - DD, -ZC - DD))); // F
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC - DD, -ZC     ))); // G
-  pms.push_back(PointMass(Point3d(+XC     , -YC - DD, -ZC     ))); // H 
-  
-  pms.push_back(PointMass(Point3d(+XC     , -YC - DD, +ZC     ))); // I 
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC - DD, +ZC     ))); // J
-  pms.push_back(PointMass(Point3d(+XC + DD, -YC - DD, +ZC + DD))); // K
-  pms.push_back(PointMass(Point3d(+XC     , -YC - DD, +ZC + DD))); // L 
-   
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC - DD, +ZC     ))); // M 
-  pms.push_back(PointMass(Point3d(-XC     , -YC - DD, +ZC     ))); // N
-  pms.push_back(PointMass(Point3d(-XC     , -YC - DD, +ZC + DD))); // O
-  pms.push_back(PointMass(Point3d(-XC - DD, -YC - DD, +ZC + DD))); // P 
-
-  // Prepare to set up pistons
-  Vector3d u_x(1,0,0), v1_x, v2_x;
-  Vector3d u_z(0,0,1), v1_z, v2_z;
-  Vector3d::determine_orthonormal_basis(u_x, v1_x, v2_x);
-  Vector3d::determine_orthonormal_basis(u_z, v1_z, v2_z);
-
-  // -- Set up pistons in the two y planes y = +/- YC.
-  // Plane YC
-  _constraints.push_back(PistonConstraint(-u_x, v1_x, -v2_x, 
-     Point3d(-XC, YC, -ZC), 18));  // D -> C
-  _constraints.push_back(PistonConstraint(-u_z, v1_z, -v2_z, 
-     Point3d(-XC, YC, -ZC), 17));  // D -> B 
-  _constraints.push_back(PistonConstraint(u_x, v1_x, v2_x, 
-     Point3d(XC, YC, -ZC), 22));  // H -> G
-  _constraints.push_back(PistonConstraint(-u_z, v1_z, -v2_z, 
-     Point3d(XC, YC, -ZC), 20));  // H -> E 
-  _constraints.push_back(PistonConstraint(-u_x, v1_x, -v2_x, 
-     Point3d(-XC, YC, ZC), 28));  // N -> M
-  _constraints.push_back(PistonConstraint(u_z, v1_z, v2_z, 
-     Point3d(-XC, YC, ZC), 30));  // N -> O 
-  _constraints.push_back(PistonConstraint(u_x, v1_x, v2_x, 
-     Point3d(XC, YC, ZC), 25));  // I -> J
-  _constraints.push_back(PistonConstraint(u_z, v1_z, v2_z, 
-     Point3d(XC, YC, ZC), 27));  // I -> L 
-
-  // Plane -YC
-  _constraints.push_back(PistonConstraint(-u_x, v1_x, -v2_x, 
-     Point3d(-XC, -YC, -ZC), 34));  // D -> C
-  _constraints.push_back(PistonConstraint(-u_z, v1_z, -v2_z, 
-     Point3d(-XC, -YC, -ZC), 33));  // D -> B 
-  _constraints.push_back(PistonConstraint(u_x, v1_x, v2_x, 
-     Point3d(XC, -YC, -ZC), 38));  // H -> G
-  _constraints.push_back(PistonConstraint(-u_z, v1_z, -v2_z, 
-     Point3d(XC, -YC, -ZC), 36));  // H -> E 
-  _constraints.push_back(PistonConstraint(-u_x, v1_x, -v2_x, 
-     Point3d(-XC, -YC, ZC), 44));  // N -> M
-  _constraints.push_back(PistonConstraint(u_z, v1_z, v2_z, 
-     Point3d(-XC, -YC, ZC), 46));  // N -> O 
-  _constraints.push_back(PistonConstraint(u_x, v1_x, v2_x, 
-     Point3d(XC, -YC, ZC), 41));  // I -> J
-  _constraints.push_back(PistonConstraint(u_z, v1_z, v2_z, 
-     Point3d(XC, -YC, ZC), 43));  // I -> L 
-
-  // Set up vertical pistons (emanating from y = YC)
-  _constraints.push_back(PistonConstraint(u_y, v1_y, v2_y, 
-     Point3d(XC, YC, ZC), 3));  // D -> (YC+DD:D)
-  _constraints.push_back(PistonConstraint(u_y, v1_y, v2_y, 
-     Point3d(XC, YC, ZC), 7));  // H -> (YC+DD:H)
-  _constraints.push_back(PistonConstraint(u_y, v1_y, v2_y, 
-     Point3d(XC, YC, ZC), 8));  // I -> (YC+DD:I)
-  _constraints.push_back(PistonConstraint(u_y, v1_y, v2_y, 
-     Point3d(XC, YC, ZC), 13))  // N -> (YC+DD:N)
-
-  // Set up vertical pistons (emanating from y = -YC)
-  _constraints.push_back(PistonConstraint(-u_y, v1_y, -v2_y, 
-     Point3d(XC, -YC, ZC), 195));  // D -> (YC-DD:D)
-  _constraints.push_back(PistonConstraint(-u_y, v1_y, -v2_y, 
-     Point3d(XC, -YC, ZC), 199));  // H -> (YC-DD:H)
-  _constraints.push_back(PistonConstraint(-u_y, v1_y, -v2_y, 
-     Point3d(XC, -YC, ZC), 200));  // I -> (YC-DD:I)
-  _constraints.push_back(PistonConstraint(-u_y, v1_y, -v2_y, 
-     Point3d(XC, -YC, ZC), 205))  // N -> (YC-DD:N)
-
-  // TODO: set spring connections 
-      
-  // TODO: set spring resting lengths
-
-  // TODO: set all visualization geometry. There will be eight boxes (one at
-  //       each corner) plus twelve boxes (one at each edge) = 20 boxes.
-
-  // TODO: get the rigid body core visualization geometry.
-*/
 
   // Simplified box: only top face is compliant. Note that these points are
   // in the global frame, so we have to anticipate that the pseudo-rigid body
@@ -248,9 +56,9 @@ PseudoRigidBody::PseudoRigidBody()
 
   // Set spring stiffness and damping.
   // TODO: check and adjust units
-  _spring_k = 1;  
-  _spring_c = .01; 
-  
+  _spring_k = 10;  
+  _spring_c = 1; 
+
   // Set up visualization.
   osg::Group* group = get_visualization_data(); 
 
@@ -266,6 +74,9 @@ PseudoRigidBody::PseudoRigidBody()
   // 2a. Create the geode nonsense first.
   geode = new osg::Geode;
   osg::Geometry* geom = new osg::Geometry;
+  geom->setDataVariance(osg::Object::DYNAMIC);
+  geom->setUseDisplayList(false);
+  geom->setUseVertexBufferObjects(false);
   geode->addDrawable(geom);
   group->addChild(geode);
 
@@ -292,11 +103,17 @@ PseudoRigidBody::PseudoRigidBody()
   // 2c. Create the faces.
   auto add_face = [this, geom](int a, int b, int c, int d)
   {
-    osg::DrawElementsUInt* face = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+    osg::DrawElementsUInt* face = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0);
     face->push_back(a); 
     face->push_back(b); 
     face->push_back(c);
+    _osg_faces.push_back(face);
+    geom->addPrimitiveSet(face);
+    
+    face = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0);
+    face->push_back(c);
     face->push_back(d);
+    face->push_back(a); 
     _osg_faces.push_back(face);
     geom->addPrimitiveSet(face);
   };
@@ -311,15 +128,342 @@ PseudoRigidBody::PseudoRigidBody()
 
   // 4. Construct piston springs.
   _springs.emplace_back(0, DD);
-  _springs.emplace_back(1, DD/2);
+  _springs.emplace_back(1, DD);
   _springs.emplace_back(2, DD);
-  _springs.emplace_back(3, DD/2);
+  _springs.emplace_back(3, DD);
 
   // 5. Construct springs between point masses.
   _springs.emplace_back(0, 1, DD);
   _springs.emplace_back(1, 2, DD);
   _springs.emplace_back(2, 3, DD);
   _springs.emplace_back(3, 0, DD);
+*/
+}
+
+// Puts a vector of vertices into ccw order.
+void PseudoRigidBody::make_ccw(const Vector3d& normal, vector<unsigned>& verts) const
+{
+  // Create the array of points. 
+  const unsigned N_POINTS = 3;
+  const unsigned THREE_D = 3;
+  Point3d points[N_POINTS];
+   
+  // Set the poses for the three points.
+  for (unsigned i = 0; i < N_POINTS; ++i)
+    points[i].pose = GLOBAL;
+
+  for (unsigned i = 0; ; ++i)
+  {
+    const unsigned j = i + 1;
+    const unsigned k = j + 1;
+    if (k == verts.size())
+      break;
+
+    // Construct the three points. 
+    const osg::Vec3& vi = (*_vert_array)[i];
+    const osg::Vec3& vj = (*_vert_array)[j];
+    const osg::Vec3& vk = (*_vert_array)[k];
+    for (unsigned m = 0; m < THREE_D; ++m) {
+      points[0][m] = vi[m];
+      points[1][m] = vj[m];
+      points[2][m] = vk[m];
+    }
+
+    // If the points are not ccw, reverse points 2 and 3.
+    if (!CompGeom::ccw(points, points+N_POINTS, normal))
+      std::swap(verts[j], verts[k]);
+  }
+}
+
+// Constructs a pseudo-rigid body using a triangulated polyhedron
+void PseudoRigidBody::construct_from_polyhedron(const Polyhedron& p, double compliant_layer_depth)
+{
+  map<pair<unsigned, shared_ptr<Polyhedron::Face>>, unsigned> vertex_map;
+  map<unsigned, std::list<unsigned>> created_vertices;
+
+  const vector<shared_ptr<Polyhedron::Face>>& faces = p.get_faces();
+  const vector<shared_ptr<Polyhedron::Edge>>& edges = p.get_edges();
+  const vector<shared_ptr<Polyhedron::Vertex>>& vertices = p.get_vertices();
+
+/*
+  // Verify that the polyhedron is triangulated.
+  for (auto f : faces)
+    assert(f->e.size() == 3);
+    
+  // Construct a point mass, a spring, and a piston for each non-coplanar face
+  // at each vertex
+  const vector<shared_ptr<Polyhedron::Vertex>>& vertices = p.get_vertices();
+  for (auto v : vertices)
+  {
+    // Set of non-coplanar faces.
+    std::vector<shared_ptr<Polyhedron::Face>> non_coplanar_faces;
+
+    // Vector of face candidates.
+    std::set<shared_ptr<Polyhedron::Face>> unique_faces;
+
+    // Iterate through all edges coincident to this vertex.
+    for (auto e : v->e)
+    {
+      // Convert the weak pointer to a shared_ptr
+      shared_ptr<Polyhedron::Edge> edge(e);
+
+      // Add both faces to the unique face set 
+      unique_faces.insert(edge->f1); 
+      unique_faces.insert(edge->f2);
+    }
+
+    // Identify the set of non-coplanar faces (tolerance of 1/10 of a degree).
+    const double TOL = std::cos(180/M_PI * 0.1);
+    for (auto f : unique_faces)
+    {
+      bool non_coplanar = true;
+      const Vector3d& normal = f->get_plane().get_normal();
+      for (unsigned j=0; j< non_coplanar_faces.size() && non_coplanar; j++)
+      {
+        const Vector3d& cand_normal = non_coplanar_faces[j]->get_plane().get_normal();
+        const double cos_angle = normal.dot(cand_normal);
+        if (std::fabs(cos_angle) < TOL)
+          non_coplanar = false;
+      }
+      if (non_coplanar)
+        non_coplanar_faces.push_back(f);
+    }
+
+    // Non-coplanar faces have been identified. Construct a point mass, 
+    // a piston, and a spring for each one.
+    for (unsigned j=0; j< non_coplanar_faces.size(); j++)
+    {
+      // Create the piston direction and two orthogonal vectors.
+      const Vector3d& u = non_coplanar_faces[j]->get_plane().get_normal();
+      Vector3d v1, v2;
+      Vector3d::determine_orthonormal_basis(u, v1, v2);
+
+      // Set the attachment point on the rigid body.
+      Point3d p(v->o, GLOBAL);
+
+      // Create the point mass and get its index.
+      _point_mass_states.emplace_back(p + u*compliant_layer_depth);
+      const unsigned pmi = _point_mass_states.size() - 1;
+
+      // Add the constraint.
+      _constraints.emplace_back(u, v1, v2, p, pmi);
+
+      // Create a spring.
+      _springs.emplace_back(_constraints.size()-1, compliant_layer_depth);
+    }
+  }
+
+  // Construct a spring for each edge in the polyhedron.
+
+  // Construct a spring to introduce a soft loop constraint for each vertex
+  // touching non-coplanar faces.
+
+  // --- Build visualization here, assuming no adjacent coplanar faces in the
+  //     original polyhedron
+  
+  // * Each face in the polyhedron corresponds to at least one face in the
+  //   visualization (non-triangular faces are converted into triangular ones).
+  //
+  // * Each edge in the original polyhedron corresponds to a pair of edges in
+  //   the visualization.
+  //
+  // * Each vertex in the original polyhedron corresponds to n vertices in the
+  //   visualization (where n is the number of adjacent faces). 
+*/
+
+  // Create the geode nonsense first.
+  osg::Group* group = get_visualization_data();
+  osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+  osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+  geom->setDataVariance(osg::Object::DYNAMIC);
+  geom->setUseDisplayList(false);
+  geom->setUseVertexBufferObjects(false);
+  geode->addDrawable(geom);
+  group->addChild(geode);
+
+  // Gets all faces coincident to a vertex in the polyhedron.
+  auto get_coincident_faces = [](shared_ptr<Polyhedron::Vertex> v,
+                                 vector<shared_ptr<Polyhedron::Face>>& f) {
+    assert(f.empty());
+    for (auto e : v->e) {
+      shared_ptr<Polyhedron::Edge> edge(e);
+      f.push_back(edge->face1);
+      f.push_back(edge->face2);
+    }
+    std::sort(f.begin(), f.end());
+
+    // Erase naturally redundant faces. 
+    f.erase(std::unique(f.begin(), f.end()), f.end());
+  };
+
+  // Get index to old vertex; note that this could be done significantly faster
+  // using a map.
+  auto get_original_index = [&vertices](shared_ptr<Polyhedron::Vertex> v) {
+    for (unsigned i=0; i< vertices.size(); i++)
+      if (vertices[i] == v)
+        return i;
+    assert(false);
+    return std::numeric_limits<unsigned>::max();
+  }; 
+
+  // Lambda function for getting index to newly created vertex.
+  auto get_index = [&vertex_map](shared_ptr<Polyhedron::Face> f, unsigned i) {
+    auto iter = vertex_map.find(std::make_pair(i, f));
+    assert(iter != vertex_map.end());
+    return iter->second;
+  };
+
+  // Lambda function for adding a face to osg.
+  auto add_face = [this, geom](int a, int b, int c) {
+    osg::ref_ptr<osg::DrawElementsUInt> face = 
+        new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0);
+    face->push_back(a); 
+    face->push_back(b); 
+    face->push_back(c);
+    _osg_faces.push_back(face);
+    geom->addPrimitiveSet(face);
+  };
+
+  // Create face(s) for each face in the polyhedron.
+  // 1. Loop through all faces in the polyhedron
+  for (auto f : faces) {
+    // 1a. Get the vertices in the polyhedron's face in ccw order
+    std::vector<shared_ptr<Polyhedron::Vertex>> ccw_vertices;
+    Polyhedron::VertexFaceIterator vfi(f, true /* ccw */);
+    ccw_vertices.push_back(*vfi);
+    while (vfi.has_next()) {
+      vfi.advance();
+      ccw_vertices.push_back(*vfi);
+    }
+
+    // Get the normal to the face.
+    const Vector3d& normal = f->get_plane().get_normal(); 
+
+    // Create point mass states here.
+    for (unsigned i = 0; i < ccw_vertices.size(); ++i) {
+      // Get the index for this vertex.
+      unsigned old_index = get_original_index(ccw_vertices[i]);
+
+      // Set the attachment point on the rigid body.
+      Point3d p(ccw_vertices[i]->o, GLOBAL);
+
+      // Create the point mass and get its index.
+      const unsigned new_index = _point_mass_states.size();
+      _point_mass_states.emplace_back(p + normal*compliant_layer_depth);
+
+      // Update the maps.
+      vertex_map[std::make_pair(old_index, f)] = new_index;
+      created_vertices[old_index].push_back(new_index);
+    }
+
+    // If there are more than three vertices, add the first vertex to the end
+    // of the vector (to simplify triangulation).
+    if (ccw_vertices.size() > 3)
+      ccw_vertices.push_back(ccw_vertices.front());
+
+    // 1b. Convert every triple of vertices into a new face
+    for (unsigned i=0; ; i++)
+    {
+      // Get the subsequent two indices.
+      unsigned j = i + 1;
+      unsigned k = j + 1;
+      if (k == ccw_vertices.size())
+        break; 
+
+      // Get the indices corresponding to the newly created vertices using
+      // these vertices and the face.
+      unsigned ii = get_index(f, get_original_index(ccw_vertices[i]));
+      unsigned jj = get_index(f, get_original_index(ccw_vertices[j]));
+      unsigned kk = get_index(f, get_original_index(ccw_vertices[k]));
+
+      // Create the osg face.
+      add_face(ii, jj, kk);
+    }
+  }
+
+  // The vertices in the visualization corresponds to the number of point mass
+  // states. The actual locations of the vertices will be set in
+  // update_visualization().
+  _vert_array = new osg::Vec3Array(_point_mass_states.size()); 
+  geom->setVertexArray(_vert_array);
+
+  // Vertex array must be updated to use make_ccw().
+  update_visualization();
+
+  // 2. Loop through all vertices created from each vertex, connecting them into
+  //    a face.
+  for (auto created_v_list_pair : created_vertices) {
+    // Create the vertex list.
+    std::vector<unsigned> v_vec(created_v_list_pair.second.begin(),
+                                created_v_list_pair.second.end());
+
+    // The normal to the newly created face will be the normal from all faces
+    // coincident to the vertex.
+    std::vector<shared_ptr<Polyhedron::Face>> coincident_faces;
+    get_coincident_faces(vertices[created_v_list_pair.first], coincident_faces);
+    Vector3d normal = coincident_faces.front()->get_plane().get_normal();
+    for (unsigned i=1; i< coincident_faces.size(); i++)
+      normal += coincident_faces[i]->get_plane().get_normal();
+    normal.normalize();    
+
+    // Verify that there are at least three indices in the list.
+    assert(v_vec.size() >= 3);
+
+    // Add the first element to the end if the vertex list is sufficiently
+    // large.
+    if (v_vec.size() > 3)
+      v_vec.push_back(v_vec.front());
+
+    // Make the list ccw.
+    make_ccw(normal, v_vec);
+
+    // Make faces out of every contiguous triplet of vertices. 
+    for (unsigned i = 0; ; i++) {
+      unsigned j = i + 1;
+      unsigned k = j + 1;
+      if (k == v_vec.size())
+        break;
+
+      add_face(v_vec[i], v_vec[j], v_vec[k]);
+    }
+  }
+  
+  // 3. Loop through all edges in the Polyhedron and connect all vertices that 
+  //    have been created from the vertices in each edge. 
+  for (auto e : edges) {
+    // The normal to the newly created face will be the blended normal from
+    // the two coincident faces.
+    Vector3d normal = e->face1->get_plane().get_normal() + 
+                      e->face2->get_plane().get_normal();
+    normal.normalize();
+
+    // Get both original vertex indices.
+    const unsigned ii = get_original_index(e->v1);
+    const unsigned jj = get_original_index(e->v2);
+
+    // Get all created vertices from the vertices in the edge.
+    vector<unsigned> v_vec;
+    v_vec.push_back(get_index(e->face1, ii));
+    v_vec.push_back(get_index(e->face2, ii));
+    v_vec.push_back(get_index(e->face1, jj));
+    v_vec.push_back(get_index(e->face2, jj));
+     
+    // Make the list ccw. 
+    make_ccw(normal, v_vec);
+
+    // Add first vertex to the end.
+    v_vec.push_back(v_vec.front());
+
+    // Make faces out of every contiguous triplet of vertices. 
+    for (unsigned i = 0; ; i++) {
+      unsigned j = i + 1;
+      unsigned k = j + 1;
+      if (k == v_vec.size())
+        break;
+
+      add_face(v_vec[i], v_vec[j], v_vec[k]);
+    }
+  } 
 }
 
 // TODO: remove this function once rigid body and constraints are constructed
@@ -554,6 +698,7 @@ SharedMatrixNd& PseudoRigidBody::solve_generalized_inertia(const SharedMatrixNd&
     SAcceld acore = _core->get_inertia().inverse_mult(fcore);
     X.column(i).segment(0, THREE_D) = acore.get_linear();
     X.column(i).segment(THREE_D, SPATIAL_D) = acore.get_angular();
+X.column(i).segment(0, SPATIAL_D).set_zero();
 
     // Solve all other masses.
     (X.column(i).segment(SPATIAL_D, X.rows()) =
@@ -580,6 +725,7 @@ SharedMatrixNd& PseudoRigidBody::transpose_solve_generalized_inertia(const Share
     SAcceld acore = _core->get_inertia().inverse_mult(fcore);
     X.column(i).segment(0, THREE_D) = acore.get_linear();
     X.column(i).segment(THREE_D, SPATIAL_D) = acore.get_angular();
+X.column(i).segment(0, SPATIAL_D).set_zero();
 
     // Solve all other masses.
     (X.column(i).segment(SPATIAL_D, X.rows()) =
@@ -604,6 +750,7 @@ SharedVectorNd& PseudoRigidBody::solve_generalized_inertia(const SharedVectorNd&
   SAcceld acore = _core->get_inertia().inverse_mult(fcore);
   x.segment(0, THREE_D) = acore.get_linear();
   x.segment(THREE_D, SPATIAL_D) = acore.get_angular();
+x.segment(0, SPATIAL_D).set_zero();
 
   // Solve all other masses.
   (x.segment(SPATIAL_D, x.size()) = b.segment(SPATIAL_D, x.size())) /=
@@ -1182,5 +1329,6 @@ void PseudoRigidBody::update_visualization()
                                   (float) _point_mass_states[i].x[Y], 
                                   (float) _point_mass_states[i].x[Z]);
   }
+  _vert_array->dirty();
 }
 

@@ -11,6 +11,7 @@
 
 #include <Ravelin/RigidBodyd.h>
 #include <Moby/ControlledBody.h>
+#include <Moby/Polyhedron.h>
 #include <Moby/RigidBody.h>
 
 namespace Moby {
@@ -24,6 +25,7 @@ class PseudoRigidBody : public ControlledBody, public Ravelin::DynamicBodyd
     virtual void update_visualization() override;
     void load_from_xml(boost::shared_ptr<const XMLTree> tree, std::map<std::string, BasePtr>& id_map) override;
     void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base>>& shared_objects) const override;
+    void construct_from_polyhedron(const Polyhedron& p, double compliant_layer_depth);
 
     /// Body is always enabled.
     bool is_enabled() const override { return true; }
@@ -35,7 +37,7 @@ class PseudoRigidBody : public ControlledBody, public Ravelin::DynamicBodyd
       if (_cm_layer_mass)
         return _cm_layer_mass.value();
       else
-        return _core->get_inertia().m;
+        return _core->get_inertia().m/10;
     }
 
     /// Gets the total number of point masses used in the compliant layer.
@@ -76,6 +78,7 @@ class PseudoRigidBody : public ControlledBody, public Ravelin::DynamicBodyd
     void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx) override;
  
   private:
+    void make_ccw(const Ravelin::Vector3d& normal, std::vector<unsigned>& v_vec) const;
     Ravelin::LinAlgd _LA;
     void update_poses();
     void update_generalized_forces_with_spring_damper_forces(Ravelin::VectorNd& gf);

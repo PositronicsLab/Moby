@@ -85,6 +85,7 @@ class Polyhedron
     enum LocationType { eInside, eOutside, eOnVertex, eOnEdge, eOnFace };  
 
     Polyhedron();
+    Polyhedron(const std::vector<boost::shared_ptr<Polyhedron::Vertex>>& vertices, const std::vector<boost::shared_ptr<Polyhedron::Edge>>& edges, const std::vector<boost::shared_ptr<Polyhedron::Face>>& faces);
     Polyhedron(const Polyhedron& p) { _convexity_computed = false; operator=(p); }
     static double vclip(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB); 

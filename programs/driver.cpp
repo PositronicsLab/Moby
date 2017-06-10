@@ -129,10 +129,14 @@ double applied_force_scale = 1;
 
 #ifdef USE_OSG
 
-/// The OpenInventor group node for Moby
+/// Pointers to lighting information.
+osg::ref_ptr<osg::LightSource> lightsource;
+osg::ref_ptr<osg::Light> light; 
+
+/// The osg group node for Moby
 osg::Group* MOBY_GROUP;
 
-/// The OpenInventor root group node for this application
+/// The osg root group node for this application
 osg::Group* MAIN_GROUP;
 
 /// Pointer to the viewer
@@ -243,7 +247,7 @@ class PickHandler : public osgGA::GUIEventHandler {
       }
     }
 
-    return true;
+    return false;
   }
 };
 #endif
@@ -260,6 +264,7 @@ class PickHandler : public osgGA::GUIEventHandler {
   /// runs the simulator and updates all transforms
   bool step(boost::shared_ptr<Simulator> s)
   {
+    usleep(100);
 #ifdef USE_OSG
     if (ONSCREEN_RENDER)
     {
@@ -468,7 +473,20 @@ class PickHandler : public osgGA::GUIEventHandler {
   void add_lights()
   {
 #ifdef USE_OSG
+/*
     // add lights
+    osg::ref_ptr<osg::StateSet> lightSS(MAIN_GROUP->getOrCreateStateSet());
+    lightsource = new osg::LightSource();
+    lightsource->setLocalStateSetModes(osg::StateAttribute::ON);
+    lightsource->setStateSetModes(*lightSS, osg::StateAttribute::ON);
+    light = new osg::Light();
+    light->setLightNum(1);
+    light->setPosition(osg::Vec4(0, 5, 0, 1));
+    light->setDiffuse(osg::Vec4(1, 0, 0, 1));
+    light->setDirection(osg::Vec3(0, -1, 0));
+    lightsource->setLight(light.get());
+    MAIN_GROUP->addChild(lightsource.get()); 
+*/
 #endif
   }
   
@@ -658,6 +676,8 @@ class PickHandler : public osgGA::GUIEventHandler {
 #ifdef USE_OSG
     const double DYNAMICS_FREQ = 0.001;
     viewer_pointer = new osgViewer::Viewer();
+    viewer_pointer->setLightingMode(osg::View::NO_LIGHT);
+    viewer_pointer->getCamera()->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     viewer_pointer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer_pointer->addEventHandler(new PickHandler());
 #endif
@@ -944,7 +964,7 @@ class PickHandler : public osgGA::GUIEventHandler {
     while (!stop_sim)
     {
       stop_sim = !step(s);
-    }
+   }
     
     close();
     

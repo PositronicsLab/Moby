@@ -223,6 +223,22 @@ Polyhedron::Polyhedron()
   _convexity_computed = false;
 }
 
+/// Creates a polyhedron from the given vectors.
+Polyhedron::Polyhedron(const vector<shared_ptr<Vertex>>& v,
+                       const vector<shared_ptr<Edge>>& e,
+                       const vector<shared_ptr<Face>>& f) {
+  // Make copies.
+  _vertices = v;
+  _edges = e;
+  _faces = f;
+
+  // Indicate convexity has not been computed.
+  _convexity_computed = false;
+
+  // Compute the bounding box.
+  calc_bounding_box();
+}
+
 /// Assignment operator
 Polyhedron& Polyhedron::operator=(const Polyhedron& p)
 {
