@@ -162,6 +162,23 @@ double PolyhedralPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<V
   return dist;
 }
 
+/// Dirties the osg vertices.
+void PolyhedralPrimitive::dirty_vertex_visualization_data()
+{
+  _vert_array->dirty();
+}
+
+/// Gets the visualization vertex.
+osg::Vec3* PolyhedralPrimitive::get_visualization_vertex(boost::shared_ptr<Polyhedron::Vertex> p) const
+{
+#ifdef USE_OSG
+  assert(_vertex_mapping.find(p) != _vertex_mapping.end());
+  return &(*_vert_array)[_vertex_mapping.find(p)->second];
+#else
+  return nullptr;
+#endif
+}
+
 /// creates the visualization for the primitive
 osg::Node* PolyhedralPrimitive::create_visualization()
 {
@@ -197,20 +214,23 @@ osg::Node* PolyhedralPrimitive::create_visualization()
   // do the necessary OSG stuff
   osg::Geode* geode = new osg::Geode;
   osg::Geometry* geometry = new osg::Geometry;
+  geometry->setDataVariance(osg::Object::DYNAMIC);
+  geometry->setUseDisplayList(false);
+  geometry->setUseVertexBufferObjects(false);
   geode->addDrawable(geometry);
 
   // create vertices and setup a mapping
-  std::map<shared_ptr<Polyhedron::Vertex>, unsigned> mapping;
-  osg::Vec3Array* osg_verts = new osg::Vec3Array;
+  _vertex_mapping.clear();
+  _vert_array = new osg::Vec3Array(_poly.get_vertices().size());
   const vector<shared_ptr<Polyhedron::Vertex> >& v = _poly.get_vertices();
   for (unsigned i=0; i< v.size(); i++)
   {
-    osg_verts->push_back(osg::Vec3(v[i]->o[X], v[i]->o[Y], v[i]->o[Z]));
-    mapping[v[i]] = i;
+    (*_vert_array)[i] = osg::Vec3(v[i]->o[X], v[i]->o[Y], v[i]->o[Z]);
+    _vertex_mapping[v[i]] = i;
   }
 
   // associate the vertex array with the geometry
-  geometry->setVertexArray(osg_verts);
+  geometry->setVertexArray(_vert_array);
 
   // iterate over all faces
   const vector<shared_ptr<Polyhedron::Face> >& f = _poly.get_faces();
@@ -221,11 +241,11 @@ osg::Node* PolyhedralPrimitive::create_visualization()
 
     // iterate over the vertices in the face
     Polyhedron::VertexFaceIterator vfi(f[i], true);
-    face->push_back(mapping[*vfi]);
+    face->push_back(_vertex_mapping[*vfi]);
     while (vfi.has_next())
     {
       vfi.advance();
-      face->push_back(mapping[*vfi]);
+      face->push_back(_vertex_mapping[*vfi]);
     }  
 
     // add the polygon to the face    

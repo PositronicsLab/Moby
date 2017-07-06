@@ -520,7 +520,7 @@ void ConstraintSimulator::calc_pairwise_distances()
     PairwiseDistInfo pdi;
     pdi.a = _pairs_to_check[i].first;
     pdi.b = _pairs_to_check[i].second;
-    pdi.dist = _coldet->calc_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    pdi.dist = _coldet->calc_dist(pdi.a, pdi.b, pdi.pa, pdi.pb) - pdi.a->compliant_layer_depth - pdi.b->compliant_layer_depth;
     Pose3d poseA(*pdi.a->get_pose());
     Pose3d poseB(*pdi.b->get_pose());
     poseA.update_relative_pose(GLOBAL);
@@ -580,25 +580,13 @@ void ConstraintSimulator::find_unilateral_constraints()
   // find contact constraints
   BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
   {
-    double dist_thresh = pdi.a->compliant_layer_depth + 
-                         pdi.b->compliant_layer_depth;
-
-    if (pdi.dist <= dist_thresh + contact_dist_thresh)
+    if (pdi.dist <= contact_dist_thresh)
     {
       // find contacts with the given distance threshold 
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
-      _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, dist_thresh + contact_dist_thresh);
+      _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, contact_dist_thresh);
     }
-  }
-
-  // set constraint violation
-  for (unsigned i=N_LIMITS; i< _rigid_constraints.size(); i++)
-  {
-    double depth = _rigid_constraints[i].contact_geom1->compliant_layer_depth +                    _rigid_constraints[i].contact_geom2->compliant_layer_depth;
-
-    // setup the signed violation
-    _rigid_constraints[i].signed_distance -= depth;
   }
 
   if (LOGGING(LOG_SIMULATOR))

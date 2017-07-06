@@ -54,7 +54,7 @@ class CollisionGeometry : public virtual Base
     double get_farthest_point_distance() const;
 
     /// The compliant layer around this geometry
-    double compliant_layer_depth;
+    double compliant_layer_depth{0};
 
     /// Gets the shared pointer for this
     CollisionGeometryPtr get_this() { return boost::dynamic_pointer_cast<CollisionGeometry>(shared_from_this()); }

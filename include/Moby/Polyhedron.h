@@ -45,6 +45,7 @@ class Polyhedron
       Ravelin::Origin3d o;                // the data
       std::list<boost::weak_ptr<Edge> > e; // edges coincident to this vertex 
       boost::shared_ptr<void> data;                // arbitrary user data
+      Ravelin::Origin3d sum_coincident_normals() const;
     };
 
     /// The face structure

@@ -82,7 +82,7 @@ BoxPrimitive::BoxPrimitive(const Pose3d& P) : PolyhedralPrimitive(P)
   shared_ptr<Pose3d> Pp(new Pose3d(P));
 
   // get the vertices from the polyhedron
-  std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertices = _poly.get_vertices();
+  std::vector<boost::shared_ptr<Polyhedron::Vertex>>& vertices = _poly.get_vertices();
 
   // transform the points - we want to assume that they were in P's frame
   // and are now converting them to the global frame
@@ -112,7 +112,7 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
   shared_ptr<Pose3d> Pp(new Pose3d(P));
 
   // get the vertices from the polyhedron
-  std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertices = _poly.get_vertices();
+  std::vector<boost::shared_ptr<Polyhedron::Vertex>>& vertices = _poly.get_vertices();
 
   // transform the points - we want to assume that they were in P's frame
   // and are now converting them to the global frame
@@ -200,7 +200,7 @@ void BoxPrimitive::construct_polyhedron()
   e[7]->v1 = v[6];   e[7]->v2 = v[2];   // Top edge.
   e[8]->v1 = v[2];   e[8]->v2 = v[0];   // Left edge.
   e[9]->v1 = v[0];   e[9]->v2 = v[4];   // Bottom edge.
-  f[2]->e = { e[5], e[7], e[8], e[9] };
+  f[2]->e = { e[5], e[9], e[8], e[7] };
   e[5]->face2 = f[2];
   e[7]->face1 = e[8]->face1 = e[9]->face1 = f[2];
 
@@ -208,7 +208,7 @@ void BoxPrimitive::construct_polyhedron()
   // "Far edge" (from viewer at +z) is e[8].
   // "Near edge" is e[3]
   e[10]->v1 = v[3];  e[10]->v2 = v[2];  // Top edge.
-  e[11]->v1 = v[0];  e[11]->v2 = v[1];  // Bottom edge.
+  e[11]->v1 = v[0];  e[11]->v2 = v[1];  // Bottom edge.  // ****
   f[3]->e = { e[3], e[10], e[8], e[11] };
   e[3]->face2 = e[8]->face2 = f[3];
   e[10]->face1 = e[11]->face1 = f[3];
@@ -724,6 +724,7 @@ shared_ptr<const IndexedTriArray> BoxPrimitive::get_mesh(shared_ptr<const Pose3d
 /// Creates the visualization for this primitive
 osg::Node* BoxPrimitive::create_visualization()
 {
+  return PolyhedralPrimitive::create_visualization();
   #ifdef USE_OSG
   const double HALF = (double) 0.5;
   osg::Box* box = new osg::Box;

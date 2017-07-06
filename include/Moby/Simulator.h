@@ -51,7 +51,7 @@ class Simulator : public virtual Base
     ControlledBodyPtr find_dynamic_body(const std::string& name) const;
     void add_dynamic_body(ControlledBodyPtr body);
     void remove_dynamic_body(ControlledBodyPtr body);
-    void update_visualization();
+    virtual void update_visualization();
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
 

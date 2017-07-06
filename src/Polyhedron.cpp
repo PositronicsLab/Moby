@@ -69,6 +69,25 @@ else \
 } \
 }
 
+/// Sums coincident normals to the vertex on a polyhedron.
+Origin3d Polyhedron::Vertex::sum_coincident_normals() const
+{
+  // Get all coincident faces.
+  std::set<shared_ptr<Polyhedron::Face>> coincident_faces;
+  for (auto weak_edge : this->e)
+  {
+    shared_ptr<Polyhedron::Edge> edge(weak_edge);
+    coincident_faces.insert(edge->face1);
+    coincident_faces.insert(edge->face2);
+  }
+
+  // Sum normals.
+  Vector3d sum(0, 0, 0, GLOBAL);
+  for (auto f : coincident_faces)
+    sum += f->get_plane().get_normal();
+  return Origin3d(sum);
+}
+
 /// Gets the polyhedron as a triangle mesh
 IndexedTriArray Polyhedron::get_mesh() const
 {

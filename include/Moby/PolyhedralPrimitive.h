@@ -10,6 +10,19 @@
 #include <Moby/Primitive.h>
 #include <Moby/Polyhedron.h>
 
+#ifndef USE_OSG
+namespace osg {
+class Vec3Array;
+class Vec3;
+}
+#else
+#include <osg/Array>
+#include <osg/Shape>
+#include <osg/ShapeDrawable>
+#include <osg/Geode>
+#include <osg/Geometry>
+#endif
+
 namespace Moby {
 
 /// Defines a triangle-mesh-based primitive type used for inertial property calculation and geometry provisions
@@ -41,8 +54,8 @@ class PolyhedralPrimitive : public Primitive
     virtual void set_pose(const Ravelin::Pose3d& P);
     virtual void add_to_face_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& normals) const;
     virtual void create_edge_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& edges) const;
-
-    /// Gets the set of edges to use for separating axis test
+    osg::Vec3* get_visualization_vertex(boost::shared_ptr<Polyhedron::Vertex> p) const;
+    void dirty_vertex_visualization_data();
 
     /// Gets the polyhedron corresponding to this primitive (in its transformed state)
     const Polyhedron& get_polyhedron() const { return _poly; }
@@ -80,6 +93,8 @@ class PolyhedralPrimitive : public Primitive
     static void project(const std::vector<Ravelin::Vector3d>& vectors, const Ravelin::Vector3d& axis, double& min_dot, double& max_dot, unsigned& min_index, unsigned& max_index);
     static std::vector<Ravelin::Vector3d>* test_vecs;
     static bool compare_vecs(unsigned i, unsigned j);
+    std::map<boost::shared_ptr<Polyhedron::Vertex>, unsigned> _vertex_mapping;
+    osg::Vec3Array* _vert_array{nullptr};
 }; // end class
 
 #include "PolyhedralPrimitive.inl"

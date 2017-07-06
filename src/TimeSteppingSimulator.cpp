@@ -39,6 +39,7 @@ using std::pair;
 using boost::tuple;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
+using boost::static_pointer_cast;
 using namespace Ravelin;
 using namespace Moby;
 
@@ -110,6 +111,296 @@ double TimeSteppingSimulator::step(double step_size)
   return step_size;
 }
 
+void TimeSteppingSimulator::update_visualization()
+{
+  // Update transforms first.
+  Simulator::update_visualization();
+
+  // Only do the following part if built with OSG support.
+  #ifdef USE_OSG
+
+  // Get the set of all geometries.
+  vector<CollisionGeometryPtr> cgs;
+  const auto& bodies = get_dynamic_bodies();
+  for (auto body : bodies)
+  {
+    RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
+    if (rb)
+      cgs.insert(cgs.end(), rb->geometries.begin(), rb->geometries.end());
+    else
+    {
+      ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
+      for (unsigned i = 0; i < ab->get_links().size(); ++i)
+      {
+        RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(ab->get_links()[i]);
+        cgs.insert(cgs.end(), rb->geometries.begin(), rb->geometries.end());
+      }
+    }
+  }
+
+  // Process all of the polyhedral geometries with non-zero compliant layer
+  // depths.
+  for (auto geom : cgs)
+  {
+    // Fast check: skip bodies without a compliant layer.
+    if (geom->compliant_layer_depth == 0)
+      continue;
+
+    // Try to cast to a polyhedral body.
+    shared_ptr<PolyhedralPrimitive> pp = dynamic_pointer_cast<PolyhedralPrimitive>(geom->get_geometry());
+    if (!pp)
+      continue;
+
+    // Get the polyhedron.
+    const Polyhedron& polyhedron = pp->get_polyhedron();
+
+    // Process each vertex of the polyhedron.
+    for (unsigned i = 0; i< polyhedron.get_vertices().size(); ++i)
+    {
+      shared_ptr<Polyhedron::Vertex> v = polyhedron.get_vertices()[i];
+      Origin3d extrusion_direction = v->sum_coincident_normals();
+      Origin3d new_vert = v->o + extrusion_direction * geom->compliant_layer_depth;
+      osg::Vec3& osg_vert = *pp->get_visualization_vertex(v);
+      osg_vert = osg::Vec3(new_vert.x(), new_vert.y(), new_vert.z());
+    }
+    pp->dirty_vertex_visualization_data();
+  }
+
+  // Process each pairwise distance information structure.
+  for (const auto& pdi : _pairwise_distances)
+  {
+    // TODO(edrumwri): Do this properly.
+    // Determine the contact plane.
+    Plane contact_plane(0, 1, 0, 0);
+
+    // Get the first geometry, see whether it is polyhedral and has a compliant
+    // layer. If so, adjust it.
+    if (pdi.a->compliant_layer_depth > 0)
+    {
+      shared_ptr<PolyhedralPrimitive> pp = dynamic_pointer_cast<PolyhedralPrimitive>(pdi.a->get_geometry());
+      if (pp)
+        adjust_compliant_polyhedral_geometry(pdi.a, contact_plane);
+    }
+
+    if (pdi.b->compliant_layer_depth > 0)
+    {
+      shared_ptr<PolyhedralPrimitive> pp = dynamic_pointer_cast<PolyhedralPrimitive>(pdi.b->get_geometry());
+      if (pp)
+        adjust_compliant_polyhedral_geometry(pdi.b, -contact_plane);
+    }
+  }
+
+  #endif // USE_OSG
+
+  /*
+  // Get the set of contacting bodies.
+  for (const auto& pdi : _pairwise_distances)
+  {
+    // Check whether the bodies are intersecting.
+    if (pdi.dist < 0)
+    {
+
+    }
+  }
+
+  // TODO: Cache closest features to speed v-clip.
+
+  // For all polyhedral bodies with a compliant layer, extrude the faces by
+  // the true depth - ε. Intersecting two extruded such polyhedral bodies, or
+  // one polyhedral body with a compliant layer against another body without
+  // a compliant layer, should yield no intersection at that configuration.
+  // Intersecting a polyhedral body with a non-polyhedral body- both of which
+  // use a compliant layer- means that we can't update the visualization based
+  // on their interaction.
+
+  // For all polyhedral bodies with a compliant layer, extrude the faces by
+  // the true depth.
+  for (const auto body : polyhedral_bodies)
+  {
+
+  }
+   */
+}
+
+// Adjusts a polyhedral geometry with a compliant layer with respect to the
+// given contact plane.
+void TimeSteppingSimulator::adjust_compliant_polyhedral_geometry(CollisionGeometryPtr cg, const Plane& contact_plane)
+{
+  // Get the polyhedral geometry.
+  shared_ptr<PolyhedralPrimitive> pp = static_pointer_cast<PolyhedralPrimitive>(cg->get_geometry());
+
+  // Get all vertices below the contact plane.
+  const vector<shared_ptr<Polyhedron::Vertex>>& vertices = pp->get_polyhedron().get_vertices();
+  Transform3d wTpp = Pose3d::calc_relative_pose(pp->get_pose(cg), GLOBAL);
+  vector<shared_ptr<Polyhedron::Vertex>> below_verts;
+  for (auto v : vertices)
+  {
+    Point3d v_pp(v->o + v->sum_coincident_normals() * cg->compliant_layer_depth,
+                 pp->get_pose(cg));
+    Point3d v_w = wTpp.transform_point(v_pp);
+    double signed_dist = contact_plane.calc_signed_distance(v_w);
+    if (signed_dist < -NEAR_ZERO)
+      below_verts.push_back(v);
+  }
+
+  // Get the set of normals (faces) common to all of these vertices.
+  const vector<shared_ptr<Polyhedron::Face>>& all_faces = pp->get_polyhedron().get_faces();
+  set<shared_ptr<Polyhedron::Face>> common_faces(all_faces.begin(), all_faces.end());
+  for (auto v : below_verts)
+  {
+    // Get all faces from this vertex.
+    set<shared_ptr<Polyhedron::Face>> v_faces;
+    for (auto weak_edge : v->e)
+    {
+      shared_ptr<Polyhedron::Edge> edge(weak_edge);
+      v_faces.insert(edge->face1);
+      v_faces.insert(edge->face2);
+    }
+
+    // Do the set intersection.
+    vector<shared_ptr<Polyhedron::Face>> output;
+    std::set_intersection(common_faces.begin(), common_faces.end(),
+                          v_faces.begin(), v_faces.end(), std::back_inserter(output));
+    common_faces.clear();
+    common_faces.insert(output.begin(), output.end());
+  }
+
+  // See which normal requires the least compression to move all points above
+  // the contact plane. Assume that we want to use a normal of direction n to
+  // push a point below the plane *onto* the contact plane. In other words,
+  // point p currently lies at distance q below the contact plane <y, d>:
+  // y'p - d = q
+  // Direction n from some face would push p further below the contact plane.
+  // Instead, projecting p along -n should allow us to to put the point right
+  // on the contact plane:
+  // αn'p = -q
+  // Putting α on the left hand side:
+  // α = (-y'p + d)/(-n'p)
+  // α's interpretation is how far a piston has to be compressed to travel one
+  // unit of distance along the separation vector. If the piston is parallel to
+  // the separation vector, α will reach its optimal (minimal) value of 1.
+  // As the vectors become less parallel- including up to the case of
+  // orthogonality, for which α will become infinity- α will become larger.
+  double min_max_alpha = std::numeric_limits<double>::infinity();
+  shared_ptr<Polyhedron::Face> best_face;
+  for (auto f : common_faces)
+  {
+    double max_alpha = 1.0;
+    for (auto v : below_verts)
+    {
+      // Get the vertex in the global frame.
+      const Point3d v_pp(v->o + v->sum_coincident_normals() * cg->compliant_layer_depth,
+                         pp->get_pose(cg));
+      const Point3d p = wTpp.transform_point(v_pp);
+
+      // Get the signed distance of the point below the plane.
+      const double q = contact_plane.calc_signed_distance(p);
+
+      // TODO(edrumwri): Why is p not a vector for the operation below?
+      // Compute alpha.
+      const double alpha = -q / f->get_plane().get_normal().dot(p);
+      assert(alpha >= 1.0 - std::numeric_limits<double>::epsilon());
+
+      // Update the maximum alpha.
+      max_alpha = std::max(alpha, max_alpha);
+    }
+
+    // Update the minimum alpha.
+    if (max_alpha < min_max_alpha)
+    {
+      min_max_alpha = max_alpha;
+      best_face = f;
+    }
+  }
+
+  // Get the piston direction.
+  const Vector3d n = best_face->get_plane().get_normal();
+
+  // Compress the vertices.
+  for (auto v : below_verts)
+  {
+    // Get the vertex in the global frame.
+    const Point3d v_pp(v->o + v->sum_coincident_normals() * cg->compliant_layer_depth,
+                       pp->get_pose(cg));
+    Point3d p = wTpp.transform_point(v_pp);
+
+    // Get the signed distance of the point below the plane.
+    const double q = contact_plane.calc_signed_distance(p);
+
+    // Recompute alpha.
+    const double alpha = -q / n.dot(p);
+
+    // Compute the new vertex position (in the global frame).
+    p += n * alpha * q;
+
+    // Transform the vertex location back to the primitive pose.
+    Point3d vnew_pp = wTpp.inverse_transform_point(p);
+
+    // Update the visualization vertex.
+    osg::Vec3& vv = *pp->get_visualization_vertex(v);
+    vv = osg::Vec3(vnew_pp.x(), vnew_pp.y(), vnew_pp.z());
+  }
+}
+
+/*
+void TimeSteppingSimulator::update_polyhedral_visualization(CollisionGeometryPtr cg)
+{
+  // Verify that this geometry is polyhedral.
+  PrimitivePtr geometry = cg->get_geometry();
+  auto poly_prim = dynamic_pointer_cast<PolyhedralPrimitive>(geometry);
+  assert(poly_prim);
+
+  // If the geometry does not have a compliant layer, quit now.
+  if (cg->compliant_layer_depth == 0.0)
+    return;
+
+  // Test this geometry against every other.
+  for (const auto& pdi : _pairwise_distances)
+  {
+    // See whether one of the geometries is cg.
+    if (pdi.a != cg && pdi.b != cg)
+      continue;
+
+    // Get the other geometry.
+    CollisionGeometryPtr cg_other = pdi.a;
+    if (cg_other == cg)
+      cg_other = pdi.b;
+
+    // If the geometries are not intersecting, continue.
+    if (pdi.dist > 0)
+      continue;
+
+    // Get the contact plane.
+
+    //
+
+    // If the geometries are intersecting, the extension quantity is (a) the
+    // signed distance between the rigid cores minus the compliant layer (if
+    // only this body has a compliant layer) or (b) half the signed distance
+    // between the rigid cores minus the compliant layer depths (if both
+    // geometries have a compliant layer).
+    if (pdi.dist < 0)
+    {
+      // TODO: What if one of the geometries can't extend to the full extension
+      // length?
+      const double core_dist = pdi.dist + cg->compliant_layer_depth + cg_other->compliant_layer_depth;
+      const double extension = (cg_other->compliant_layer_depth > 0) ? core_dist/2 : core_dist;
+      min_extension = std::min(extension, min_extension);
+    }
+  }
+
+  // Compress the pistons slightly.
+  min_extension -= std::sqrt(std::numeric_limits<double>::epsilon());
+  assert(min_extension >= 0);
+
+  // Verify that cg does not intersect with any other (geometry? polyhedral
+  // geometry?) at this extension.
+
+  // Loop over all faces of cg's primitive, extruding each face to its full
+  // extent. If the extruded face 
+}
+*/
+
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
@@ -135,16 +426,19 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   // compute pairwise distances
   calc_pairwise_distances();
 
-  // compute the first conservative step
-  double h = calc_next_CA_Euler_step();
+  // compute the first conservative step, unless the minimum step is equal
+  // to dt.
+  double h = dt;
+  if (dt == min_step_size)
+  {
+    h = calc_next_CA_Euler_step();
+    if (h < std::min(dt, min_step_size))
+      h = std::min(dt, min_step_size);
+    else if (h > dt)
+      h = dt;
+  }
 
-  // look for minimum step
-  if (h < std::min(dt, min_step_size))
-    h = std::min(dt, min_step_size);
-  else if (h > dt)
-    h = dt;
-  
-  // integrate the bodies' positions by h 
+  // integrate the bodies' positions by h
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
