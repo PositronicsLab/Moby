@@ -9,6 +9,7 @@
 #include <stack>
 #include <fstream>
 #include <Moby/TessellatedPolyhedron.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/CompGeom.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Constants.h>
@@ -26,7 +27,6 @@ using namespace Moby;
 CollisionGeometry::CollisionGeometry()
 {
   _F = shared_ptr<Pose3d>(new Pose3d);
-  compliant_layer_depth = 0.0;
 }
 
 /// Gets a supporting point for this geometry in a particular direction
@@ -114,6 +114,12 @@ void CollisionGeometry::get_vertices(std::vector<Point3d>& vertices) const
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
+  assert(primitive);
+
+  // verify that this is a polyhedral primitive
+  auto poly_primitive = dynamic_pointer_cast<PolyhedralPrimitive>(primitive);
+  if (!poly_primitive)
+    throw std::runtime_error("Can only get vertices from polyhedral primitives.");
 
   // get a pointer to this
   shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
@@ -125,6 +131,37 @@ void CollisionGeometry::get_vertices(std::vector<Point3d>& vertices) const
   // get the vertices from the primitive
   vertices.clear();
   primitive->get_vertices(P, vertices);
+}
+
+/// Gets vertices for a primitive
+void CollisionGeometry::get_compliant_vertices(std::vector<Point3d>& vertices) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+  assert(primitive);
+
+  // verify that this is a polyhedral primitive
+  auto poly_primitive = dynamic_pointer_cast<PolyhedralPrimitive>(primitive);
+  if (!poly_primitive)
+    throw std::runtime_error("Can only get vertices from polyhedral primitives.");
+
+  // if the compliant layer is non-existent, return
+  if (get_nominal_compliant_layer_depth() == 0)
+  {
+    get_vertices(vertices);
+    return;
+  }
+
+  // get a pointer to this
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+
+  // get the pose for this
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
+
+  // get the vertices from the primitive
+  vertices.clear();
+  poly_primitive->get_compliant_layer_vertices(P, vertices);
 }
 
 /// Writes the collision geometry mesh to the specified VRML file
@@ -217,8 +254,6 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, std::vector<Vec
   return primitive->calc_dist_and_normal(px, normals);
 }
 
-/// Calculates the unsigned distance for a primitive
-
 /// Calculates the signed distance for a primitive
 double CollisionGeometry::calc_signed_dist(const Point3d& p)
 {
@@ -235,6 +270,23 @@ double CollisionGeometry::calc_signed_dist(const Point3d& p)
   return primitive->calc_signed_dist(px);
 }
 
+/// Gets the depth of the compliant layer at a particular point.
+double CollisionGeometry::calc_compliant_layer_depth(const Point3d& p) const {
+  // convert p to the proper pose.
+  BasePtr base = const_pointer_cast<Base>(shared_from_this());
+  CollisionGeometryPtr cg_this = dynamic_pointer_cast<CollisionGeometry>(base);
+  Point3d pp = Pose3d::transform_point(get_geometry()->get_pose(cg_this), p);
+
+  vector<Vector3d> normals;
+  get_geometry()->calc_dist_and_normal(pp, normals);
+  assert(!normals.empty());
+  const unsigned n_normals = normals.size();
+  if (n_normals == 1)
+    return cg_this->get_nominal_compliant_layer_depth();
+  else
+    return cg_this->get_nominal_compliant_layer_depth() * std::sqrt((double) n_normals);
+}
+
 /// Calculates the distances between two geometries and returns closest points if geometries are not interpenetrating
 double CollisionGeometry::calc_dist(CollisionGeometryPtr gA, CollisionGeometryPtr gB, Point3d& pA, Point3d& pB) 
 {
@@ -248,7 +300,7 @@ double CollisionGeometry::calc_dist(CollisionGeometryPtr gA, CollisionGeometryPt
 
   FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_dist() - computing distance between " << gA->get_single_body()->body_id << " and " << gB->get_single_body()->body_id << std::endl;
 
-  // now compute the signed distance
+  // Compute the signed distance between the cores.
   return primA->calc_dist(primB, pA, pB);
 }
 
@@ -330,6 +382,20 @@ double CollisionGeometry::calc_dist(CollisionGeometryPtr a, CollisionGeometryPtr
 }
 */
 
+/// Gets the maximum compliant layer depth.
+double CollisionGeometry::get_maximum_compliant_layer_depth() const {
+  PrimitivePtr primitive = get_geometry();
+  assert(primitive);
+  return primitive->get_maximum_compliant_layer_depth();
+}
+
+/// Gets the nominal compliant layer depth.
+double CollisionGeometry::get_nominal_compliant_layer_depth() const {
+  PrimitivePtr primitive = get_geometry();
+  assert(primitive);
+  return primitive->get_compliant_layer_depth();
+}
+
 /// Implements Base::load_from_xml()
 void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
@@ -338,11 +404,6 @@ void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
 
   // verify that this node is of type CollisionGeometry
   assert (strcasecmp(node->name.c_str(), "CollisionGeometry") == 0);
-
-  // load the compliant layer depth, if specified
-  XMLAttrib* cld_attr = node->get_attrib("compliant-layer-depth");
-  if (cld_attr)
-    compliant_layer_depth = cld_attr->get_real_value();
 
   // read relative pose, if specified
   Pose3d TR;
@@ -394,10 +455,7 @@ void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
   // set the node name
   node->name = "CollisionGeometry";
 
-  // save the compliant layer depth
-  node->attribs.insert(XMLAttrib("compliant-layer-depth", compliant_layer_depth));
-
-  // add the relative pose 
+  // add the relative pose
   node->attribs.insert(XMLAttrib("relative-origin", _F->x));
   node->attribs.insert(XMLAttrib("relative-quat", _F->q));
 

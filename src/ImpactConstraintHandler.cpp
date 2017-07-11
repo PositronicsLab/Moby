@@ -14,15 +14,8 @@
 #include <numeric>
 #include <Moby/permute.h>
 #include <Moby/RCArticulatedBody.h>
-#include <Moby/Constants.h>
-#include <Moby/Constraint.h>
-#include <Moby/CollisionGeometry.h>
-#include <Moby/RigidBody.h>
-#include <Moby/Log.h>
 #include <Moby/XMLTree.h>
-#include <Moby/ImpactToleranceException.h>
 #include <Moby/ImpactConstraintHandler.h>
-#include <Moby/ConstraintSimulator.h>
 #ifdef HAVE_IPOPT
 #include <Moby/NQP_IPOPT.h>
 #include <Moby/LCP_IPOPT.h>

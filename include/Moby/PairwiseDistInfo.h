@@ -16,7 +16,7 @@ struct PairwiseDistInfo
 {
   CollisionGeometryPtr a;  // the first geometry
   CollisionGeometryPtr b;  // the second geometry
-  double dist;             // the signed distance
+  double dist;             // the signed distance (incorporates distance between compliant layers too)
   Point3d pa;              // the closest point on geometry A
   Point3d pb;              // the closest point on geometry B
 }; // end struct

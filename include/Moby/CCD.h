@@ -77,7 +77,6 @@ class CCD : public CollisionDetection
     double calc_next_CA_Euler_step_polyhedron_plane(const PairwiseDistInfo& pdi, double epsilon);
     double calc_next_CA_Euler_step_polyhedron_polyhedron(const PairwiseDistInfo& pdi, double epsilon);
     static Ravelin::Origin3d get_arbitrary_point(boost::shared_ptr<const Polyhedron::Feature> feat);
-    static void find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, boost::shared_ptr<const Polyhedron::Feature> fB, const Ravelin::Transform3d& wTa, const Ravelin::Transform3d& wTb, Point3d& pA, Point3d& pB);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct
@@ -129,9 +128,6 @@ class CCD : public CollisionDetection
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
-
-    template <class OutputIterator>
-    OutputIterator find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
     OutputIterator find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);

@@ -989,85 +989,30 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vect
   {
     FILE_LOG(LOG_COLDET) << "  point is inside the box; interior dist = " << intDist << endl;
 
-    // p is inside the box; determine the normal
+    // the normal will be from the distance to an extent that is smallest. If
+    // multiple distances are smallest, multiple normals will be returned.
     double absPX = extents[X] - std::fabs(point[X]);
     double absPY = extents[Y] - std::fabs(point[Y]);
     double absPZ = extents[Z] - std::fabs(point[Z]);
-    if (absPZ < absPX - NEAR_ZERO && absPZ < absPY - NEAR_ZERO)
-    {
-      if (point[Z] < (double) 0.0)
-        normals.push_back(Vector3d(0,0,-1,point.pose));
-      else
-        normals.push_back(Vector3d(0,0,1,point.pose));
-    }
-    else if (absPY < absPZ - NEAR_ZERO && absPY < absPX - NEAR_ZERO)
-    {
-      if (point[Y] < (double) 0.0)
-        normals.push_back(Vector3d(0,-1,0,point.pose));
-      else
-        normals.push_back(Vector3d(0,1,0,point.pose));
-    }
-    else if (absPX < absPY - NEAR_ZERO && absPX < absPZ - NEAR_ZERO)
-    {
-      if (point[X] < (double) 0.0)
-        normals.push_back(Vector3d(-1,0,0,point.pose));
-      else
-        normals.push_back(Vector3d(1,0,0,point.pose));
-    }
-    else
-    {
-      // degenerate normal; do nothing now
-      return (inside) ? intDist : std::sqrt(sqrDist);
+    unsigned dist_index_array[3] = { 0, 1, 2 };
+    double dist_array[3] = { absPX, absPY, absPZ };
+    std::sort(dist_index_array, dist_index_array+3, [&](unsigned a, unsigned b) -> bool {
+      return dist_array[a] < dist_array[b];
+    });
 
-      // degenerate normal; check for relative equality 
-      if (CompGeom::rel_equal(absPX, absPY) && CompGeom::rel_equal(absPX, absPZ))
-      {
-        if (point[Z] < (double) 0.0)
-          normals.push_back(Vector3d(0,0,-1,point.pose));
-        else
-          normals.push_back(Vector3d(0,0,1,point.pose));
-        if (point[Y] < (double) 0.0)
-          normals.push_back(Vector3d(0,-1,0,point.pose));
-        else
-          normals.push_back(Vector3d(0,1,0,point.pose));
-        if (point[X] < (double) 0.0)
-          normals.push_back(Vector3d(-1,0,0,point.pose));
-        else
-          normals.push_back(Vector3d(1,0,0,point.pose));
-      }
-      else if (CompGeom::rel_equal(absPX, absPY))
-      {
-        if (point[Y] < (double) 0.0)
-          normals.push_back(Vector3d(0,-1,0,point.pose));
-        else
-          normals.push_back(Vector3d(0,1,0,point.pose));
-        if (point[X] < (double) 0.0)
-          normals.push_back(Vector3d(-1,0,0,point.pose));
-        else
-          normals.push_back(Vector3d(1,0,0,point.pose));
-      }
-      else if (CompGeom::rel_equal(absPX, absPZ))
-      {
-        if (point[Z] < (double) 0.0)
-          normals.push_back(Vector3d(0,0,-1,point.pose));
-        else
-          normals.push_back(Vector3d(0,0,1,point.pose));
-        if (point[X] < (double) 0.0)
-          normals.push_back(Vector3d(-1,0,0,point.pose));
-        else
-          normals.push_back(Vector3d(1,0,0,point.pose));
-      }
-      else
-      {
-        if (point[Z] < (double) 0.0)
-          normals.push_back(Vector3d(0,0,-1,point.pose));
-        else
-          normals.push_back(Vector3d(0,0,1,point.pose));
-        if (point[Y] < (double) 0.0)
-          normals.push_back(Vector3d(0,-1,0,point.pose));
-        else
-          normals.push_back(Vector3d(0,1,0,point.pose));
-      }
+    // Set the first normal.
+    normals.push_back(Vector3d(0,0,0,point.pose));
+    const unsigned index = dist_index_array[0];
+    normals.back()[index] = (point[index] < 0) ? -1 : 1;
+
+    // Add any additional normals.
+    for (unsigned i=1; i< 3; ++i) {
+      const unsigned index = dist_index_array[i];
+      if (dist_array[i] > dist_array[i-1])
+        break;
+
+      normals.push_back(Vector3d(0,0,0,point.pose));
+      normals.back()[index] = (point[index] < 0) ? -1 : 1;
     }
   }
   else
@@ -1076,20 +1021,18 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vect
 
     // the contact will be normal to all extents that the contact point
     // lies relatively outside of
-    Vector3d normal;
-    normal.set_zero();
-    normal.pose = point.pose;
-
-    if (std::fabs(point[X]) > extents[X] || CompGeom::rel_equal(std::fabs(point[X]), extents[X]))
-      normal[X] = (point[X] > 0.0) ? 1.0 : -1.0;
-    if (std::fabs(point[Y]) > extents[Y] || CompGeom::rel_equal(std::fabs(point[Y]), extents[Y]))
-      normal[Y] = (point[Y] > 0.0) ? 1.0 : -1.0;
-    if (std::fabs(point[Z]) > extents[Z] || CompGeom::rel_equal(std::fabs(point[Z]), extents[Z]))
-      normal[Z] = (point[Z] > 0.0) ? 1.0 : -1.0;
-
-    // normalize the normal vector
-    normal.normalize();
-    normals.push_back(normal);
+    if (std::fabs(point[X]) > extents[X]) {
+      normals.push_back(Vector3d(0,0,0,point.pose));
+      normals.back()[X] = (point[X] > 0.0) ? 1.0 : -1.0;
+    }
+    if (std::fabs(point[Y]) > extents[Y]) {
+      normals.push_back(Vector3d(0, 0, 0, point.pose));
+      normals.back()[Y] = (point[Y] > 0.0) ? 1.0 : -1.0;
+    }
+    if (std::fabs(point[Z]) > extents[Z]) {
+      normals.push_back(Vector3d(0, 0, 0, point.pose));
+      normals.back()[Z] = (point[Z] > 0.0) ? 1.0 : -1.0;
+    }
   }
 
   return (inside) ? intDist : std::sqrt(sqrDist);

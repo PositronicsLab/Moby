@@ -103,7 +103,13 @@ class Primitive : public virtual Base
     /// Gets the inertia for this primitive 
     const Ravelin::SpatialRBInertiad& get_inertia() const { return _J; }
 
-  protected:
+    /// Gets the maximum compliant layer depth.
+    virtual double get_maximum_compliant_layer_depth() const = 0;
+
+    /// Gets the nominal compliant layer depth.
+    double get_compliant_layer_depth() const { return _compliant_layer_depth; }
+
+ protected:
     virtual void calc_mass_properties() = 0;
 
     /// The pose of this primitive (relative to the global frame)
@@ -118,15 +124,17 @@ class Primitive : public virtual Base
     /// The inertia of the primitive
     Ravelin::SpatialRBInertiad _J;
 
-  protected:
-
     /// The poses of this primitive, relative to a collision geometry
     std::map<boost::weak_ptr<CollisionGeometry>, boost::shared_ptr<Ravelin::Pose3d> > _cg_poses;
 
     /// The poses, relative to a particular collision geometry
     std::set<boost::shared_ptr<Ravelin::Pose3d> > _poses;
 
-  private:
+    /// The nominal depth of the compliant layer around this geometry. The compliant layer will be at least this
+    /// deep at every point around the primitive.
+    double _compliant_layer_depth{0};
+
+ private:
 
     /// The visualization transform (possibly NULL)
     osg::MatrixTransform* _vtransform;

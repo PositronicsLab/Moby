@@ -286,16 +286,13 @@ double CCD::calc_next_CA_Euler_step_polyhedron_plane(const PairwiseDistInfo& pdi
     }
   }
 
-  // look for separating condition
-  if (separating)
+  // look for separating condition or no vertex is in contact
+  if (separating || min_dist < epsilon)
     return max_step;
 
   // get the rigid body corresponding to the polyhedron
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
   
-  // at least one vertex must be in contact, or why are we here? 
-  assert(min_dist < epsilon);
-
   // get the angular velocity vector in the half-space pose
   Vector3d omega = Pose3d::transform(plane_pose, rb->get_velocity()).get_angular();  
 
@@ -696,7 +693,7 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi, double epsilon)
   const Point3d& pB = pdi.pb;
 
   // get the compliant layer depth
-  double delta = cgA->compliant_layer_depth + cgB->compliant_layer_depth;
+  double delta = cgA->calc_compliant_layer_depth(pA) + cgB->calc_compliant_layer_depth(pB);
 
   // get the two underlying bodies
   RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
@@ -1167,135 +1164,6 @@ Origin3d CCD::get_arbitrary_point(shared_ptr<const Polyhedron::Feature> feat)
   }
 }
 
-void CCD::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, boost::shared_ptr<const Polyhedron::Feature> fB, const Ravelin::Transform3d& wTa, const Ravelin::Transform3d& wTb, Point3d& pA, Point3d& pB){
-  if (dynamic_pointer_cast<const Polyhedron::Vertex>(fA)) {
-    
-    // fA is an vertex
-    shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(fA);
-
-    // Setup the point from A.
-    Ravelin::Vector3d vAa(vA->o, wTa.source);
-    pA = wTa.transform_point(vAa);
-
-    if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
-   
-      // fB is a vertex
-      shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(fB);
-
-      // Setup the point from B
-      Ravelin::Vector3d vBb(vB->o, wTb.source);
-    
-      //Transforming point into world frame
-      pB = wTb.transform_point(vBb);
-    }
-    else if (dynamic_pointer_cast<const Polyhedron::Edge>(fB)) {
-
-      // fB is an edge
-      shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(fB);
-
-      Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), wTb.source);
-      Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), wTb.source);
-    
-      // transform the edge into the world frame
-      Ravelin::Vector3d vB1w = wTb.transform_point(vB1b);
-      Ravelin::Vector3d vB2w = wTb.transform_point(vB2b);
-
-      // Create line segment
-      LineSeg3 line(vB1w,vB2w);
-     
-      // Compute distance and closest point
-      Point3d p;
-      double t;
-      double dist = CompGeom::calc_dist(line,pA,t,p);
-      pB = p;
-    }
-    else {
-
-      // fB is a face
-      boost::shared_ptr<const Pose3d> GLOBAL3D;
-
-      // cast features to non-constant
-      boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(fA);
-      boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(fB);
-      boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);     
-
-      // Transform point from A into B's frame.
-      Ravelin::Vector3d vAb = wTb.inverse_transform_point(wTa.transform_point(vAa));
-      vAb.pose = GLOBAL3D;                 // hack around plane being in B's frame
-
-      // Find the minimum
-      Plane planeB = faceB->get_plane();   // plane will be in B's frame
-      double dist = planeB.calc_signed_distance(vAb);
-
-      // project the point onto the plane
-      Ravelin::Vector3d vAb_on_planeB = vAb - planeB.get_normal()*dist;
-      vAb_on_planeB.pose = wTb.source;
-      // this is correct because when v-clip ends and a face vertex case
-      // the vertex will always be in the voronoi region, and therefore,
-      // the vertex projection is always on face B.
-      vAb_on_planeB.pose = wTb.source;
-      pB = wTb.transform_point(vAb_on_planeB);
-    }
-  }
-  else if (dynamic_pointer_cast<const Polyhedron::Edge>(fA)) {
-
-    // fA is an edge
-    if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
-
-      // already implemented, just need to flip it.
-      find_closest_points(fB, fA, wTb, wTa, pB, pA);
-    }
-    else if (dynamic_pointer_cast<const Polyhedron::Edge>(fB)) {
-      // Features are two edges.
-
-      // Cast pointers
-      boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(fA);
-      boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(fB);
-    
-      //create vectors
-      Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), wTa.source);
-      Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), wTa.source);
-
-      Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), wTb.source);
-      Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), wTb.source);
-    
-      //transform features to global frame
-      Ravelin::Vector3d vA1w = wTa.transform_point(vA1a);
-      Ravelin::Vector3d vA2w = wTa.transform_point(vA2a);
-      Ravelin::Vector3d vB1w = wTb.transform_point(vB1b);
-      Ravelin::Vector3d vB2w = wTb.transform_point(vB2b);
-
-      //create line segment
-      LineSeg3 lineA(vA1w,vA2w);
-      LineSeg3 lineB(vB1w,vB2w);
-
-      // compute distance and closest point
-      Point3d p1;
-      Point3d p2;
-      double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
-      pA = p1;
-      pB = p2;
-    }
-    else {
-
-      // should not be reached b/c V-Clip does not return face/edge.
-      assert(false);
-    }
-  }
-  else {
-     if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
-
-      // already implemented, just need to flip it.
-      find_closest_points(fB, fA, wTb, wTa, pB, pA);
-    }
-    else{
-      // should not be reached
-      assert(false);
-    }
-
-  }
-}
-
 /****************************************************************************
  Methods for broad phase begin
 ****************************************************************************/
@@ -1651,7 +1519,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   shared_ptr<SpherePrimitive> sph_p = dynamic_pointer_cast<SpherePrimitive>(p);
   if (sph_p)
   {
-    sph->radius = sph_p->get_radius();
+    sph->radius = sph_p->get_radius() + cg->get_nominal_compliant_layer_depth();
     return sph;
   }
 
@@ -1659,7 +1527,8 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   shared_ptr<TorusPrimitive> torus_p = dynamic_pointer_cast<TorusPrimitive>(p);
   if (torus_p)
   {
-    sph->radius = torus_p->get_major_radius() + torus_p->get_minor_radius();
+    sph->radius = torus_p->get_major_radius() + torus_p->get_minor_radius() +
+        cg->get_nominal_compliant_layer_depth();
     return sph;
   }
 
@@ -1667,7 +1536,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   shared_ptr<BoxPrimitive> box_p = dynamic_pointer_cast<BoxPrimitive>(p);
   if (box_p)
   {
-    sph->radius = Origin3d(box_p->get_x_len()/2.0, box_p->get_y_len()/2.0, box_p->get_z_len()/2.0).norm();
+    sph->radius = Origin3d(box_p->get_x_len()/2.0, box_p->get_y_len()/2.0, box_p->get_z_len()/2.0).norm() + cg->get_maximum_compliant_layer_depth();
     return sph;
   }
 
@@ -1675,7 +1544,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   shared_ptr<PolyhedralPrimitive> pp = dynamic_pointer_cast<PolyhedralPrimitive>(p);
   if (pp)
   {
-    sph->radius = pp->get_bounding_radius();
+    sph->radius = pp->get_bounding_radius() + cg->get_maximum_compliant_layer_depth();
     return sph;
   }
 
@@ -1683,7 +1552,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   shared_ptr<ConePrimitive> cone_p = dynamic_pointer_cast<ConePrimitive>(p);
   if (cone_p)
   {
-    sph->radius = std::max(cone_p->get_height(), cone_p->get_radius());
+    sph->radius = std::max(cone_p->get_height(), cone_p->get_radius()) + cg->get_maximum_compliant_layer_depth();
     return sph;
   }
 
@@ -1691,7 +1560,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   shared_ptr<CylinderPrimitive> cyl_p = dynamic_pointer_cast<CylinderPrimitive>(p);
   if (cyl_p)
   {
-    sph->radius = std::max(cyl_p->get_height(), cyl_p->get_radius());
+    sph->radius = std::max(cyl_p->get_height(), cyl_p->get_radius()) + cg->get_maximum_compliant_layer_depth();
     return sph;
   }
 

@@ -1379,7 +1379,164 @@ bool Polyhedron::VertexFaceIterator::has_next()
   }
 }
 
+/// Finds closest points between two closest features on two polyhedra.
+/// @param fA the closest feature on polyhedron A
+/// @param fB the closest feature on polyhedron B
+/// @param wTa the transformation between polyhedron A and the world
+/// @param wTb the transformation between polyhedron B and the world
+/// @param[out] pA a closest point on A
+/// @param[out] pB a closest point on B
+/// @param[out] normalsA the summed normal(s) at pA
+/// @param[out] normalsB the summed normal(s) at pB
+void Polyhedron::find_closest_points(boost::shared_ptr<const Polyhedron::Feature> fA, boost::shared_ptr<const Polyhedron::Feature> fB, const Ravelin::Transform3d& wTa, const Ravelin::Transform3d& wTb, Point3d& pA, Point3d& pB, Vector3d& normalsA, Vector3d& normalsB) {
+  if (dynamic_pointer_cast<const Polyhedron::Vertex>(fA)) {
 
+    // fA is an vertex
+    shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(fA);
+
+    // Set normalsA.
+    normalsA = vA->sum_coincident_normals();
+
+    // Setup the point from A.
+    Ravelin::Vector3d vAa(vA->o, wTa.source);
+    pA = wTa.transform_point(vAa);
+
+    if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
+
+      // fB is a vertex
+      shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(fB);
+
+      // Set normalsB.
+      normalsB = vB->sum_coincident_normals();
+
+      // Setup the point from B
+      Ravelin::Vector3d vBb(vB->o, wTb.source);
+
+      //Transforming point into world frame
+      pB = wTb.transform_point(vBb);
+    }
+    else if (dynamic_pointer_cast<const Polyhedron::Edge>(fB)) {
+
+      // fB is an edge
+      shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(fB);
+
+      Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), wTb.source);
+      Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), wTb.source);
+
+      // transform the edge into the world frame
+      Ravelin::Vector3d vB1w = wTb.transform_point(vB1b);
+      Ravelin::Vector3d vB2w = wTb.transform_point(vB2b);
+
+      // Create line segment
+      LineSeg3 line(vB1w,vB2w);
+
+      // Compute distance and closest point
+      Point3d p;
+      double t;
+      double dist = CompGeom::calc_dist(line,pA,t,p);
+      pB = p;
+
+      // Set normal.
+      normalsB = eB->face1->get_plane().get_normal() +
+          eB->face2->get_plane().get_normal();
+    }
+    else {
+      // fB is a face
+      boost::shared_ptr<const Pose3d> GLOBAL3D;
+
+      // cast features to non-constant
+      boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(fA);
+      boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(fB);
+      boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);
+
+      // Transform point from A into B's frame.
+      Ravelin::Vector3d vAb = wTb.inverse_transform_point(wTa.transform_point(vAa));
+      vAb.pose = GLOBAL3D;                 // hack around plane being in B's frame
+
+      // Find the minimum
+      Plane planeB = faceB->get_plane();   // plane will be in B's frame
+      double dist = planeB.calc_signed_distance(vAb);
+
+      // project the point onto the plane
+      Ravelin::Vector3d vAb_on_planeB = vAb - planeB.get_normal()*dist;
+      vAb_on_planeB.pose = wTb.source;
+      // this is correct because when v-clip ends and a face vertex case
+      // the vertex will always be in the voronoi region, and therefore,
+      // the vertex projection is always on face B.
+      vAb_on_planeB.pose = wTb.source;
+      pB = wTb.transform_point(vAb_on_planeB);
+
+      // Set normal.
+      normalsB = faceB->get_plane().get_normal();
+    }
+  }
+  else if (dynamic_pointer_cast<const Polyhedron::Edge>(fA)) {
+
+    // fA is an edge
+    if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
+
+      // already implemented, just need to flip it.
+      find_closest_points(fB, fA, wTb, wTa, pB, pA, normalsB, normalsA);
+    }
+    else if (dynamic_pointer_cast<const Polyhedron::Edge>(fB)) {
+      // Features are two edges.
+
+      // Cast pointers
+      boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(fA);
+      boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(fB);
+
+      // Set normals.
+      normalsA = eA->face1->get_plane().get_normal() +
+          eA->face2->get_plane().get_normal();
+      normalsB = eB->face1->get_plane().get_normal() +
+          eB->face2->get_plane().get_normal();
+
+      //create vectors
+      Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), wTa.source);
+      Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), wTa.source);
+
+      Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), wTb.source);
+      Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), wTb.source);
+
+      //transform features to global frame
+      Ravelin::Vector3d vA1w = wTa.transform_point(vA1a);
+      Ravelin::Vector3d vA2w = wTa.transform_point(vA2a);
+      Ravelin::Vector3d vB1w = wTb.transform_point(vB1b);
+      Ravelin::Vector3d vB2w = wTb.transform_point(vB2b);
+
+      //create line segment
+      LineSeg3 lineA(vA1w,vA2w);
+      LineSeg3 lineB(vB1w,vB2w);
+
+      // compute distance and closest point
+      Point3d p1;
+      Point3d p2;
+      double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
+      pA = p1;
+      pB = p2;
+    }
+    else {
+
+      // should not be reached b/c V-Clip does not return face/edge.
+      assert(false);
+    }
+  }
+  else {
+    if (dynamic_pointer_cast<const Polyhedron::Vertex>(fB)) {
+
+      // already implemented, just need to flip it.
+      find_closest_points(fB, fA, wTb, wTa, pB, pA, normalsB, normalsA);
+    }
+    else{
+      // should not be reached
+      assert(false);
+    }
+  }
+
+  // Set poses.
+  normalsA.pose = wTa.source;
+  normalsB.pose = wTb.source;
+}
 
 /// Summary: Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
 

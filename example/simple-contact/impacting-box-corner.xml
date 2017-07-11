@@ -2,15 +2,15 @@
      a very simple test case.  -->
 
 <XML>
-  <DRIVER step-size="0.01">
+  <DRIVER step-size="0.001">
     <camera position="0 0 10" target="0 0 0" up="0 1 0" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
   <MOBY>
     <!-- Primitives -->
-    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" />
-    <Box id="b2" xlen=".9" ylen=".9" zlen=".9" density="1.0" />
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" compliant-layer-depth="1" />
+    <Box id="b2" xlen=".9" ylen=".9" zlen=".9" density="1.0" compliant-layer-depth="1" />
     <Plane id="plane" position="0 0 0" /> 
     <Box id="plane-viz" xlen="10" ylen="100" zlen="10"  />
 
@@ -19,14 +19,13 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody id="box" enabled="true" position="0 1.500 0" color=".4 0 0 1" angular-velocity="0 10.000 0" visualization-id="b1">
+      <RigidBody id="box" enabled="true" position="0 2.700 0" aangle="0 0 1 .7854" color=".4 0 0 1" angular-velocity="0 0.000 0" visualization-id="b1">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" compliant-layer-depth="1" />
       </RigidBody>
 
       <!-- the ground -->
       <RigidBody id="ground" enabled="false" position="0 0.0 0" color="0 0 1 0">
-<!--        <CollisionGeometry primitive-id="plane" /> -->
         <CollisionGeometry primitive-id="plane-viz" relative-origin="0 -50 0" /> 
         <Visualization visualization-id="plane-viz" visualization-rel-origin="0 -50 0" /> 
       </RigidBody>
@@ -36,7 +35,7 @@
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0" stiffness="0.005" damping="10" friction-cone-edges="4" />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0" stiffness="0.0" damping="10" friction-cone-edges="4" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>

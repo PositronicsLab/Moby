@@ -421,20 +421,16 @@ double Constraint::get_damping(unsigned constraint_eqn_index) const
   {
     case eContact:
     {
-      // do not damp if past the compliant layer
       if (constraint_eqn_index > 0)
         return 0.0;
-      double clayer_depth = contact_geom1->compliant_layer_depth +
-                            contact_geom2->compliant_layer_depth;
-      return (clayer_depth + signed_distance > 0.0) ? contact_damping : 0.0; 
+      return contact_damping;
     }
 
     case eLimit:
     {
       if (constraint_eqn_index > 0)
         return 0.0;
-      double clayer_depth = limit_joint->compliant_layer_depth; 
-      return (clayer_depth + signed_distance > 0.0) ? limit_damping : 0.0; 
+      return limit_damping;
     }
    
     default:

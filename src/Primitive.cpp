@@ -246,6 +246,11 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   // load the parent data
   Base::load_from_xml(node, id_map);
 
+  // load the compliant layer depth, if specified
+  XMLAttrib* cld_attr = node->get_attrib("compliant-layer-depth");
+  if (cld_attr)
+    _compliant_layer_depth = cld_attr->get_real_value();
+
   // read in the mass, if specified
   XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
@@ -332,6 +337,9 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
     node->attribs.insert(XMLAttrib("density", *_density));
   else
     node->attribs.insert(XMLAttrib("mass", _J.m));
+
+  // save the compliant layer depth
+  node->attribs.insert(XMLAttrib("compliant-layer-depth", _compliant_layer_depth));
 
   // save the transform for the primitive
   Pose3d F0 = *_F;

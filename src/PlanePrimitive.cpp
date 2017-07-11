@@ -338,49 +338,6 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
   return d;
 }
 
-/// Gets the distance from a polyhedral primitive
-double PlanePrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitive> b, Point3d& pthis, Point3d& pb) const
-{
-  const unsigned Y = 1;
-
-  assert(_poses.find(const_pointer_cast<Pose3d>(pthis.pose)) != _poses.end());
-
-  // make sure that the primitive is convex
-  assert(b->is_convex());
-
-  // compute the transform from the primitive to the plane
-  Transform3d T = Pose3d::calc_relative_pose(pb.pose, pthis.pose);
-
-  // setup initial minimum distance
-  double min_dist = std::numeric_limits<double>::max();
-
-  // get the polyhedron vertices
-  shared_ptr<PolyhedralPrimitive> bnc = const_pointer_cast<PolyhedralPrimitive>(b);
-  vector<Point3d> verts;
-  bnc->get_vertices(pb.pose, verts);
-
-  // find which vertex is closest in the plane space
-  for (unsigned i=0; i< verts.size(); i++)
-  {
-    // get the polyhedron vertex in the plane space
-    Point3d p_vert = T.transform_point(verts[i]);
-
-    // get the vertex height
-    if (p_vert[Y] < min_dist)
-    {
-      min_dist = p_vert[Y];
-      pb = verts[i];
-      pthis = p_vert;
-    }
-  }
-
-  // closest point on plane is just the closest point on the plane, projected
-  // to the plane
-  pthis[Y] = 0.0;
-
-  return min_dist;
-}
-
 /// Gets the distance from a sphere primitive
 double PlanePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& ps) const
 {
@@ -425,11 +382,6 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
   if (sph)
     return calc_signed_dist(sph, pthis, pp);
 
-  // look for polyhedron
-  shared_ptr<const PolyhedralPrimitive> polyhedron = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
-  if (polyhedron)
-    return calc_signed_dist(polyhedron, pthis, pp);
-
   // look for torus
   shared_ptr<const TorusPrimitive> torus = dynamic_pointer_cast<const TorusPrimitive>(p);
   if (torus)
@@ -439,38 +391,37 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
     return torus->calc_signed_dist(shared_this, pp, pthis);
   }
  
-
-/*
-  // if the primitive is convex, can use GJK
-  if (p->is_convex())
-  {
-    shared_ptr<const Pose3d> Pplane = pthis.pose;
-    shared_ptr<const Pose3d> Pgeneric = pp.pose;
-    shared_ptr<const Primitive> prim_this = dynamic_pointer_cast<const Primitive>(shared_from_this());
-    return GJK::do_gjk(prim_this, p, Pplane, Pgeneric, pthis, pp);
-  }
-*/
-  // get p as non-const
+  // Get p as a non-const polyhedral primitive.
   shared_ptr<Primitive> pnc = const_pointer_cast<Primitive>(p);
+  auto poly_primitive = dynamic_pointer_cast<PolyhedralPrimitive>(pnc);
 
-  // still here? no specialization; get all vertices from other primitive
+  // Code below requires for the primitive to be convex.
+  assert(poly_primitive->is_convex());
+
+  // Get all compliant layer vertices from other primitive, and
+  // find the minimum distance.
   vector<Point3d> verts;
-  pnc->get_vertices(pp.pose, verts);
-  double mindist = std::numeric_limits<double>::max();
+  poly_primitive->get_compliant_layer_vertices(pp.pose, verts);
+  double min_dist = std::numeric_limits<double>::max();
   for (unsigned i=0; i< verts.size(); i++)
   {
-     Point3d pt = Pose3d::transform_point(pthis.pose, verts[i]);
-     const double HEIGHT = calc_height(pt);
-     if (HEIGHT < mindist)
+    // Get the vertex in the plane primitive pose.
+    Point3d cand_point = Pose3d::transform_point(pthis.pose, verts[i]);
+
+    // Get the height.
+     const double HEIGHT = calc_height(cand_point);
+     if (HEIGHT < min_dist)
      {
-       mindist = HEIGHT;
+       min_dist = HEIGHT;
+       pthis = cand_point;
        pp = verts[i];
-       pthis = pt;
-       pthis[Y] = -(HEIGHT - pt[Y]);
      }
   }
 
-  return mindist;
+  // set pthis
+  pthis[Y] = 0;
+
+  return min_dist;
 }
 
 /// Finds the signed distance betwen the plane and a point

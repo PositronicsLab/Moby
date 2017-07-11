@@ -7,14 +7,8 @@
 #include <numeric>
 #include <Moby/permute.h>
 #include <Moby/RCArticulatedBody.h>
-#include <Moby/Constants.h>
-#include <Moby/UnilateralConstraint.h>
-#include <Moby/CollisionGeometry.h>
-#include <Moby/RigidBody.h>
-#include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/ConstraintSimulator.h>
-#include <Moby/ImpactToleranceException.h>
 #include <Moby/LCPSolverException.h>
 #include <Moby/ImpactConstraintHandler.h>
 

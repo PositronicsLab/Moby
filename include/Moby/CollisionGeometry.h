@@ -17,6 +17,7 @@
 #include <boost/weak_ptr.hpp>
 #include <Moby/Constants.h>
 #include <Moby/Base.h>
+#include <Moby/Plane.h>
 #include <Moby/Triangle.h>
 #include <Moby/Primitive.h>
 
@@ -50,11 +51,12 @@ class CollisionGeometry : public virtual Base
     double calc_signed_dist(const Point3d& p);
     double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& n) const;
     void get_vertices(std::vector<Point3d>& p) const;
+    void get_compliant_vertices(std::vector<Point3d>& p) const;
     Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     double get_farthest_point_distance() const;
-
-    /// The compliant layer around this geometry
-    double compliant_layer_depth{0};
+    double calc_compliant_layer_depth(const Point3d& p) const;
+    double get_nominal_compliant_layer_depth() const;
+    double get_maximum_compliant_layer_depth() const;
 
     /// Gets the shared pointer for this
     CollisionGeometryPtr get_this() { return boost::dynamic_pointer_cast<CollisionGeometry>(shared_from_this()); }

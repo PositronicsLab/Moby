@@ -110,6 +110,13 @@ class Polyhedron
     void write_to_obj(const std::string& filename) const;
     Polyhedron transform(const Ravelin::Transform3d& T) const;
 
+    // Calls find closest points without getting associated normals at the closest points.
+    static void find_closest_points(boost::shared_ptr<const Feature> fA, boost::shared_ptr<const Feature> fB, const Ravelin::Transform3d& wTa, const Ravelin::Transform3d& wTb, Point3d& pA, Point3d& pB) {
+      Ravelin::Vector3d nA, nB;
+      find_closest_points(fA, fB, wTa, wTb, pA, pB, nA, nB);
+    }
+    static void find_closest_points(boost::shared_ptr<const Feature> fA, boost::shared_ptr<const Feature> fB, const Ravelin::Transform3d& wTa, const Ravelin::Transform3d& wTb, Point3d& pA, Point3d& pB, Ravelin::Vector3d& normalsA, Ravelin::Vector3d& normalsB);
+
     template <class ForwardIterator>
     static Polyhedron calc_convex_hull(ForwardIterator begin, ForwardIterator end);
 

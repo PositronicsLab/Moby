@@ -520,7 +520,7 @@ void ConstraintSimulator::calc_pairwise_distances()
     PairwiseDistInfo pdi;
     pdi.a = _pairs_to_check[i].first;
     pdi.b = _pairs_to_check[i].second;
-    pdi.dist = _coldet->calc_dist(pdi.a, pdi.b, pdi.pa, pdi.pb) - pdi.a->compliant_layer_depth - pdi.b->compliant_layer_depth;
+    pdi.dist = _coldet->calc_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
     Pose3d poseA(*pdi.a->get_pose());
     Pose3d poseB(*pdi.b->get_pose());
     poseA.update_relative_pose(GLOBAL);

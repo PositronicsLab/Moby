@@ -79,8 +79,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     }
   }
 
-  // still here? just use the generic contact finder
-  return find_contacts_generic(cgA, cgB, output_begin, TOL);
+  // still here? indicate failure.
+  throw std::runtime_error("No contact finding mechansim found.");
 }
 
 inline void CCD::create_convex_hull_list(boost::shared_ptr<Polyhedron::Vertex> start_vert, const Ravelin::Vector3d& axis, const Ravelin::Transform3d& wTv, std::vector<Ravelin::Vector3d>& ch_vectors)
@@ -149,9 +149,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   TessellatedPolyhedronPtr tpoly;
   boost::shared_ptr<Ravelin::Pose2d> GLOBAL_2D;
 
-  // get the compliant layer depths
-  const double cl_depth = cgA->compliant_layer_depth + cgB->compliant_layer_depth;
-
   // get the two primitives
   boost::shared_ptr<const PolyhedralPrimitive> pA = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgA->get_geometry());
   boost::shared_ptr<const PolyhedralPrimitive> pB = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgB->get_geometry());
@@ -171,32 +168,55 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   // call v-clip
   boost::shared_ptr<const Polyhedron::Feature> closestA;
   boost::shared_ptr<const Polyhedron::Feature> closestB;
-  double dist = Polyhedron::vclip(pA, pB, poseA, poseB, closestA, closestB);
-  FILE_LOG(LOG_COLDET) << "v-clip reports distance of " << dist << std::endl;
+  const double core_dist = Polyhedron::vclip(pA, pB, poseA, poseB, closestA, closestB);
+  FILE_LOG(LOG_COLDET) << "v-clip reports distance between cores of " << core_dist << std::endl;
 
-  // Get the true signed distance.
-  const double dist_true = dist - cl_depth;
+  // Find the closest points and normals between the two polyhedra.
+  Ravelin::Vector3d nA, nB;
+  Point3d pointA, pointB;
+  Polyhedron::find_closest_points(closestA, closestB, wTa, wTb, pointA, pointB, nA, nB);
+
+  // Get the vector connecting the closest points (this will be the surface normal).
+  Ravelin::Vector3d normal = Ravelin::Pose3d::transform_point(GLOBAL, pointA) -
+      Ravelin::Pose3d::transform_point(GLOBAL, pointB);
+  const double normal_nrm = normal.norm();
+  assert(normal_nrm > 0);
+  normal /= normal_nrm;
+
+  // Get the two vectors in the global frame.
+  const Ravelin::Vector3d normalA = Ravelin::Pose3d::transform_vector(GLOBAL, nA);
+  const Ravelin::Vector3d normalB = Ravelin::Pose3d::transform_vector(GLOBAL, nB);
+
+  // Compute the depths of the compliant layers at the two points.
+  const double clA = std::fabs(normal.dot(normalA)) *
+      cgA->get_nominal_compliant_layer_depth();
+  const double clB = std::fabs(normal.dot(normalB)) *
+      cgB->get_nominal_compliant_layer_depth();
+
+  // Compute the signed distance.
+  double dist = core_dist - clA - clB;
 
   // see whether to generate contacts
-  if (dist - cl_depth > TOL)
+  if (dist > TOL)
     return output_begin;
 
-  // The normal, which will be the vector of translation, and the contact plane.
-  Ravelin::Vector3d normal;
+  // Prepare to compute the contact plane.
   Plane contact_plane;
 
   // Determine the vector to translate the geometries. This vector defines
   // the contact plane. Once the geometries are translated, all vertices on the
   // contact plane are treated as being on the contact manifold.
-  if (dist > 0.0)
+  if (core_dist > 0.0)
   {
-    // Setup the normal in the global frame
-    Point3d closestAw, closestBw;
-    find_closest_points(closestA, closestB, wTa, wTb, closestAw, closestBw);
-    normal =  closestAw - closestBw;
-    normal.normalize();
+    // Compute the two closest points, accounting for the compliant layer
+    // depth. Recall that the normal faces toward A.
+    pointA -= Ravelin::Pose3d::transform_vector(pointA.pose, normal) * clA;
+    pointB += Ravelin::Pose3d::transform_vector(pointB.pose, normal) * clB;
+
+    // Pick a point halfway between the two points.
+    Point3d phalf = 0.5 * (Ravelin::Pose3d::transform_point(GLOBAL, pointA) + Ravelin::Pose3d::transform_point(GLOBAL, pointB));
     contact_plane.set_normal(normal);
-    contact_plane.offset = 0.5*normal.dot(closestAw + closestBw);
+    contact_plane.offset = normal.dot(phalf);
   }
   else
   {
@@ -308,7 +328,7 @@ redoA:
   {
     // Expand the vertex along each coincident normal by the compliant
     // layer depth.
-    Point3d p(vertsA[i]->o + vertsA[i]->sum_coincident_normals()*cgA->compliant_layer_depth, poseA);
+    Point3d p(vertsA[i]->o + vertsA[i]->sum_coincident_normals()*cgA->get_nominal_compliant_layer_depth(), poseA);
 
     // project the point toward the plane
     Point3d point = wTa.transform_point(p);
@@ -336,7 +356,7 @@ redoB:
   const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertsB = polyB.get_vertices();
   for (unsigned i=0; i< vertsB.size(); i++)
   {
-    Point3d p(vertsB[i]->o + vertsB[i]->sum_coincident_normals()*cgB->compliant_layer_depth, poseB);
+    Point3d p(vertsB[i]->o + vertsB[i]->sum_coincident_normals()*cgB->get_nominal_compliant_layer_depth(), poseB);
 
     // project the point toward the plane
     Point3d point = wTb.transform_point(p);
@@ -411,7 +431,7 @@ redoB:
 
       // Output the points.
       for (unsigned i = 0; i < isect.size(); i++)
-        *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist_true);
+        *output_begin++ = create_contact(cgA, cgB, isect[i], normal, dist);
       return output_begin;
     } else {
       // We won't have a polygon from B. vertsB either represents a point or
@@ -425,7 +445,7 @@ redoB:
         // polygon. We know the bodies are in contact and we know the normal.
         // We just need a point.
         *output_begin++ = create_contact(cgA, cgB, endpoints.first, normal,
-                                         dist_true);
+                                         dist);
         return output_begin;
       }
       else
@@ -442,14 +462,14 @@ redoB:
           // wrong point (as would be the case if there were no intersection) is
           // better than having no point at all.
           *output_begin++ = create_contact(cgA, cgB, endpoints.first, normal,
-                                           dist_true);
+                                           dist);
           return output_begin;
         }
 
         Point3d p1 = (1-tl)*endpoints.first + tl*endpoints.second;
         Point3d p2 = (1-te)*endpoints.first + te*endpoints.second;
-        *output_begin++ = create_contact(cgA, cgB, p1, normal, dist_true);
-        *output_begin++ = create_contact(cgA, cgB, p2, normal, dist_true);
+        *output_begin++ = create_contact(cgA, cgB, p1, normal, dist);
+        *output_begin++ = create_contact(cgA, cgB, p2, normal, dist);
         return output_begin;
       }
     }
@@ -469,7 +489,7 @@ redoB:
       if ((endpointsA.first - endpointsA.second).norm() < NEAR_ZERO) {
         // We've found a point. See discussion on identical case above.
         *output_begin++ = create_contact(cgA, cgB, endpointsA.first,
-                                         normal, dist_true);
+                                         normal, dist);
         return output_begin;
       } else {
         // A represents a line seg; intersect the line segment with the polygon.
@@ -484,14 +504,14 @@ redoB:
           // wrong point (as would be the case if there were no intersection) is
           // better than having no point at all.
             *output_begin++ = create_contact(cgA, cgB, endpointsA.first, normal,
-                                             dist_true);
+                                             dist);
             return output_begin;
         }
 
         Point3d p1 = (1-tl)*endpointsA.first + tl*endpointsA.second;
         Point3d p2 = (1-te)*endpointsA.first + te*endpointsA.second;
-        *output_begin++ = create_contact(cgA, cgB, p1, normal, dist_true);
-        *output_begin++ = create_contact(cgA, cgB, p2, normal, dist_true);
+        *output_begin++ = create_contact(cgA, cgB, p1, normal, dist);
+        *output_begin++ = create_contact(cgA, cgB, p2, normal, dist);
         return output_begin;
       }
 
@@ -514,12 +534,12 @@ redoB:
       // Look for the easy cases
       if ((endpointsA.first - endpointsA.second).norm() < NEAR_ZERO) {
         *output_begin++ = create_contact(cgA, cgB, endpointsA.first, normal,
-                                         dist_true);
+                                         dist);
         return output_begin;
       }
       if ((endpointsB.first - endpointsB.second).norm() < NEAR_ZERO) {
         *output_begin++ = create_contact(cgA, cgB, endpointsB.first, normal,
-                                         dist_true);
+                                         dist);
         return output_begin;
       }
 
@@ -529,7 +549,7 @@ redoB:
       Point3d cpA, cpB;
       CompGeom::calc_closest_points(endpointsA, endpointsB, cpA, cpB);
       *output_begin++ =
-          create_contact(cgA, cgB, (cpA + cpB) * 0.5, normal, dist_true);
+          create_contact(cgA, cgB, (cpA + cpB) * 0.5, normal, dist);
       return output_begin;
     } // end else for !convhull_b.empty()
   } // end else for !convhull_a.empty()
@@ -537,6 +557,7 @@ redoB:
   return output_begin;
 }
 
+/*
 /// Finds contacts between two polyhedra
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron_soft(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
@@ -1301,8 +1322,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron_soft(CollisionGeometryPt
     else
       return find_contacts_face_face(cgA, cgB, fA, fB, dist, output_begin);
   }
-*/
 }
+*/
 
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
@@ -1462,59 +1483,12 @@ OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionG
   return output_begin;
 }
 
-template <class OutputIterator>
-OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
-{
-  std::vector<Point3d> vA, vB;
-  double dist;
-  std::vector<Ravelin::Vector3d> n;
-
-  // get the vertices from A and B
-  cgA->get_vertices(vA);
-  cgB->get_vertices(vB);
-
-  // get the total compliant layer depth
-  const double cl_depth = cgA->compliant_layer_depth +
-      cgB->compliant_layer_depth;
-
-  // examine all points from A against B
-  for (unsigned i=0; i< vA.size(); i++)
-  {
-    // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL + cl_depth)
-    {
-      // add the contact points
-      for (unsigned j=0; j< n.size(); j++)
-        *output_begin++ = create_contact(cgA, cgB, vA[i], n[j], dist - cl_depth);
-    }
-  }
-
-  // examine all points from B against A
-  for (unsigned i=0; i< vB.size(); i++)
-  {
-    // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL + cl_depth)
-    {
-      // add the contact points
-      for (unsigned j=0; j< n.size(); j++)
-        *output_begin++ = create_contact(cgA, cgB, vB[i], -n[j], dist - cl_depth);
-    }
-  }
-
-  return output_begin;
-}
-
-
 // find the contacts between a plane and a generic shape
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
   Ravelin::Vector3d normal;
   Point3d p; // this is plane
-
-  // get the total compliant layer depth
-  const double cl_depth = cgA->compliant_layer_depth +
-      cgB->compliant_layer_depth;
 
   // Set intitial value of distance to contact
   double d = std::numeric_limits<double>::infinity();
@@ -1568,7 +1542,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
 
     d = x.dot(n);
 
-    if (d - cl_depth > TOL)
+    if (d > TOL)
       return o;
 
     int res = 4;
@@ -1579,7 +1553,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
       Point3d p_cylinder = x + R*cos(t)*tan1 + R*sin(t)*tan2;
       p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
 
-      *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d - cl_depth);
+      *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
 
   } else if(fabs(n_dot_cN) < 1e-8){
@@ -1588,7 +1562,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     Point3d x = c0 - R*n;
 
     d = x.dot(n);
-    if (d - cl_depth > TOL)
+    if (d > TOL)
       return o;
 
     double res[2] = {-1.0,1.0};
@@ -1597,7 +1571,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
       Point3d p_cylinder = x + axial_dir*t;
       p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
 
-      *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d - cl_depth);
+      *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
 
   } else {
@@ -1614,13 +1588,13 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
 
     d = x.dot(n);
 
-    if (d - cl_depth > TOL)
+    if (d > TOL)
       return o;
 
     p =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
 //    Point3d pP = x + d*n;
 //    pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
-    *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d - cl_depth);
+    *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
 
   }
   return o;
@@ -1632,9 +1606,7 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the total compliant layer depth
-  const double cl_depth = cgA->compliant_layer_depth +
-      cgB->compliant_layer_depth;
+  throw std::runtime_error("sphere/plane mechanism needs to account for compliant layer depth.");
 
   // get the two primitives
   boost::shared_ptr<SpherePrimitive> pA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
@@ -1656,7 +1628,7 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   double dist = sph_c_plane[Y] - pA->get_radius();
 
   // check the tolerance
-  if (dist - cl_depth > TOL)
+  if (dist > TOL)
     return o;
 
   // setup the contact point
@@ -1667,7 +1639,7 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   n = Ravelin::Pose3d::transform_vector(GLOBAL, n);
 
   // create the contact 
-  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist - cl_depth);
+  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist);
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() exited" << std::endl;
 
@@ -1682,10 +1654,7 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
   std::vector<Point3d> vB;
   double dist;
   std::vector<Ravelin::Vector3d> n;
-
-  // get the total compliant layer depth
-  const double cl_depth = cgA->compliant_layer_depth +
-      cgB->compliant_layer_depth;
+  const unsigned Y = 1;
 
   // get the plane primitive
   boost::shared_ptr<PlanePrimitive> pA = boost::dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
@@ -1694,22 +1663,35 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
   FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->body_id << std::endl;
   FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->body_id << std::endl;
 
-  // get the vertices from B
-  cgB->get_vertices(vB);
+  // TODO: fix code to work with compliant halfspaces.
+  assert(cgA->get_nominal_compliant_layer_depth() == 0.0);
 
-  // examine all points from B against A
-  for (unsigned i=0; i< vB.size(); i++)
+  // Approach below requires the shapes to be convex.
+  assert(cgB->get_geometry()->is_convex());
+
+  // get cgB's primitive as non-const and polyhedral
+  boost::shared_ptr<Primitive> pnc = boost::const_pointer_cast<Primitive>(cgB->get_geometry());
+  assert(pnc);
+  auto poly_primitive = boost::dynamic_pointer_cast<PolyhedralPrimitive>(pnc);
+
+  // Get the plane normal in the global frame. Since the plane is geometry A,
+  // the contact normal should be opposite to the plane normal.
+  const Ravelin::Vector3d normal = Ravelin::Pose3d::transform_vector(GLOBAL, Ravelin::Vector3d(0,1,0,pA->get_pose(cgA)));
+
+  // Create contact points.
+  std::vector<Point3d> verts;
+  poly_primitive->get_compliant_layer_vertices(pnc->get_pose(cgB), verts);
+  for (unsigned i=0; i< verts.size(); i++)
   {
-    // compute the distance
-    double dist = cgA->calc_dist_and_normal(vB[i], n);
-
-    // see whether the point is inside the primitive
-    FILE_LOG(LOG_COLDET) << "point " << vB[i] << " distance: " << dist << std::endl;
-    if (dist - cl_depth <= TOL)
+    Point3d pplane = Ravelin::Pose3d::transform_point(pA->get_pose(cgA), verts[i]);
+    const double HEIGHT = pplane[Y];
+    if (HEIGHT < TOL)
     {
+      // get the closest point on the plane
+      pplane[Y] = 0;
+
       // add the contact point
-      for (unsigned j=0; j< n.size(); j++)
-        *o++ = create_contact(cgA, cgB, vB[i], -n[j], dist - cl_depth);
+      *o++ = create_contact(cgA, cgB, pplane, -normal, HEIGHT);
     }
   }
 
@@ -1726,9 +1708,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   double dist;
   std::vector<Ravelin::Vector3d> n;
 
-  // get the total compliant layer depth
-  const double cl_depth = cgA->compliant_layer_depth +
-      cgB->compliant_layer_depth;
+  throw std::runtime_error("heightmap/generic mechanism needs to account for compliant layer depth.");
 
   // get the heightmap primitive
   boost::shared_ptr<HeightmapPrimitive> hmA = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgA->get_geometry());
@@ -1745,11 +1725,11 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   for (unsigned i=0; i< vA.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL + cl_depth)
+    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
     {
       // add the contact points
       for (unsigned j=0; j< n.size(); j++)
-        *o++ = create_contact(cgA, cgB, vA[i], -n[j], dist - cl_depth);
+        *o++ = create_contact(cgA, cgB, vA[i], -n[j], dist);
     }
   }
 
@@ -1757,11 +1737,11 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   for (unsigned i=0; i< vB.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL + cl_depth)
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
     {
       // add the contact point
       for (unsigned j=0; j< n.size(); j++)
-        *o++ = create_contact(cgA, cgB, vB[i], n[j], dist - cl_depth);
+        *o++ = create_contact(cgA, cgB, vB[i], n[j], dist);
     }
   }
 
@@ -1776,9 +1756,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
 
   const unsigned X = 0, Z = 2;
 
-  // get the total compliant layer depth
-  const double cl_depth = cgA->compliant_layer_depth +
-      cgB->compliant_layer_depth;
+  throw std::runtime_error("sphere/heightmap mechanism needs to account for compliant layer depth.");
 
   // get the output iterator
   OutputIterator o = output_begin;
@@ -1809,7 +1787,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
 
   // get the height of the lowest point on the sphere above the heightmap
   double min_sphere_dist = hmB->calc_height(sphere_lowest);
-  if (min_sphere_dist - cl_depth < TOL)
+  if (min_sphere_dist < TOL)
   {
     // setup the contact point
     Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, ps_c_B);
@@ -1824,7 +1802,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
       normal.normalize();
     }
     normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
-    contacts.push_back(create_contact(cgA, cgB, point, normal, min_sphere_dist - cl_depth));
+    contacts.push_back(create_contact(cgA, cgB, point, normal, min_sphere_dist));
   }
 
   // get the corners of the bounding box in pB pose
@@ -1862,7 +1840,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
       double dist = sA->calc_signed_dist(p_A);
 
       // ignore distance if it isn't sufficiently close
-      if (dist - cl_depth > TOL)
+      if (dist > TOL)
         continue;
 
       // setup the contact point
@@ -1878,7 +1856,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
         normal.normalize();
       }
       normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
-      contacts.push_back(create_contact(cgA, cgB, point, normal, dist - cl_depth));
+      contacts.push_back(create_contact(cgA, cgB, point, normal, dist));
     }
 
   // create the normal pointing from B to A
@@ -1891,9 +1869,7 @@ template <class OutputIterator>
   {
     const unsigned X = 0, Y = 1, Z = 2;
 
-    // get the total compliant layer depth
-    const double cl_depth = cgA->compliant_layer_depth +
-        cgB->compliant_layer_depth;
+    throw std::runtime_error("convex/heightmap mechanism needs to account for compliant layer depth.");
 
     // get the output iterator
     OutputIterator o = output_begin;
@@ -1919,7 +1895,7 @@ template <class OutputIterator>
     {
       Point3d pt = T.transform_point(cverts[i]);
       const double HEIGHT = hmB->calc_height(pt);
-      if (HEIGHT - cl_depth < TOL)
+      if (HEIGHT < TOL)
       {
       // setup the contact point
         Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, pt);
@@ -1934,7 +1910,7 @@ template <class OutputIterator>
           normal.normalize();
         }
         normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
-        contacts.push_back(create_contact(cgA, cgB, point, normal, HEIGHT - cl_depth));
+        contacts.push_back(create_contact(cgA, cgB, point, normal, HEIGHT));
       }
     }
 
@@ -1984,7 +1960,7 @@ template <class OutputIterator>
         double dist = sA->calc_signed_dist(p_A);
 
       // ignore distance if it isn't sufficiently close
-        if (dist - cl_depth > TOL)
+        if (dist > TOL)
           continue;
 
       // setup the contact point
@@ -2000,7 +1976,7 @@ template <class OutputIterator>
           normal.normalize();
         }
         normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
-        contacts.push_back(create_contact(cgA, cgB, point, normal, dist - cl_depth));
+        contacts.push_back(create_contact(cgA, cgB, point, normal, dist));
       }
 
   // create the normal pointing from B to A
@@ -2011,9 +1987,7 @@ template <class OutputIterator>
 template <class OutputIterator>
     OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
     {
-      // get the total compliant layer depth
-      const double cl_depth = cgA->compliant_layer_depth +
-          cgB->compliant_layer_depth;
+      throw std::runtime_error("sphere/sphere mechanism needs to account for compliant layer depth.");
 
       // get the output iterator
       OutputIterator o = output_begin;
@@ -2039,7 +2013,7 @@ template <class OutputIterator>
   // determine the distance between the two spheres
       Ravelin::Vector3d d = cA0 - cB0;
       double dist = d.norm() - sA->get_radius() - sB->get_radius();
-      if (dist - cl_depth > TOL)
+      if (dist > TOL)
         return o;
 
   // get the closest points on the two spheres
@@ -2051,7 +2025,7 @@ template <class OutputIterator>
       Point3d p = (closest_A + closest_B)*0.5;
 
   // create the normal pointing from B to A
-      *o++ = create_contact(cgA, cgB, p, n, dist - cl_depth);
+      *o++ = create_contact(cgA, cgB, p, n, dist);
 
       return o;
     }
@@ -2060,9 +2034,7 @@ template <class OutputIterator>
 template <class OutputIterator>
     OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
     {
-      // get the total compliant layer depth
-      const double cl_depth = cgA->compliant_layer_depth +
-          cgB->compliant_layer_depth;
+      throw std::runtime_error("box/sphere mechanism needs to account for compliant layer depth.");
 
       // get the box and the sphere
       boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
@@ -2075,7 +2047,7 @@ template <class OutputIterator>
   // find closest points
       Point3d psph(sphere_pose), pbox(box_pose);
       double dist = bA->calc_closest_points(sB, pbox, psph);
-      if (dist - cl_depth > TOL)
+      if (dist > TOL)
         return o;
 
   // NOTE: we aren't actually finding the deepest point of interpenetration
@@ -2108,7 +2080,7 @@ template <class OutputIterator>
       }
 
   // create the contact
-      *o++ = create_contact(cgA, cgB, p, normal, dist - cl_depth);
+      *o++ = create_contact(cgA, cgB, p, normal, dist);
 
       return o;
     }
@@ -2121,9 +2093,7 @@ template <class OutputIterator>
       const double EPS = NEAR_ZERO * 100.0;
       const unsigned MAX_CONTACTS = 4;
 
-      // get the total compliant layer depth
-      const double cl_depth = cgA->compliant_layer_depth +
-          cgB->compliant_layer_depth;
+      throw std::runtime_error("torus/plane mechanism needs to account for compliant layer depth.");
 
       FILE_LOG(LOG_COLDET) << "CCD::find_contacts_torus_plane(.) entered" << std::endl;
 
@@ -2177,7 +2147,7 @@ template <class OutputIterator>
     // distance torus origin to closest point on plane
     // - distance torus edge to torus origin
         d = (p0 - l0).dot(n)/(l.dot(n)) - r;
-        if (d - cl_depth > TOL)
+        if (d > TOL)
           return o;
 
     // iterate over maximum number of contacts 
@@ -2193,7 +2163,7 @@ template <class OutputIterator>
           FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
       // create the contact
-          *o++ = create_contact(cgA, cgB, point, normal, d - cl_depth);
+          *o++ = create_contact(cgA, cgB, point, normal, d);
         }
 
         return o;
@@ -2220,7 +2190,7 @@ template <class OutputIterator>
     //   parallel to plane normal in torus frame
         Ravelin::Vector3d n = n_plane,l = d_ring;
         d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
-        if (d - cl_depth > TOL)
+        if (d > TOL)
           return o;
 
         Point3d p_torus = l*(d + r + R) + l0;
@@ -2232,7 +2202,7 @@ template <class OutputIterator>
         FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
     // create the contact
-        *o++ = create_contact(cgA, cgB, point, normal, d - cl_depth);
+        *o++ = create_contact(cgA, cgB, point, normal, d);
 
         return o;
       }
@@ -2260,7 +2230,7 @@ template <class OutputIterator>
   //   parallel to plane normal in torus frame
       Ravelin::Vector3d n = n_plane,l = d_pipe;
       d = (p0 - l0).dot(n)/(l.dot(n)) - r;
-      if (d - cl_depth > TOL)
+      if (d > TOL)
         return o;
 
   //point on torus closest to plane;
@@ -2272,7 +2242,7 @@ template <class OutputIterator>
       Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
 
   // create the contact
-      *o++ = create_contact(cgA, cgB, point, normal, d - cl_depth);
+      *o++ = create_contact(cgA, cgB, point, normal, d);
 
       FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
       FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;

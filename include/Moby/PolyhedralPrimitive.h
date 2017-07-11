@@ -40,22 +40,24 @@ class PolyhedralPrimitive : public Primitive
 
     PolyhedralPrimitive() : Primitive() { }
     PolyhedralPrimitive(const Ravelin::Pose3d& T) : Primitive(T) { }
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
-    virtual double calc_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
-    virtual double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& normals) const;
-    virtual osg::Node* create_visualization();
-    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
+    double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const override;
+    double calc_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const override;
+    double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& normals) const override;
+    osg::Node* create_visualization() override;
+    BVPtr get_BVH_root(CollisionGeometryPtr geom) override;
     virtual void set_polyhedron(const Polyhedron& p);
-    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
-    virtual bool is_convex() const;
-    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void set_pose(const Ravelin::Pose3d& P);
+    void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const override;
+    boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P) override;
+    bool is_convex() const override;
+    void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) override;
+    void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const override;
+    void set_pose(const Ravelin::Pose3d& P) override;
     virtual void add_to_face_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& normals) const;
     virtual void create_edge_vector(const Ravelin::Transform3d& wTe, std::vector<Ravelin::Vector3d>& edges) const;
     osg::Vec3* get_visualization_vertex(boost::shared_ptr<Polyhedron::Vertex> p) const;
     void dirty_vertex_visualization_data();
+    void get_compliant_layer_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
+    double get_maximum_compliant_layer_depth() const override { return get_compliant_layer_depth() * std::sqrt(3); }
 
     /// Gets the polyhedron corresponding to this primitive (in its transformed state)
     const Polyhedron& get_polyhedron() const { return _poly; }
@@ -64,7 +66,7 @@ class PolyhedralPrimitive : public Primitive
     virtual unsigned num_facets() const { return _poly.get_faces().size();}
 
     // Gets the bounding radius of this primitive
-    virtual double get_bounding_radius() const
+    double get_bounding_radius() const override
     {
       // get the vertices
       const std::vector<boost::shared_ptr<Polyhedron::Vertex> >& verts = _poly.get_vertices();

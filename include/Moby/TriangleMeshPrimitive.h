@@ -42,9 +42,10 @@ class TriangleMeshPrimitive : public Primitive
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     virtual bool is_convex() const;
-    
+    double get_maximum_compliant_layer_depth() const override { assert(false); return 0; }
 
-  private:
+
+ private:
     void center();
     virtual void calc_mass_properties();
 

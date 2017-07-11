@@ -219,17 +219,50 @@ osg::Node* PolyhedralPrimitive::create_visualization()
   geometry->setUseVertexBufferObjects(false);
   geode->addDrawable(geometry);
 
+  // create normals
+  osg::ref_ptr<osg::Vec3Array> shared_normals = new osg::Vec3Array;
+  osg::ref_ptr<osg::Vec4Array> shared_colors = new osg::Vec4Array;
+
   // create vertices and setup a mapping
   _vertex_mapping.clear();
   _vert_array = new osg::Vec3Array(_poly.get_vertices().size());
   const vector<shared_ptr<Polyhedron::Vertex> >& v = _poly.get_vertices();
   for (unsigned i=0; i< v.size(); i++)
   {
+    // Get all faces normal to this vertex.
+    Vector3d n(0,0,0,GLOBAL);
+    std::set<shared_ptr<Polyhedron::Face>> processed_faces;
+    auto process_face = [&](shared_ptr<Polyhedron::Face> f) {
+      if (processed_faces.find(f) == processed_faces.end()) {
+        processed_faces.insert(f);
+        n += f->get_plane().get_normal();
+      }
+    };
+    for (auto weak_edge : v[i]->e) {
+      shared_ptr<Polyhedron::Edge> edge(weak_edge);
+      process_face(edge->face1);
+      process_face(edge->face2);
+    }
+    n.normalize();
+
+    // store the vertex color
+    auto randf = []() {
+      return 0.5f + (float) 0.5f * rand() / RAND_MAX;
+    };
+    shared_colors->push_back(osg::Vec4(randf(), randf(), randf(), 1.0f));
+
+    // store the face normal
+    shared_normals->push_back(osg::Vec3(n[X], n[Y], n[Z]));
+
     (*_vert_array)[i] = osg::Vec3(v[i]->o[X], v[i]->o[Y], v[i]->o[Z]);
     _vertex_mapping[v[i]] = i;
   }
 
   // associate the vertex array with the geometry
+  geometry->setColorArray(shared_colors.get());
+  geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+  geometry->setNormalArray(shared_normals.get());
+  geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
   geometry->setVertexArray(_vert_array);
 
   // iterate over all faces
@@ -239,16 +272,19 @@ osg::Node* PolyhedralPrimitive::create_visualization()
     // prepare to setup the indices
     osg::DrawElementsUInt* face = new osg::DrawElementsUInt(osg::PrimitiveSet::POLYGON, 0);
 
-    // iterate over the vertices in the face
+    // Get the first vertex.
     Polyhedron::VertexFaceIterator vfi(f[i], true);
-    face->push_back(_vertex_mapping[*vfi]);
+    const unsigned first_vertex = _vertex_mapping[*vfi];
+    face->push_back(first_vertex);
+
+    // iterate over the vertices in the face
     while (vfi.has_next())
     {
       vfi.advance();
       face->push_back(_vertex_mapping[*vfi]);
     }  
 
-    // add the polygon to the face    
+    // add the polygon to the face
     geometry->addPrimitiveSet(face);
   }
 
@@ -283,6 +319,20 @@ void PolyhedralPrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<P
   const std::vector<shared_ptr<Polyhedron::Vertex> >& v = _poly.get_vertices();
   for (unsigned i=0; i< v.size(); i++)
     vertices.push_back(Point3d(v[i]->o, P));
+}
+
+void PolyhedralPrimitive::get_compliant_layer_vertices(shared_ptr<const Pose3d> P, std::vector<Point3d>& vertices) const
+{
+  // clear the set of vertices
+  vertices.clear();
+
+  // verify that the pose is found
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+
+  // iterate through all vertices of the polyhedron
+  const std::vector<shared_ptr<Polyhedron::Vertex> >& v = _poly.get_vertices();
+  for (unsigned i=0; i< v.size(); i++)
+    vertices.push_back(Point3d(v[i]->o + v[i]->sum_coincident_normals() * _compliant_layer_depth, P));
 }
 
 shared_ptr<const IndexedTriArray> PolyhedralPrimitive::get_mesh(boost::shared_ptr<const Pose3d> P)
@@ -353,8 +403,31 @@ double PolyhedralPrimitive::calc_dist(shared_ptr<const PolyhedralPrimitive> p, P
   shared_ptr<const Polyhedron::Feature> closestA, closestB;
 
   // attempt to use vclip
-  double dist = Polyhedron::vclip(bthis, p, poseA, poseB, closestA, closestB); 
-  return std::max(dist, 0.0);
+  double dist = Polyhedron::vclip(bthis, p, poseA, poseB, closestA, closestB);
+  assert(dist >= 0.0);
+
+  // Find the closest points and normals between the two polyhedra.
+  Ravelin::Vector3d nA, nB;
+  Transform3d wTa = Pose3d::calc_relative_pose(poseA, GLOBAL);
+  Transform3d wTb = Pose3d::calc_relative_pose(poseB, GLOBAL);
+  Polyhedron::find_closest_points(closestA, closestB, wTa, wTb, pthis, pp, nA, nB);
+
+  // Get the vector connecting the closest points.
+  Vector3d n = Pose3d::transform_point(GLOBAL, pthis) -
+               Pose3d::transform_point(GLOBAL, pp);
+  n.normalize();
+
+  // Get the two vectors in the global frame.
+  const Vector3d normalA = Pose3d::transform_vector(GLOBAL, nA);
+  const Vector3d normalB = Pose3d::transform_vector(GLOBAL, nB);
+
+  // Compute the depths of the compliant layers at the two points.
+  const double clA = std::fabs(n.dot(normalA)) *
+      get_compliant_layer_depth();
+  const double clB = std::fabs(n.dot(normalB)) *
+      p->get_compliant_layer_depth();
+
+  return dist - clA - clB;
 }
 
 /// Computes the signed distance between two polyhedra
@@ -374,7 +447,7 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
   shared_ptr<const Polyhedron::Feature> closestA, closestB;
 
   // attempt to use vclip
-  double dist = Polyhedron::vclip(bthis, p, poseA, poseB, closestA, closestB); 
+  double dist = Polyhedron::vclip(bthis, p, poseA, poseB, closestA, closestB);
   if (dist >= 0.0)
     return dist;
 
