@@ -667,7 +667,7 @@ void OBB::expand_to_fit(ForwardIterator begin, ForwardIterator end)
   // process all points
   for (ForwardIterator i=begin; i != end; i++)
   {
-    Point3d pt = R.transpose_mult(*i - this->center);
+    Ravelin::Origin3d pt = R.transpose_mult(Ravelin::Origin3d(*i - this->center));
     for (unsigned i=0; i< THREE_D; i++)
       if (pt[i] < lo[i])
         lo[i] = pt[i];
